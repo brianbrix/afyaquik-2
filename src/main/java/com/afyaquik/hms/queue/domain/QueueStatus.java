@@ -1,0 +1,20 @@
+package com.afyaquik.hms.queue.domain;
+
+public enum QueueStatus {
+    PENDING_CHECKIN,
+    IN_REGISTRATION,
+    WAITING_TRIAGE,
+    IN_TRIAGE,
+    WAITING_PROVIDER,
+    IN_CONSULT,
+    WAITING_DIAGNOSTICS,
+    IN_DIAGNOSTICS,
+    WAITING_PHARMACY,
+    IN_PHARMACY,
+    WAITING_BILLING,
+    IN_BILLING,
+    BLOCKED,
+    NO_SHOW,
+    CANCELLED,
+    CLOSED
+}

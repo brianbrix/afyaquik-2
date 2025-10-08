@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### frontend ###
+hms-frontend/dist/
+hms-frontend/node_modules/

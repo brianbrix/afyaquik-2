@@ -1,0 +1,14 @@
+@use "sass:color";
+
+body {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  background-color: color.adjust(#f8f9fa, $lightness: -2%);
+}
+
+.app-shell main {
+  background: linear-gradient(180deg, rgba(248, 249, 250, 1) 0%, rgba(233, 236, 239, 1) 100%);
+}
+
+.card {
+  border-radius: 0.75rem;
+}
