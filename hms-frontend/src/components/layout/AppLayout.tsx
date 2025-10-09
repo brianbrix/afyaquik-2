@@ -1,10 +1,14 @@
 import { Container, Nav, Navbar, Dropdown } from "react-bootstrap";
 import { NavLink, Outlet } from "react-router-dom";
 import { RoleSwitcher } from "../role/RoleSwitcher";
+import { useFeatureFlags } from "../../services/configApi";
 import { useAuth } from "../../hooks/useAuth";
 
 export function AppLayout() {
   const { user, logout } = useAuth();
+  const { data: flags } = useFeatureFlags();
+  const isAdmin = user?.roles?.some((r: any) => (typeof r === 'string' ? (r === 'ADMIN' || r === 'ROLE_ADMIN') : (r.roleKey === 'ADMIN' || r.roleKey === 'ROLE_ADMIN')));
+  const flagEnabled = (key: string) => flags?.some(f => f.flagKey === key && f.enabled);
   return (
     <div className="app-shell min-vh-100 d-flex flex-column">
       <Navbar bg="primary" variant="dark" expand="lg" className="shadow-sm">
@@ -25,9 +29,10 @@ export function AppLayout() {
               <Nav.Link as={NavLink} to="/scheduling">
                 Scheduling
               </Nav.Link>
-              <Nav.Link as={NavLink} to="/reports">
-                Reports
-              </Nav.Link>
+              <Nav.Link as={NavLink} to="/reports">Reports</Nav.Link>
+              {isAdmin && flagEnabled('admin-ui') && (
+                <Nav.Link as={NavLink} to="/admin">Admin</Nav.Link>
+              )}
             </Nav>
             <div className="d-flex align-items-center gap-3">
               <RoleSwitcher />

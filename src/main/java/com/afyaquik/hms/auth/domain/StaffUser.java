@@ -40,6 +40,13 @@ public class StaffUser extends BaseEntity {
             inverseJoinColumns = @JoinColumn(name = "staff_role_id"))
     private Set<StaffRole> roles = new HashSet<>();
 
+    @ManyToMany
+    @JoinTable(
+            name = "staff_user_departments",
+            joinColumns = @JoinColumn(name = "staff_user_id"),
+            inverseJoinColumns = @JoinColumn(name = "department_id"))
+    private Set<Department> departments = new HashSet<>();
+
     public String getUsername() {
         return username;
     }
@@ -91,4 +98,14 @@ public class StaffUser extends BaseEntity {
     public void addRole(StaffRole role) {
         this.roles.add(role);
     }
+
+    public Set<Department> getDepartments() {
+        return departments;
+    }
+
+    public void setDepartments(Set<Department> departments) {
+        this.departments = departments;
+    }
+
+    public void addDepartment(Department department) { this.departments.add(department); }
 }

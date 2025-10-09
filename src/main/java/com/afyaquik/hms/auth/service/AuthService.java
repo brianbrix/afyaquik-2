@@ -66,8 +66,9 @@ public class AuthService {
     public UserProfileDto toDto(StaffUser user) {
     List<String> roles = user.getRoles().stream()
         .map(StaffRole::getRoleKey)
-                .sorted()
-                .toList();
+        .map(k -> k == null ? null : k.toUpperCase())
+        .sorted()
+        .toList();
         return new UserProfileDto(user.getId(), user.getUsername(), user.getDisplayName(), user.getTenantId(), roles);
     }
 }

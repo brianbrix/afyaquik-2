@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import com.afyaquik.hms.queue.events.QueueEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -50,13 +51,16 @@ public class QueueService {
     private final VisitQueueItemRepository queueRepository;
     private final PatientRepository patientRepository;
     private final QueueTimelineEntryRepository timelineRepository;
+    private final QueueEventPublisher eventPublisher;
 
     public QueueService(VisitQueueItemRepository queueRepository,
                         PatientRepository patientRepository,
-                        QueueTimelineEntryRepository timelineRepository) {
+                        QueueTimelineEntryRepository timelineRepository,
+                        QueueEventPublisher eventPublisher) {
         this.queueRepository = queueRepository;
         this.patientRepository = patientRepository;
         this.timelineRepository = timelineRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -79,7 +83,9 @@ public class QueueService {
 
         VisitQueueItem saved = queueRepository.save(queueItem);
         recordTimeline(saved, QueueEventType.CHECKED_IN, null, saved.getCurrentStatus(), null, null, null, saved.getDepartmentId(), "Patient checked in");
-        return toResponse(saved);
+        QueueItemResponse response = toResponse(saved);
+        eventPublisher.publish(response);
+        return response;
     }
 
     public List<QueueSummary> listByStatus(String tenantId, QueueStatus status) {
@@ -93,12 +99,15 @@ public class QueueService {
     @Transactional
     public QueueItemResponse assign(String tenantId, Long queueItemId, QueueAssignmentRequest request) {
         VisitQueueItem queueItem = getQueueItemForTenant(tenantId, queueItemId);
+        if (queueItem.getCurrentStatus() == QueueStatus.PENDING_CHECKIN) {
+            throw new IllegalStateException("Cannot assign while patient is in PENDING_CHECKIN. Transition first.");
+        }
         queueItem.setCurrentAssigneeId(request.assigneeId());
         if (request.departmentId() != null && !request.departmentId().isBlank()) {
             queueItem.setDepartmentId(request.departmentId().trim());
         }
 
-        VisitQueueItem saved = queueRepository.save(queueItem);
+    VisitQueueItem saved = queueRepository.save(queueItem);
         recordTimeline(
                 saved,
                 QueueEventType.ASSIGNED,
@@ -109,7 +118,9 @@ public class QueueService {
                 request.assigneeDisplayName(),
                 saved.getDepartmentId(),
                 request.note());
-        return toResponse(saved);
+    QueueItemResponse response = toResponse(saved);
+    eventPublisher.publish(response);
+    return response;
     }
 
     @Transactional
@@ -127,7 +138,7 @@ public class QueueService {
         }
         queueItem.setSlaDueAt(calculateSlaDueAtForStatus(targetStatus, queueItem.getPriority()));
 
-        VisitQueueItem saved = queueRepository.save(queueItem);
+    VisitQueueItem saved = queueRepository.save(queueItem);
         recordTimeline(
                 saved,
                 QueueEventType.STATUS_CHANGED,
@@ -138,7 +149,35 @@ public class QueueService {
                 request.actorDisplayName(),
                 saved.getDepartmentId(),
                 request.note());
-        return toResponse(saved);
+    QueueItemResponse response = toResponse(saved);
+    eventPublisher.publish(response);
+    return response;
+    }
+
+    @Transactional
+    public QueueItemResponse advanceAndAssign(String tenantId, Long queueItemId, String targetStatusRaw, QueueAssignmentRequest assignReq) {
+        VisitQueueItem queueItem = getQueueItemForTenant(tenantId, queueItemId);
+        if (queueItem.getCurrentStatus() != QueueStatus.PENDING_CHECKIN) {
+            throw new IllegalStateException("Advance & assign only valid from PENDING_CHECKIN");
+        }
+        QueueStatus targetStatus = parseStatus(targetStatusRaw);
+        ensureTransitionAllowed(queueItem.getCurrentStatus(), targetStatus);
+        QueueStatus fromStatus = queueItem.getCurrentStatus();
+        queueItem.setPreviousStatus(fromStatus);
+        queueItem.setCurrentStatus(targetStatus);
+        queueItem.setSlaDueAt(calculateSlaDueAtForStatus(targetStatus, queueItem.getPriority()));
+        // Perform assignment after status change
+        queueItem.setCurrentAssigneeId(assignReq.assigneeId());
+        if (assignReq.departmentId() != null && !assignReq.departmentId().isBlank()) {
+            queueItem.setDepartmentId(assignReq.departmentId().trim());
+        }
+        VisitQueueItem saved = queueRepository.save(queueItem);
+        // Timeline entries: status then assignment for clarity
+        recordTimeline(saved, QueueEventType.STATUS_CHANGED, fromStatus, targetStatus, assignReq.assigneeId(), assignReq.assigneeRole(), assignReq.assigneeDisplayName(), saved.getDepartmentId(), assignReq.note());
+        recordTimeline(saved, QueueEventType.ASSIGNED, targetStatus, targetStatus, assignReq.assigneeId(), assignReq.assigneeRole(), assignReq.assigneeDisplayName(), saved.getDepartmentId(), assignReq.note());
+        QueueItemResponse response = toResponse(saved);
+        eventPublisher.publish(response);
+        return response;
     }
 
     public List<QueueTimelineEntryResponse> getTimeline(String tenantId, Long queueItemId) {
@@ -153,6 +192,7 @@ public class QueueService {
         return new QueueItemResponse(
                 item.getId(),
                 item.getPatient().getId(),
+        item.getTenantId(),
                 item.getTicketNumber(),
                 item.getVisitReason(),
                 item.getCurrentStatus(),

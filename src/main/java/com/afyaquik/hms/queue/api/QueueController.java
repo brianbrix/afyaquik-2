@@ -2,6 +2,7 @@ package com.afyaquik.hms.queue.api;
 
 import com.afyaquik.hms.common.web.TenantHeaderResolver;
 import com.afyaquik.hms.queue.domain.QueueStatus;
+import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.queue.dto.QueueSummary;
 import com.afyaquik.hms.queue.dto.QueueTimelineEntryResponse;
 import com.afyaquik.hms.queue.service.QueueService;
@@ -32,51 +33,87 @@ public class QueueController {
     }
 
     @PostMapping("/checkin")
-    public ResponseEntity<QueueItemResponse> checkIn(
+    public ResponseEntity<ApiResponse<QueueItemResponse>> checkIn(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @Valid @RequestBody QueueCheckInRequest request) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
+        if (tenantId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "X-Tenant-Id header is required");
+        }
         QueueItemResponse response = queueService.checkIn(tenantId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     @GetMapping
-    public List<QueueSummary> list(
+    public ApiResponse<List<QueueSummary>> list(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @RequestParam(defaultValue = "PENDING_CHECKIN") String status) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
+        if (tenantId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "X-Tenant-Id header is required");
+        }
         QueueStatus queueStatus;
         try {
             queueStatus = QueueStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
             throw new IllegalStateException("Unsupported status filter: " + status);
         }
-        return queueService.listByStatus(tenantId, queueStatus);
+        return ApiResponse.success(queueService.listByStatus(tenantId, queueStatus));
     }
 
     @PostMapping("/{queueItemId}/assign")
-    public QueueItemResponse assign(
+    public ApiResponse<QueueItemResponse> assign(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @PathVariable Long queueItemId,
             @Valid @RequestBody QueueAssignmentRequest request) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
-        return queueService.assign(tenantId, queueItemId, request);
+        if (tenantId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "X-Tenant-Id header is required");
+        }
+        return ApiResponse.success(queueService.assign(tenantId, queueItemId, request));
     }
 
     @PostMapping("/{queueItemId}/transition")
-    public QueueItemResponse transition(
+    public ApiResponse<QueueItemResponse> transition(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @PathVariable Long queueItemId,
             @Valid @RequestBody QueueTransitionRequest request) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
-        return queueService.transitionStatus(tenantId, queueItemId, request);
+        if (tenantId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "X-Tenant-Id header is required");
+        }
+        return ApiResponse.success(queueService.transitionStatus(tenantId, queueItemId, request));
+    }
+
+    @PostMapping("/{queueItemId}/advance-assign")
+    public ApiResponse<QueueItemResponse> advanceAssign(
+            @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
+            @PathVariable Long queueItemId,
+            @Valid @RequestBody QueueAdvanceAssignRequest request) {
+        String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
+        if (tenantId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "X-Tenant-Id header is required");
+        }
+        QueueAssignmentRequest assign = new QueueAssignmentRequest(
+                request.assigneeId(),
+                request.assigneeRole(),
+                request.assigneeDisplayName(),
+                request.departmentId(),
+                request.note()
+        );
+        return ApiResponse.success(queueService.advanceAndAssign(tenantId, queueItemId, request.targetStatus(), assign));
     }
 
     @GetMapping("/{queueItemId}/timeline")
-    public List<QueueTimelineEntryResponse> timeline(
+    public ApiResponse<List<QueueTimelineEntryResponse>> timeline(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @PathVariable Long queueItemId) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
-        return queueService.getTimeline(tenantId, queueItemId);
+        if (tenantId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "X-Tenant-Id header is required");
+        }
+        return ApiResponse.success(queueService.getTimeline(tenantId, queueItemId));
     }
+
+    // Real-time updates now provided via WebSocket STOMP topics (/topic/queue.{tenantId}).
 }

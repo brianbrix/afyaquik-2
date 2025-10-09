@@ -27,33 +27,40 @@ export type RefreshResponse = {
   accessTokenExpiresIn: number;
 };
 
+function unwrap<T>(raw: any): T {
+  if (raw && typeof raw === "object" && "data" in raw && raw.data) {
+    return raw.data as T;
+  }
+  return raw as T;
+}
+
 export async function login(
   tenantId: string,
   credentials: { username: string; password: string }
 ): Promise<LoginResponse> {
-  const response = await apiClient.post<LoginResponse>("/api/v1/auth/login", credentials, {
+  const response = await apiClient.post<any>("/api/v1/auth/login", credentials, {
     headers: { "X-Tenant-Id": tenantId }
   });
-  return response.data;
+  return unwrap<LoginResponse>(response.data);
 }
 
 export async function refreshAccessToken(
   tenantId: string,
   refreshToken: string
 ): Promise<RefreshResponse> {
-  const response = await apiClient.post<RefreshResponse>(
+  const response = await apiClient.post<any>(
     "/api/v1/auth/refresh",
     { refreshToken },
     {
       headers: { "X-Tenant-Id": tenantId }
     }
   );
-  return response.data;
+  return unwrap<RefreshResponse>(response.data);
 }
 
 export async function fetchProfile(): Promise<UserProfile> {
-  const response = await apiClient.get<UserProfile>("/api/v1/auth/me");
-  return response.data;
+  const response = await apiClient.get<any>("/api/v1/auth/me");
+  return unwrap<UserProfile>(response.data);
 }
 
 export async function fetchActiveRole(): Promise<RoleKey | null> {

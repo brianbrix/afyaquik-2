@@ -13,6 +13,7 @@ import com.afyaquik.hms.auth.repository.StaffRoleRepository;
 import com.afyaquik.hms.auth.repository.StaffUserRepository;
 import com.afyaquik.hms.patient.domain.Patient;
 import com.afyaquik.hms.patient.repository.PatientRepository;
+import com.afyaquik.hms.queue.api.QueueAdvanceAssignRequest;
 import com.afyaquik.hms.queue.repository.QueueTimelineEntryRepository;
 import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,11 +22,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
 class QueueControllerTests {
 
@@ -100,8 +103,8 @@ class QueueControllerTests {
             .header("Authorization", "Bearer " + bearerToken)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.ticketNumber").value(org.hamcrest.Matchers.containsString("TEN")))
-        .andExpect(jsonPath("$.departmentId").value("OPD"));
+    .andExpect(jsonPath("$.data.ticketNumber").value(org.hamcrest.Matchers.containsString("TEN")))
+    .andExpect(jsonPath("$.data.departmentId").value("OPD"));
 
         assertThat(patientRepository.findById(saved.getId())).isPresent();
     }
@@ -128,53 +131,55 @@ class QueueControllerTests {
             .header("Authorization", "Bearer " + bearerToken)
                         .param("status", "PENDING_CHECKIN"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].ticketNumber").exists());
+                .andExpect(jsonPath("$.data[0].ticketNumber").exists());
     }
 
     @Test
     void assignmentAndTransitionProduceTimeline() throws Exception {
-    Patient patient = new Patient();
-    patient.setTenantId("tenantA");
-    patient.setMedicalRecordNumber("MRN-2");
-    patient.setFirstName("Jane");
-    patient.setLastName("Smith");
-    Long patientId = patientRepository.save(patient).getId();
+        // Updated for explicit workflow: assignment cannot occur while item is in PENDING_CHECKIN.
+        // We now: check in -> advance & assign to IN_REGISTRATION -> verify timeline order.
+        Patient patient = new Patient();
+        patient.setTenantId("tenantA");
+        patient.setMedicalRecordNumber("MRN-2");
+        patient.setFirstName("Jane");
+        patient.setLastName("Smith");
+        Long patientId = patientRepository.save(patient).getId();
 
-    QueueCheckInRequest request = new QueueCheckInRequest(patientId, "Triage review", "HIGH", "TRIAGE");
-    mockMvc.perform(post("/api/v1/queue/checkin")
-            .contentType(MediaType.APPLICATION_JSON)
-            .header("X-Tenant-Id", "tenantA")
-            .header("Authorization", "Bearer " + bearerToken)
-            .content(objectMapper.writeValueAsString(request)))
-        .andExpect(status().isCreated());
+        QueueCheckInRequest request = new QueueCheckInRequest(patientId, "Triage review", "HIGH", "TRIAGE");
+        mockMvc.perform(post("/api/v1/queue/checkin")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("X-Tenant-Id", "tenantA")
+                .header("Authorization", "Bearer " + bearerToken)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isCreated());
 
-    Long queueItemId = queueRepository.findAll().get(0).getId();
+        Long queueItemId = queueRepository.findAll().get(0).getId();
 
-    QueueAssignmentRequest assignmentRequest = new QueueAssignmentRequest("nurse-1", "Nurse Joy", "TRIAGE_NURSE", "TRIAGE", "Taking over triage");
-    mockMvc.perform(post("/api/v1/queue/{id}/assign", queueItemId)
-            .contentType(MediaType.APPLICATION_JSON)
-            .header("X-Tenant-Id", "tenantA")
-            .header("Authorization", "Bearer " + bearerToken)
-            .content(objectMapper.writeValueAsString(assignmentRequest)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.currentAssigneeId").value("nurse-1"));
+        QueueAdvanceAssignRequest advanceAssign = new QueueAdvanceAssignRequest(
+                "IN_REGISTRATION",
+                "nurse-1",
+                "Nurse Joy",
+                "TRIAGE_NURSE",
+                "TRIAGE",
+                "Initial registration via combined endpoint"
+        );
 
-    QueueTransitionRequest transitionRequest = new QueueTransitionRequest("IN_REGISTRATION", "user-1", "RECEPTION", "Receptionist Ray", "Registration started", null);
-    mockMvc.perform(post("/api/v1/queue/{id}/transition", queueItemId)
-            .contentType(MediaType.APPLICATION_JSON)
-            .header("X-Tenant-Id", "tenantA")
-            .header("Authorization", "Bearer " + bearerToken)
-            .content(objectMapper.writeValueAsString(transitionRequest)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("IN_REGISTRATION"))
-        .andExpect(jsonPath("$.previousStatus").value("PENDING_CHECKIN"));
+        mockMvc.perform(post("/api/v1/queue/{id}/advance-assign", queueItemId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("X-Tenant-Id", "tenantA")
+                .header("Authorization", "Bearer " + bearerToken)
+                .content(objectMapper.writeValueAsString(advanceAssign)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.currentAssigneeId").value("nurse-1"))
+            .andExpect(jsonPath("$.data.status").value("IN_REGISTRATION"))
+            .andExpect(jsonPath("$.data.previousStatus").value("PENDING_CHECKIN"));
 
-    mockMvc.perform(get("/api/v1/queue/{id}/timeline", queueItemId)
-            .header("X-Tenant-Id", "tenantA")
-            .header("Authorization", "Bearer " + bearerToken))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].eventType").value("CHECKED_IN"))
-        .andExpect(jsonPath("$[1].eventType").value("ASSIGNED"))
-        .andExpect(jsonPath("$[2].eventType").value("STATUS_CHANGED"));
+        mockMvc.perform(get("/api/v1/queue/{id}/timeline", queueItemId)
+                .header("X-Tenant-Id", "tenantA")
+                .header("Authorization", "Bearer " + bearerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].eventType").value("CHECKED_IN"))
+            .andExpect(jsonPath("$.data[1].eventType").value("STATUS_CHANGED"))
+            .andExpect(jsonPath("$.data[2].eventType").value("ASSIGNED"));
     }
 }

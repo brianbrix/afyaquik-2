@@ -4,6 +4,7 @@ import com.afyaquik.hms.auth.domain.StaffRole;
 import com.afyaquik.hms.auth.domain.StaffUser;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -16,11 +17,15 @@ public class TenantUserDetails implements UserDetails {
 
     public TenantUserDetails(StaffUser user) {
         this.user = user;
-        this.authorities = user.getRoles().stream()
-                .map(StaffRole::getRoleKey)
-                .map(roleKey -> roleKey.startsWith("ROLE_") ? roleKey : "ROLE_" + roleKey)
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
+    // Normalize role keys to uppercase so that hasRole / hasAnyRole checks (which look for ROLE_<UPPER>) succeed
+    // even if stored in DB as lowercase (e.g. "reception").
+    this.authorities = user.getRoles().stream()
+        .map(StaffRole::getRoleKey)
+        .filter(Objects::nonNull)
+        .map(roleKey -> roleKey.startsWith("ROLE_") ? roleKey : "ROLE_" + roleKey)
+        .map(String::toUpperCase)
+        .map(SimpleGrantedAuthority::new)
+        .collect(Collectors.toList());
     }
 
     public StaffUser getUser() {

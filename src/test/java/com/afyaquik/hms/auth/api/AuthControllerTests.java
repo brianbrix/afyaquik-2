@@ -19,12 +19,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
 class AuthControllerTests {
 
@@ -77,10 +79,10 @@ class AuthControllerTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
-                .andExpect(jsonPath("$.user.username").value("reception"))
-                .andExpect(jsonPath("$.user.roles[0]").value("RECEPTION"));
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.user.username").value("reception"))
+                .andExpect(jsonPath("$.data.user.roles[0]").value("RECEPTION"));
     }
 
     @Test
@@ -91,7 +93,7 @@ class AuthControllerTests {
                         .header("X-Tenant-Id", "tenantA")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -106,7 +108,7 @@ class AuthControllerTests {
                 .andReturn();
 
         JsonNode loginJson = objectMapper.readTree(loginResult.getResponse().getContentAsString());
-        String refreshToken = loginJson.get("refreshToken").asText();
+    String refreshToken = loginJson.get("data").get("refreshToken").asText();
 
         RefreshTokenRequest refreshRequest = new RefreshTokenRequest(refreshToken);
 
@@ -115,7 +117,7 @@ class AuthControllerTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(refreshRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty());
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty());
     }
 
     @Test
@@ -126,7 +128,7 @@ class AuthControllerTests {
                         .header("X-Tenant-Id", "tenantA")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("reception"));
+                .andExpect(jsonPath("$.data.username").value("reception"));
     }
 
     @Test

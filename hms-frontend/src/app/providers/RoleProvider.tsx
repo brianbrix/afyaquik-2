@@ -15,11 +15,13 @@ export const RoleContext = createContext<RoleContextValue | undefined>(undefined
 export function RoleProvider({
   children,
   roles = ["provider"],
-  defaultRole
+  defaultRole,
+  isAuthenticated
 }: {
   children: ReactNode;
   roles?: RoleKey[];
   defaultRole?: RoleKey;
+  isAuthenticated?: boolean;
 }) {
   const resolvedRoles = useMemo<RoleKey[]>(() => {
     if (!roles || roles.length === 0) {
@@ -49,7 +51,7 @@ export function RoleProvider({
 
     async function bootstrap() {
       try {
-        if (resolvedRoles.length === 0) {
+        if (!isAuthenticated || resolvedRoles.length === 0) {
           return;
         }
         const existingRole = await fetchActiveRole();
@@ -66,7 +68,7 @@ export function RoleProvider({
     return () => {
       mounted = false;
     };
-  }, [resolvedRoles]);
+  }, [resolvedRoles, isAuthenticated]);
 
   const setActiveRole = useCallback(
     async (role: RoleKey) => {

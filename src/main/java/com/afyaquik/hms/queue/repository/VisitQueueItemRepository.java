@@ -14,5 +14,8 @@ public interface VisitQueueItemRepository extends JpaRepository<VisitQueueItem, 
 
     long countByTenantIdAndCurrentStatus(String tenantId, QueueStatus status);
 
+    // Added for demo data seeding to quickly determine if any queue items exist for a tenant
+    long countByTenantId(String tenantId);
+
     Optional<VisitQueueItem> findFirstByTenantIdAndPatientIdOrderByCreatedAtDesc(String tenantId, Long patientId);
 }

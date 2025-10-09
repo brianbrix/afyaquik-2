@@ -74,3 +74,12 @@ export type QueueTransitionPayload = {
   note?: string;
   departmentId?: string;
 };
+
+export type QueueAdvanceAssignPayload = {
+  targetStatus: QueueStatus;
+  assigneeId: string;
+  assigneeRole?: string;
+  assigneeDisplayName?: string;
+  departmentId?: string;
+  note?: string;
+};

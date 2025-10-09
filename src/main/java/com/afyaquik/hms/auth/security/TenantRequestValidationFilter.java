@@ -29,10 +29,13 @@ public class TenantRequestValidationFilter extends OncePerRequestFilter {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof TenantUserDetails principal) {
-            String tenantId = TenantHeaderResolver.resolveTenantId(request.getHeader(TenantHeaderResolver.TENANT_HEADER));
-            if (!principal.getUser().getTenantId().equals(tenantId)) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return;
+            String header = request.getHeader(TenantHeaderResolver.TENANT_HEADER);
+            if (header != null && !header.isBlank()) {
+                String tenantId = header.trim();
+                if (!principal.getUser().getTenantId().equals(tenantId)) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    return;
+                }
             }
         }
 

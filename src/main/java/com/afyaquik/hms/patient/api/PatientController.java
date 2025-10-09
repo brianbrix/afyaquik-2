@@ -2,6 +2,7 @@ package com.afyaquik.hms.patient.api;
 
 import com.afyaquik.hms.common.web.TenantHeaderResolver;
 import com.afyaquik.hms.patient.dto.PatientSummary;
+import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.patient.service.PatientService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -27,27 +28,27 @@ public class PatientController {
     }
 
     @PostMapping
-    public ResponseEntity<PatientResponse> register(
+    public ResponseEntity<ApiResponse<PatientResponse>> register(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @Valid @RequestBody CreatePatientRequest request) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
         PatientResponse response = patientService.register(tenantId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     @GetMapping("/{medicalRecordNumber}")
-    public PatientResponse getPatient(
+    public ApiResponse<PatientResponse> getPatient(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @PathVariable String medicalRecordNumber) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
-        return patientService.getByMrn(tenantId, medicalRecordNumber);
+        return ApiResponse.success(patientService.getByMrn(tenantId, medicalRecordNumber));
     }
 
     @GetMapping
-    public List<PatientSummary> search(
+    public ApiResponse<List<PatientSummary>> search(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @RequestParam(value = "q", required = false) String query) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
-        return patientService.search(tenantId, query);
+        return ApiResponse.success(patientService.search(tenantId, query));
     }
 }

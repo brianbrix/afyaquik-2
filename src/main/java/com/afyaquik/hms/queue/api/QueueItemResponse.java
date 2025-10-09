@@ -7,6 +7,7 @@ import java.time.Instant;
 public record QueueItemResponse(
         Long id,
         Long patientId,
+        String tenantId,
         String ticketNumber,
         String visitReason,
         QueueStatus status,

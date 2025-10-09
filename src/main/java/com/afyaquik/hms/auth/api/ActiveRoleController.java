@@ -2,6 +2,7 @@ package com.afyaquik.hms.auth.api;
 
 import com.afyaquik.hms.auth.security.TenantUserDetails;
 import com.afyaquik.hms.auth.service.ActiveRoleService;
+import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.common.web.TenantHeaderResolver;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -24,25 +25,31 @@ public class ActiveRoleController {
     }
 
     @PostMapping("/active-role")
-    public ActiveRoleResponse setActiveRole(
+    public ApiResponse<ActiveRoleResponse> setActiveRole(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             Authentication authentication,
             @Valid @RequestBody ActiveRoleRequest request) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
+        if (tenantId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "X-Tenant-Id header is required");
+        }
         TenantUserDetails principal = (TenantUserDetails) authentication.getPrincipal();
         if (!principal.getUser().getTenantId().equals(tenantId)) {
             throw new org.springframework.security.access.AccessDeniedException("Tenant mismatch");
         }
         String userId = principal.getUser().getId().toString();
         activeRoleService.setActiveRole(tenantId, userId, request.role());
-        return new ActiveRoleResponse(request.role());
+        return ApiResponse.success(new ActiveRoleResponse(request.role()));
     }
 
     @GetMapping("/active-role")
-    public ResponseEntity<ActiveRoleResponse> getActiveRole(
+    public ResponseEntity<ApiResponse<ActiveRoleResponse>> getActiveRole(
             @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             Authentication authentication) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
+        if (tenantId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "X-Tenant-Id header is required");
+        }
         TenantUserDetails principal = (TenantUserDetails) authentication.getPrincipal();
         if (!principal.getUser().getTenantId().equals(tenantId)) {
             throw new org.springframework.security.access.AccessDeniedException("Tenant mismatch");
@@ -50,7 +57,7 @@ public class ActiveRoleController {
         String userId = principal.getUser().getId().toString();
         return activeRoleService
                 .getActiveRole(tenantId, userId)
-                .map(role -> ResponseEntity.ok(new ActiveRoleResponse(role)))
+                .map(role -> ResponseEntity.ok(ApiResponse.success(new ActiveRoleResponse(role))))
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 }

@@ -13,12 +13,7 @@ import {
 } from "react-bootstrap";
 import { PageHeader } from "../../../components/shared/PageHeader";
 import { FilterBar } from "../../../components/shared/FilterBar";
-import {
-  useAssignQueueItem,
-  useQueueList,
-  useQueueTimeline,
-  useTransitionQueueItem
-} from "../hooks/useQueueBoardData";
+import { useAssignQueueItem, useQueueList, useQueueTimeline, useTransitionQueueItem, useQueueStream, useAdvanceAssignQueueItem } from "../hooks/useQueueBoardData";
 import type {
   QueueAssignmentPayload,
   QueueStatus,
@@ -26,6 +21,11 @@ import type {
   QueueTimelineEntry
 } from "../../../types/queue";
 import { useRoleContext } from "../../../hooks/useRoleContext";
+import { useStaffDirectory } from '../../../services/staffDirectoryApi';
+
+// --- Temporary static option sources (TODO: replace with backend directory endpoints) ---
+interface StaffDirectoryEntry { id: number; username: string; displayName: string; roles: string[]; departments: string[] }
+// NOTE: Directory now fetched from backend; fallback arrays removed.
 
 const statusLabels: Record<QueueStatus, string> = {
   PENDING_CHECKIN: "Pre Check-In",
@@ -125,18 +125,21 @@ export function QueueBoardPage() {
   const [selectedStatus, setSelectedStatus] = useState<QueueStatus>("PENDING_CHECKIN");
   const [searchValue, setSearchValue] = useState("");
   const [activeItem, setActiveItem] = useState<QueueSummary | null>(null);
-  const [modalType, setModalType] = useState<"assign" | "transition" | "timeline" | null>(null);
+  const [modalType, setModalType] = useState<"assign" | "transition" | "timeline" | "advanceAssign" | null>(null);
+  const [staleWarning, setStaleWarning] = useState<string | null>(null);
 
   const { activeRole } = useRoleContext();
   const queueQuery = useQueueList(selectedStatus);
+  useQueueStream(selectedStatus);
   const assignMutation = useAssignQueueItem(selectedStatus);
   const transitionMutation = useTransitionQueueItem(selectedStatus);
+  const advanceAssignMutation = useAdvanceAssignQueueItem(selectedStatus);
   const timelineQuery = useQueueTimeline(
     modalType === "timeline" && activeItem ? activeItem.id : null
   );
 
   const filteredItems = useMemo(() => {
-    const items = queueQuery.data ?? [];
+    const items = Array.isArray(queueQuery.data) ? queueQuery.data : [];
     if (!searchValue) return items;
     const lower = searchValue.trim().toLowerCase();
     return items.filter((item) =>
@@ -146,7 +149,7 @@ export function QueueBoardPage() {
     );
   }, [queueQuery.data, searchValue]);
 
-  const handleOpenModal = (item: QueueSummary, type: "assign" | "transition" | "timeline") => {
+  const handleOpenModal = (item: QueueSummary, type: "assign" | "transition" | "timeline" | "advanceAssign") => {
     setActiveItem(item);
     setModalType(type);
   };
@@ -197,6 +200,16 @@ export function QueueBoardPage() {
       departmentId: formData.get("departmentId")?.toString().trim() || activeItem.departmentId || undefined,
       note: formData.get("note")?.toString().trim() || undefined
     };
+
+    // Pre-submit stale status check
+    const latest = queueQuery.data?.find(i => i.id === activeItem.id);
+    if (latest && latest.status !== activeItem.status) {
+      setStaleWarning(`Item moved from ${statusLabels[activeItem.status]} to ${statusLabels[latest.status]}. Refreshing view.`);
+      handleCloseModal();
+      queueQuery.refetch();
+      return;
+    }
+
     transitionMutation.mutate(
       { queueItemId: activeItem.id, payload },
       {
@@ -231,7 +244,7 @@ export function QueueBoardPage() {
               </Form.Select>
             </Col>
             <Col md={5} sm={12}>
-              <FilterBar placeholder="Search ticket, name, or reason..." onChange={setSearchValue} />
+              <FilterBar placeholder="Search ticket, name, or reason..." value={searchValue} onChange={setSearchValue} />
             </Col>
             <Col md={3} sm={12} className="d-flex justify-content-end">
               <Button variant="outline-secondary" onClick={() => queueQuery.refetch()}>
@@ -243,6 +256,8 @@ export function QueueBoardPage() {
           {queueQuery.isError && (
             <Alert variant="danger">Unable to load queue items. Please try again.</Alert>
           )}
+
+          {staleWarning && <Alert variant="warning" onClose={() => setStaleWarning(null)} dismissible>{staleWarning}</Alert>}
 
           <div className="table-responsive">
             <Table hover responsive className="align-middle">
@@ -279,36 +294,42 @@ export function QueueBoardPage() {
                       <td className="fw-semibold">{item.ticketNumber}</td>
                       <td>{item.patientName}</td>
                       <td>{item.visitReason}</td>
-                      <td>
-                        <QueueStatusBadge status={item.status} />
-                      </td>
-                      <td>
-                        <Badge bg={priorityVariant(item.priority)}>{item.priority}</Badge>
-                      </td>
+                      <td><QueueStatusBadge status={item.status} /></td>
+                      <td><Badge bg={priorityVariant(item.priority)}>{item.priority}</Badge></td>
                       <td>{item.currentAssigneeId ?? "Unassigned"}</td>
                       <td>{item.departmentId ?? "—"}</td>
                       <td>{formatDateTime(item.createdAt)}</td>
                       <td>{formatDateTime(item.slaDueAt)}</td>
                       <td className="text-end">
                         <div className="d-flex gap-2 justify-content-end">
-                          <Button
-                            size="sm"
-                            variant="outline-primary"
-                            onClick={() => handleOpenModal(item, "assign")}
-                          >
-                            Assign
-                          </Button>
+                          {item.status === 'PENDING_CHECKIN' ? (
+                            <Button
+                              size="sm"
+                              variant="outline-primary"
+                              onClick={() => handleOpenModal(item, 'advanceAssign')}
+                            >
+                              Advance & Assign
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline-primary"
+                              onClick={() => handleOpenModal(item, 'assign')}
+                            >
+                              Assign
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="outline-success"
-                            onClick={() => handleOpenModal(item, "transition")}
+                            onClick={() => handleOpenModal(item, 'transition')}
                           >
                             Transition
                           </Button>
                           <Button
                             size="sm"
                             variant="outline-secondary"
-                            onClick={() => handleOpenModal(item, "timeline")}
+                            onClick={() => handleOpenModal(item, 'timeline')}
                           >
                             Timeline
                           </Button>
@@ -350,6 +371,31 @@ export function QueueBoardPage() {
         timelineEntries={timelineQuery.data ?? []}
         isLoading={timelineQuery.isLoading}
       />
+
+      <AdvanceAssignModal
+        show={modalType === 'advanceAssign' && Boolean(activeItem)}
+        onHide={handleCloseModal}
+        queueItem={activeItem}
+        isSubmitting={advanceAssignMutation.isPending}
+        error={advanceAssignMutation.isError ? (advanceAssignMutation.error as any)?.message ?? 'Failed' : null}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!activeItem) return;
+          const formData = new FormData(e.currentTarget as HTMLFormElement);
+          const targetStatus = formData.get('targetStatus')?.toString();
+          const assigneeId = formData.get('assigneeId')?.toString();
+          if (!targetStatus || !assigneeId) return;
+          const payload: any = {
+            targetStatus,
+            assigneeId,
+            assigneeRole: formData.get('assigneeRole')?.toString() || undefined,
+            assigneeDisplayName: formData.get('assigneeDisplayName')?.toString() || undefined,
+            departmentId: formData.get('departmentId')?.toString() || undefined,
+            note: formData.get('note')?.toString() || undefined,
+          };
+          advanceAssignMutation.mutate({ queueItemId: activeItem.id, payload }, { onSuccess: () => { (e.currentTarget as HTMLFormElement).reset(); handleCloseModal(); } });
+        }}
+      />
     </div>
   );
 }
@@ -361,17 +407,26 @@ function AssignModal({
   isSubmitting,
   error,
   onSubmit
-}: {
-  show: boolean;
-  onHide: () => void;
-  queueItem: QueueSummary | null;
-  isSubmitting: boolean;
-  error: string | null;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-}) {
+}: { show: boolean; onHide: () => void; queueItem: QueueSummary | null; isSubmitting: boolean; error: string | null; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; }) {
+  const staffQueryResult = useStaffDirectory(show);
+  const staffData: StaffDirectoryEntry[] = staffQueryResult.data || [];
+  const [staffQuery, setStaffQuery] = useState("");
+  const [selectedStaff, setSelectedStaff] = useState<StaffDirectoryEntry | null>(null);
+  const [roleQuery, setRoleQuery] = useState("");
+  const [deptQuery, setDeptQuery] = useState("");
+
+  const staffFiltered = useMemo(() => {
+    const q = staffQuery.toLowerCase();
+    return staffData.filter(s => s.username.toLowerCase().includes(q) || s.displayName.toLowerCase().includes(q));
+  }, [staffQuery, staffData]);
+  const roleOptions = selectedStaff ? selectedStaff.roles : Array.from(new Set(staffData.flatMap(s => s.roles)));
+  const deptOptions = selectedStaff ? selectedStaff.departments : Array.from(new Set(staffData.flatMap(s => s.departments)));
+  const roleFiltered = useMemo(() => roleOptions.filter(r => r.toLowerCase().includes(roleQuery.toLowerCase())), [roleOptions, roleQuery]);
+  const deptFiltered = useMemo(() => deptOptions.filter(d => d.toLowerCase().includes(deptQuery.toLowerCase())), [deptOptions, deptQuery]);
+
   return (
-    <Modal show={show} onHide={onHide} centered>
-      <Form onSubmit={onSubmit}>
+    <Modal show={show} onHide={() => { onHide(); setSelectedStaff(null); setStaffQuery(""); }} centered>
+      <Form onSubmit={e => { onSubmit(e); }}>
         <Modal.Header closeButton>
           <Modal.Title>Assign queue item</Modal.Title>
         </Modal.Header>
@@ -384,44 +439,77 @@ function AssignModal({
             </div>
           )}
           {error && <Alert variant="danger" className="mb-0">{error}</Alert>}
-          <Form.Group controlId="assigneeId">
-            <Form.Label>Assignee ID</Form.Label>
-            <Form.Control name="assigneeId" placeholder="e.g. nurse-01" required disabled={isSubmitting} />
+
+          <Form.Group>
+            <Form.Label>Assignee</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Search staff..."
+              value={staffQuery}
+              disabled={isSubmitting}
+              onChange={(e) => { setStaffQuery(e.target.value); setSelectedStaff(null); }}
+            />
+            <div className="border rounded mt-1" style={{ maxHeight: 140, overflowY: 'auto' }}>
+              {staffFiltered.map(s => (
+                <div key={s.id} className={`px-2 py-1 selectable-item${selectedStaff?.id===s.id? ' bg-light':''}`} style={{ cursor: 'pointer' }}
+                  onClick={() => { setSelectedStaff(s); setStaffQuery(s.displayName); setRoleQuery(s.roles[0] || ''); setDeptQuery(s.departments[0] || ''); }}>
+                  <strong>{s.displayName}</strong> <span className="text-muted small">({s.username})</span>
+                </div>
+              ))}
+              {staffFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
+            </div>
+            <input type="hidden" name="assigneeId" value={selectedStaff?.id || ''} required />
+            <input type="hidden" name="assigneeDisplayName" value={selectedStaff?.displayName || ''} />
           </Form.Group>
-          <Form.Group controlId="assigneeDisplayName">
-            <Form.Label>Display name</Form.Label>
-            <Form.Control name="assigneeDisplayName" placeholder="Jane Doe" disabled={isSubmitting} />
-          </Form.Group>
-          <Form.Group controlId="assigneeRole">
+
+          <Form.Group>
             <Form.Label>Role</Form.Label>
-            <Form.Control name="assigneeRole" placeholder="triage" disabled={isSubmitting} />
+            <Form.Control
+              type="text"
+              placeholder={selectedStaff ? `Filter (${selectedStaff.roles.join(', ')})` : 'Search role...'}
+              value={roleQuery}
+              disabled={isSubmitting || !!selectedStaff}
+              onChange={(e) => setRoleQuery(e.target.value)}
+            />
+            {!selectedStaff && (
+              <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
+                {roleFiltered.map(r => (
+                  <div key={r} className="px-2 py-1 selectable-item" style={{ cursor: 'pointer' }} onClick={() => setRoleQuery(r)}>{r}</div>
+                ))}
+                {roleFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
+              </div>
+            )}
+            <input type="hidden" name="assigneeRole" value={roleQuery || (selectedStaff?.roles[0] || '')} />
           </Form.Group>
-          <Form.Group controlId="departmentId">
+
+          <Form.Group>
             <Form.Label>Department</Form.Label>
             <Form.Control
-              name="departmentId"
-              placeholder={queueItem?.departmentId ?? "Department identifier"}
-              disabled={isSubmitting}
+              type="text"
+              placeholder={selectedStaff ? `Filter (${selectedStaff.departments.join(', ')})` : 'Search department...'}
+              value={deptQuery}
+              disabled={isSubmitting || !!selectedStaff}
+              onChange={(e) => setDeptQuery(e.target.value)}
             />
+            {!selectedStaff && (
+              <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
+                {deptFiltered.map(d => (
+                  <div key={d} className="px-2 py-1 selectable-item" style={{ cursor: 'pointer' }} onClick={() => setDeptQuery(d)}>{d}</div>
+                ))}
+                {deptFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
+              </div>
+            )}
+            <input type="hidden" name="departmentId" value={deptQuery || (selectedStaff?.departments[0] || queueItem?.departmentId || '')} />
           </Form.Group>
+
           <Form.Group controlId="note">
             <Form.Label>Note</Form.Label>
-            <Form.Control
-              as="textarea"
-              name="note"
-              rows={3}
-              placeholder="Optional handoff note"
-              disabled={isSubmitting}
-            />
+            <Form.Control as="textarea" name="note" rows={3} placeholder="Optional handoff note" disabled={isSubmitting} />
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={onHide} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" disabled={isSubmitting}>
-            {isSubmitting ? <Spinner animation="border" size="sm" /> : "Assign"}
-          </Button>
+          <Button variant="secondary" onClick={onHide} disabled={isSubmitting}>Cancel</Button>
+          <Button type="submit" variant="primary" disabled={isSubmitting || !selectedStaff}>{isSubmitting ? <Spinner animation="border" size="sm" /> : "Assign"}</Button>
         </Modal.Footer>
       </Form>
     </Modal>
@@ -435,17 +523,26 @@ function TransitionModal({
   isSubmitting,
   error,
   onSubmit
-}: {
-  show: boolean;
-  onHide: () => void;
-  queueItem: QueueSummary | null;
-  isSubmitting: boolean;
-  error: string | null;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-}) {
+}: { show: boolean; onHide: () => void; queueItem: QueueSummary | null; isSubmitting: boolean; error: string | null; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; }) {
   const nextStatuses = queueItem ? allowedTransitions[queueItem.status] ?? [] : [];
+  const staffQueryResult = useStaffDirectory(show);
+  const staffData: StaffDirectoryEntry[] = staffQueryResult.data || [];
+  const [actorQuery, setActorQuery] = useState("");
+  const [selectedActor, setSelectedActor] = useState<StaffDirectoryEntry | null>(null);
+  const [roleQuery, setRoleQuery] = useState("");
+  const [deptQuery, setDeptQuery] = useState("");
+
+  const staffFiltered = useMemo(() => {
+    const q = actorQuery.toLowerCase();
+    return staffData.filter(s => s.username.toLowerCase().includes(q) || s.displayName.toLowerCase().includes(q));
+  }, [actorQuery, staffData]);
+  const roleOptions = selectedActor ? selectedActor.roles : Array.from(new Set(staffData.flatMap(s => s.roles)));
+  const deptOptions = selectedActor ? selectedActor.departments : Array.from(new Set(staffData.flatMap(s => s.departments)));
+  const roleFiltered = useMemo(() => roleOptions.filter(r => r.toLowerCase().includes(roleQuery.toLowerCase())), [roleOptions, roleQuery]);
+  const deptFiltered = useMemo(() => deptOptions.filter(d => d.toLowerCase().includes(deptQuery.toLowerCase())), [deptOptions, deptQuery]);
+
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal show={show} onHide={() => { onHide(); setSelectedActor(null); setActorQuery(""); }} centered>
       <Form onSubmit={onSubmit}>
         <Modal.Header closeButton>
           <Modal.Title>Transition queue item</Modal.Title>
@@ -475,41 +572,74 @@ function TransitionModal({
                 >
                   {nextStatuses.map((status) => (
                     <option key={status} value={status}>
-                      {statusLabels[status]}
+                      {statusLabels[status as QueueStatus]}
                     </option>
                   ))}
                 </Form.Select>
               </Form.Group>
-              <Row className="g-2">
-                <Col md={6}>
-                  <Form.Group controlId="actorId">
-                    <Form.Label>Actor ID</Form.Label>
-                    <Form.Control name="actorId" placeholder="Optional" disabled={isSubmitting} />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group controlId="actorRole">
-                    <Form.Label>Actor role</Form.Label>
-                    <Form.Control name="actorRole" placeholder="Role" disabled={isSubmitting} />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Form.Group controlId="actorDisplayName">
-                <Form.Label>Actor display name</Form.Label>
+
+              <Form.Group>
+                <Form.Label>Actor</Form.Label>
                 <Form.Control
-                  name="actorDisplayName"
-                  placeholder="Name"
+                  type="text"
+                  placeholder="Search staff..."
+                  value={actorQuery}
                   disabled={isSubmitting}
+                  onChange={(e) => { setActorQuery(e.target.value); setSelectedActor(null); }}
                 />
+                <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
+                  {staffFiltered.map(s => (
+                    <div key={s.id} className={`px-2 py-1 selectable-item${selectedActor?.id===s.id? ' bg-light':''}`} style={{ cursor: 'pointer' }}
+                      onClick={() => { setSelectedActor(s); setActorQuery(s.displayName); setRoleQuery(s.roles[0]||''); setDeptQuery(s.departments[0]||''); }}>
+                      <strong>{s.displayName}</strong> <span className="text-muted small">({s.username})</span>
+                    </div>
+                  ))}
+                  {staffFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
+                </div>
+                <input type="hidden" name="actorId" value={selectedActor?.id || ''} />
+                <input type="hidden" name="actorDisplayName" value={selectedActor?.displayName || ''} />
               </Form.Group>
-              <Form.Group controlId="departmentId">
+
+              <Form.Group>
+                <Form.Label>Actor role</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder={selectedActor ? selectedActor.roles.join(', ') : 'Search role...'}
+                  value={roleQuery}
+                  disabled={isSubmitting || !!selectedActor}
+                  onChange={(e) => setRoleQuery(e.target.value)}
+                />
+                {!selectedActor && (
+                  <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
+                    {roleFiltered.map(r => (
+                      <div key={r} className="px-2 py-1 selectable-item" style={{ cursor: 'pointer' }} onClick={() => setRoleQuery(r)}>{r}</div>
+                    ))}
+                    {roleFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
+                  </div>
+                )}
+                <input type="hidden" name="actorRole" value={roleQuery || (selectedActor?.roles[0] || '')} />
+              </Form.Group>
+
+              <Form.Group>
                 <Form.Label>Department</Form.Label>
                 <Form.Control
-                  name="departmentId"
-                  placeholder={queueItem?.departmentId ?? "Department identifier"}
-                  disabled={isSubmitting}
+                  type="text"
+                  placeholder={selectedActor ? selectedActor.departments.join(', ') : 'Search department...'}
+                  value={deptQuery}
+                  disabled={isSubmitting || !!selectedActor}
+                  onChange={(e) => setDeptQuery(e.target.value)}
                 />
+                {!selectedActor && (
+                  <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
+                    {deptFiltered.map(d => (
+                      <div key={d} className="px-2 py-1 selectable-item" style={{ cursor: 'pointer' }} onClick={() => setDeptQuery(d)}>{d}</div>
+                    ))}
+                    {deptFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
+                  </div>
+                )}
+                <input type="hidden" name="departmentId" value={deptQuery || (selectedActor?.departments[0] || queueItem?.departmentId || '')} />
               </Form.Group>
+
               <Form.Group controlId="note">
                 <Form.Label>Note</Form.Label>
                 <Form.Control
@@ -527,9 +657,7 @@ function TransitionModal({
           <Button variant="secondary" onClick={onHide} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" variant="success" disabled={isSubmitting || nextStatuses.length === 0}>
-            {isSubmitting ? <Spinner animation="border" size="sm" /> : "Transition"}
-          </Button>
+          <Button type="submit" variant="success" disabled={isSubmitting || nextStatuses.length === 0 || !selectedActor}>{isSubmitting ? <Spinner animation="border" size="sm" /> : "Transition"}</Button>
         </Modal.Footer>
       </Form>
     </Modal>
@@ -602,6 +730,99 @@ function TimelineModal({
           Close
         </Button>
       </Modal.Footer>
+    </Modal>
+  );
+}
+
+function AdvanceAssignModal({
+  show,
+  onHide,
+  queueItem,
+  isSubmitting,
+  error,
+  onSubmit
+}: { show: boolean; onHide: () => void; queueItem: QueueSummary | null; isSubmitting: boolean; error: string | null; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; }) {
+  const staffQueryResult = useStaffDirectory(show);
+  const staffData: StaffDirectoryEntry[] = staffQueryResult.data || [];
+  const [staffQuery, setStaffQuery] = useState('');
+  const [selectedStaff, setSelectedStaff] = useState<StaffDirectoryEntry | null>(null);
+  const [roleQuery, setRoleQuery] = useState('');
+  const [deptQuery, setDeptQuery] = useState('');
+  const staffFiltered = useMemo(() => {
+    const q = staffQuery.toLowerCase();
+    return staffData.filter(s => s.username.toLowerCase().includes(q) || s.displayName.toLowerCase().includes(q));
+  }, [staffQuery, staffData]);
+  const roleOptions = selectedStaff ? selectedStaff.roles : Array.from(new Set(staffData.flatMap(s => s.roles)));
+  const deptOptions = selectedStaff ? selectedStaff.departments : Array.from(new Set(staffData.flatMap(s => s.departments)));
+  const roleFiltered = useMemo(() => roleOptions.filter(r => r.toLowerCase().includes(roleQuery.toLowerCase())), [roleOptions, roleQuery]);
+  const deptFiltered = useMemo(() => deptOptions.filter(d => d.toLowerCase().includes(deptQuery.toLowerCase())), [deptOptions, deptQuery]);
+  const nextStatuses: QueueStatus[] = queueItem ? (allowedTransitions[queueItem.status] || []) : [];
+  return (
+    <Modal show={show} onHide={onHide} centered>
+      <Form onSubmit={onSubmit}>
+        <Modal.Header closeButton>
+          <Modal.Title>Advance & Assign</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="d-flex flex-column gap-3">
+          {queueItem && (
+            <div className="bg-light rounded p-3">
+              <div className="fw-semibold">{queueItem.ticketNumber}</div>
+              <small className="text-muted">Current: {statusLabels[queueItem.status]}</small>
+            </div>
+          )}
+          {error && <Alert variant="danger" className="mb-0">{error}</Alert>}
+          <Form.Group controlId="targetStatus">
+            <Form.Label>Next status</Form.Label>
+            <Form.Select name="targetStatus" defaultValue={nextStatuses[0] || ''} required disabled={isSubmitting}>
+              {nextStatuses.map(s => <option key={s} value={s}>{statusLabels[s as QueueStatus]}</option>)}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Assignee</Form.Label>
+            <Form.Control type="text" placeholder="Search staff..." value={staffQuery} disabled={isSubmitting} onChange={e => { setStaffQuery(e.target.value); setSelectedStaff(null); }} />
+            <div className="border rounded mt-1" style={{ maxHeight:140, overflowY:'auto' }}>
+              {staffFiltered.map(s => (
+                <div key={s.id} className={`px-2 py-1 selectable-item${selectedStaff?.id===s.id?' bg-light':''}`} style={{ cursor:'pointer' }} onClick={() => { setSelectedStaff(s); setStaffQuery(s.displayName); setRoleQuery(s.roles[0]||''); setDeptQuery(s.departments[0]||''); }}>
+                  <strong>{s.displayName}</strong> <span className="text-muted small">({s.username})</span>
+                </div>
+              ))}
+              {staffFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
+            </div>
+            <input type="hidden" name="assigneeId" value={selectedStaff?.username || ''} required />
+            <input type="hidden" name="assigneeDisplayName" value={selectedStaff?.displayName || ''} />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Role</Form.Label>
+            <Form.Control type="text" placeholder={selectedStaff ? selectedStaff.roles.join(', ') : 'Search role...'} value={roleQuery} onChange={e => setRoleQuery(e.target.value)} disabled={isSubmitting || !!selectedStaff} />
+            {!selectedStaff && (
+              <div className="border rounded mt-1" style={{ maxHeight:110, overflowY:'auto' }}>
+                {roleFiltered.map(r => <div key={r} className="px-2 py-1 selectable-item" style={{ cursor:'pointer' }} onClick={() => setRoleQuery(r)}>{r}</div>)}
+                {roleFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
+              </div>
+            )}
+            <input type="hidden" name="assigneeRole" value={roleQuery || (selectedStaff?.roles[0] || '')} />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Department</Form.Label>
+            <Form.Control type="text" placeholder={selectedStaff ? selectedStaff.departments.join(', ') : 'Search department...'} value={deptQuery} onChange={e => setDeptQuery(e.target.value)} disabled={isSubmitting || !!selectedStaff} />
+            {!selectedStaff && (
+              <div className="border rounded mt-1" style={{ maxHeight:110, overflowY:'auto' }}>
+                {deptFiltered.map(d => <div key={d} className="px-2 py-1 selectable-item" style={{ cursor:'pointer' }} onClick={() => setDeptQuery(d)}>{d}</div>)}
+                {deptFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
+              </div>
+            )}
+            <input type="hidden" name="departmentId" value={deptQuery || (selectedStaff?.departments[0] || queueItem?.departmentId || '')} />
+          </Form.Group>
+          <Form.Group controlId="note">
+            <Form.Label>Note</Form.Label>
+            <Form.Control as="textarea" name="note" rows={3} placeholder="Optional note" disabled={isSubmitting} />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={onHide} disabled={isSubmitting}>Cancel</Button>
+          <Button type="submit" variant="primary" disabled={isSubmitting || !selectedStaff}>{isSubmitting ? <Spinner animation='border' size='sm' /> : 'Advance & Assign'}</Button>
+        </Modal.Footer>
+      </Form>
     </Modal>
   );
 }

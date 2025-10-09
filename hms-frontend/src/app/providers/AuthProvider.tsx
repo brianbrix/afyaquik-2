@@ -227,8 +227,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const response = await loginRequest(tenantId, credentials);
         const normalizedUser = normalizeUser(response.user);
+        // Prefer tenant from profile (authoritative) over user-entered tenantId
+        const resolvedTenant = normalizedUser.tenantId ?? tenantId;
         const session: StoredSession = {
-          tenantId,
+          tenantId: resolvedTenant,
           accessToken: response.accessToken,
           refreshToken: response.refreshToken,
           accessTokenExpiresAt: Date.now() + response.accessTokenExpiresIn * 1000,

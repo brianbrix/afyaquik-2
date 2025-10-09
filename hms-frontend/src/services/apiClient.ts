@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
-export const DEFAULT_TENANT_ID = import.meta.env.VITE_TENANT_ID ?? "tenantA";
+export const DEFAULT_TENANT_ID = import.meta.env.VITE_TENANT_ID ?? ""; // no implicit tenant
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -10,11 +10,15 @@ export const apiClient = axios.create({
   }
 });
 
-let currentTenantId = DEFAULT_TENANT_ID;
+let currentTenantId = "";
 
-export function setTenantHeader(tenantId: string) {
-  currentTenantId = tenantId;
-  apiClient.defaults.headers.common["X-Tenant-Id"] = tenantId;
+export function setTenantHeader(tenantId: string | null) {
+  currentTenantId = tenantId ?? "";
+  if (tenantId && tenantId.trim()) {
+    apiClient.defaults.headers.common["X-Tenant-Id"] = tenantId.trim();
+  } else {
+    delete apiClient.defaults.headers.common["X-Tenant-Id"];
+  }
 }
 
 export function getTenantHeader() {
@@ -29,4 +33,4 @@ export function setAuthToken(token: string | null) {
   }
 }
 
-setTenantHeader(DEFAULT_TENANT_ID);
+// Intentionally do not set a tenant header by default; it will be applied after successful login.

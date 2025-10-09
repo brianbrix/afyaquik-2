@@ -25,6 +25,12 @@ public abstract class BaseEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
@@ -55,5 +61,20 @@ public abstract class BaseEntity {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void softDelete() {
+        if (!this.deleted) {
+            this.deleted = true;
+            this.deletedAt = Instant.now();
+        }
     }
 }

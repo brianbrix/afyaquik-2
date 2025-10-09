@@ -24,7 +24,7 @@ describe("authApi", () => {
     mock.onPost("/api/v1/auth/login").reply((config) => {
       expect(config.headers?.["X-Tenant-Id"]).toBe("tenantA");
       expect(JSON.parse(config.data)).toEqual({ username: "demo", password: "pass" });
-      return [200, {
+      return [200, { status: "OK", data: {
         accessToken: "access-token",
         accessTokenExpiresIn: 900,
         refreshToken: "refresh-token",
@@ -36,7 +36,7 @@ describe("authApi", () => {
           tenantId: "tenantA",
           roles: ["provider"]
         }
-      }];
+      }}];
     });
 
     const response = await login("tenantA", { username: "demo", password: "pass" });
@@ -49,7 +49,7 @@ describe("authApi", () => {
     mock.onPost("/api/v1/auth/refresh").reply((config) => {
       expect(config.headers?.["X-Tenant-Id"]).toBe("tenantA");
       expect(JSON.parse(config.data)).toEqual({ refreshToken: "refresh-token" });
-      return [200, { accessToken: "new-access", accessTokenExpiresIn: 900 }];
+  return [200, { status: "OK", data: { accessToken: "new-access", accessTokenExpiresIn: 900 } }];
     });
 
     const response = await refreshAccessToken("tenantA", "refresh-token");
@@ -58,13 +58,13 @@ describe("authApi", () => {
   });
 
   it("fetches current profile", async () => {
-    mock.onGet("/api/v1/auth/me").reply(200, {
+    mock.onGet("/api/v1/auth/me").reply(200, { status: "OK", data: {
       id: 1,
       username: "demo",
       displayName: "Demo User",
       tenantId: "tenantA",
       roles: ["provider"]
-    });
+    }});
 
     const profile = await fetchProfile();
 
