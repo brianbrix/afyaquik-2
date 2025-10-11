@@ -17,6 +17,13 @@ import java.util.Set;
         @UniqueConstraint(name = "uk_staff_user_tenant_username", columnNames = {"tenant_id", "username"})
 })
 public class StaffUser extends BaseEntity {
+    @ManyToMany(mappedBy = "members")
+    private Set<UserGroup> groups = new HashSet<>();
+
+    public Set<UserGroup> getGroups() { return groups; }
+    public void setGroups(Set<UserGroup> groups) { this.groups = groups; }
+    public void addGroup(UserGroup group) { this.groups.add(group); }
+    public void removeGroup(UserGroup group) { this.groups.remove(group); }
 
     @Column(name = "username", nullable = false, length = 64)
     private String username;

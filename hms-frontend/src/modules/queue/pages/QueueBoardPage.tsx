@@ -123,6 +123,7 @@ function QueueStatusBadge({ status }: { status: QueueStatus }) {
 }
 
 export function QueueBoardPage() {
+  const { user } = useAuth();
   const [selectedStatus, setSelectedStatus] = useState<QueueStatus>("PENDING_CHECKIN");
   const [searchValue, setSearchValue] = useState("");
   const [activeItem, setActiveItem] = useState<QueueSummary | null>(null);
@@ -138,6 +139,13 @@ export function QueueBoardPage() {
   const timelineQuery = useQueueTimeline(
     modalType === "timeline" && activeItem ? activeItem.id : null
   );
+
+  // Refetch queue list whenever the authenticated user changes
+  React.useEffect(() => {
+    if (user) {
+      queueQuery.refetch();
+    }
+  }, [user]);
 
   const filteredItems = useMemo(() => {
     const items = Array.isArray(queueQuery.data) ? queueQuery.data : [];

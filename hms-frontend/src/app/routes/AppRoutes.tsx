@@ -1,3 +1,4 @@
+import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { DashboardPage } from "../../modules/dashboard";
 import { QueueBoardPage } from "../../modules/queue";
@@ -12,6 +13,7 @@ import { RoleListWithFormDemo } from "../../components/admin/RoleList";
 import { DepartmentTable } from "../../components/admin/DepartmentTable";
 import { RoleRedirectUrlTable } from "../../components/admin/RoleRedirectUrlTable";
 import { DynamicFormPage } from "../../components/admin/DynamicFormPage";
+import { AdminUserGroupsPage } from "../../modules/admin/pages/AdminUserGroupsPage";
 
 export function AppRoutes() {
   return (
@@ -28,6 +30,7 @@ export function AppRoutes() {
           <Route index element={<Navigate to="users" replace />} />
           <Route path="users" element={<UserDirectory />} />
           <Route path="roles" element={<RoleListWithFormDemo />} />
+          <Route path="user-groups" element={<AdminUserGroupsPage />} />
           <Route path="role-redirects" element={<RoleRedirectUrlTable />} />
           <Route path="departments" element={<DepartmentTable />} />
           <Route path="forms/:formKey" element={<DynamicFormPage />} />
