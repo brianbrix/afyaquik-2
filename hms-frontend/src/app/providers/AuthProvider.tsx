@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode
 } from "react";
+import { fetchRoleRedirects, RoleRedirectUrl } from "../../services/roleRedirectApi";
 import { DEFAULT_TENANT_ID, setAuthToken, setTenantHeader } from "../../services/apiClient";
 import {
   fetchProfile,
@@ -15,7 +16,7 @@ import {
   type LoginResponse,
   type UserProfile
 } from "../../services/authApi";
-import { isRoleKey, type RoleKey } from "../../types/roles";
+
 
 export const AUTH_SESSION_STORAGE_KEY = "afyaquik.hms.session";
 const ACCESS_REFRESH_BUFFER_MS = 60_000; // refresh 60s before expiry when possible
@@ -50,7 +51,7 @@ type AuthContextValue = {
   isInitializing: boolean;
   isAuthenticating: boolean;
   authError: string | null;
-  login: (tenantId: string, credentials: Credentials) => Promise<void>;
+  login: (tenantId: string, credentials: Credentials) => Promise<{ roleRedirects: RoleRedirectUrl[] } | void>;
   logout: () => void;
   clearError: () => void;
   ensureFreshAccessToken: () => Promise<string | null>;
@@ -151,16 +152,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applySession, clearRefreshTimer, resetSession]
   );
 
+  // No static role normalization; use backend-provided roles as-is
   const normalizeUser = useCallback((user: LoginResponse["user"] | UserProfile): UserProfile => {
-    const normalizedRoles = (user.roles ?? [])
-      .map((role) => role.toLowerCase())
-      .filter((role): role is RoleKey => isRoleKey(role));
-
-    const roles: RoleKey[] = normalizedRoles.length > 0 ? normalizedRoles : ["provider"];
-
     return {
       ...user,
-      roles
+      roles: (user.roles ?? [])
     };
   }, []);
 
@@ -239,6 +235,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         applySession(session);
         scheduleRefresh(session);
+        // Fetch per-role redirect URLs after login
+        const roleRedirects = await fetchRoleRedirects();
+        return { roleRedirects };
       } catch (error) {
         console.error("Login failed", error);
         setAuthError("Invalid credentials or tenant");

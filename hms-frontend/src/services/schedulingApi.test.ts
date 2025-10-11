@@ -45,7 +45,7 @@ describe("schedulingApi", () => {
 	it("creates a staff shift", async () => {
 		const payload = {
 			staffUserId: 5,
-			roleKey: "provider",
+			roleKey: "PROVIDER",
 			departmentId: "OPD",
 			shiftType: "MORNING" as const,
 			startsAt: "2025-10-09T08:00:00Z",

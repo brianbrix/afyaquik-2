@@ -43,9 +43,13 @@ public class SecurityConfig {
             // Allow websocket handshake + SockJS info/endpoints (authentication will be enforced at message level if needed)
             .requestMatchers("/ws/**").permitAll()
             .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+            // Allow any authenticated user to access queue endpoints
+            .requestMatchers("/api/v1/queue/**").authenticated()
             // Allow unauthenticated access to theme (branding on login page); keep features authenticated
             .requestMatchers(HttpMethod.GET, "/api/v1/config/theme").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/config/features").authenticated()
+            // Allow any authenticated user to get role redirects
+            .requestMatchers(HttpMethod.GET, "/api/v1/config/role-redirects", "/api/v1/config/role-redirects/**").authenticated()
             // Staff directory (assignment UI) - authenticated users
             .requestMatchers(HttpMethod.GET, "/api/v1/directory/staff").authenticated()
             // Allow authenticated access to reference data endpoints

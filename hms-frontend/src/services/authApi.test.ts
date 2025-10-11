@@ -34,7 +34,7 @@ describe("authApi", () => {
           username: "demo",
           displayName: "Demo User",
           tenantId: "tenantA",
-          roles: ["provider"]
+          roles: ["PROVIDER"]
         }
       }}];
     });
@@ -63,7 +63,7 @@ describe("authApi", () => {
       username: "demo",
       displayName: "Demo User",
       tenantId: "tenantA",
-      roles: ["provider"]
+  roles: ["PROVIDER"]
     }});
 
     const profile = await fetchProfile();
@@ -72,7 +72,7 @@ describe("authApi", () => {
   });
 
   it("fetches current active role", async () => {
-    mock.onGet("/api/v1/auth/active-role").reply(200, { role: "provider" });
+  mock.onGet("/api/v1/auth/active-role").reply(200, { role: "PROVIDER" });
 
     const role = await fetchActiveRole();
 
@@ -88,10 +88,10 @@ describe("authApi", () => {
   });
 
   it("persists selected active role", async () => {
-    mock.onPost("/api/v1/auth/active-role", { role: "triage" }).reply(200, { role: "triage" });
+  mock.onPost("/api/v1/auth/active-role", { role: "TRIAGE" }).reply(200, { role: "TRIAGE" });
 
-    const role = await updateActiveRole("triage");
+  const role = await updateActiveRole("TRIAGE");
 
-    expect(role).toBe("triage");
+  expect(role).toBe("TRIAGE");
   });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { fetchRoleRedirects, RoleRedirectUrl } from "../../../services/roleRedirectApi";
 import { Alert, Button, Card, Col, Container, Form, Row, Spinner } from "react-bootstrap";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { DEFAULT_TENANT_ID } from "../../../services/apiClient";
@@ -42,8 +43,26 @@ export function LoginPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
-      await login(tenantId.trim(), { username: username.trim(), password });
-      navigate(redirectPath, { replace: true });
+      const loginResult = await login(tenantId.trim(), { username: username.trim(), password });
+      // Determine redirect path based on role and backend config
+      let finalRedirect = redirectPath;
+      if (loginResult && loginResult.roleRedirects) {
+        // Get user roles from session storage (set by AuthProvider)
+        const sessionRaw = window.localStorage.getItem("afyaquik.hms.session");
+        let userRoles: string[] = [];
+        if (sessionRaw) {
+          try {
+            const session = JSON.parse(sessionRaw);
+            userRoles = session.user?.roles ?? [];
+          } catch {}
+        }
+        // Find the first matching role with a redirect URL
+        const match = loginResult.roleRedirects.find(r => userRoles.includes(r.roleKey));
+        if (match && match.redirectUrl) {
+          finalRedirect = match.redirectUrl;
+        }
+      }
+      navigate(finalRedirect, { replace: true });
     } catch (error) {
       // error handled in provider
     }

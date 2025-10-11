@@ -5,13 +5,16 @@ import com.afyaquik.hms.common.web.TenantHeaderResolver;
 import com.afyaquik.hms.configuration.domain.FeatureFlag;
 import com.afyaquik.hms.configuration.domain.FormDefinition;
 import com.afyaquik.hms.configuration.domain.TenantTheme;
+import com.afyaquik.hms.configuration.domain.RoleRedirectUrl;
 import com.afyaquik.hms.configuration.service.FeatureFlagService;
 import com.afyaquik.hms.configuration.service.FormDefinitionService;
 import com.afyaquik.hms.configuration.service.TenantThemeService;
+import com.afyaquik.hms.configuration.service.RoleRedirectUrlService;
 import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,11 +26,47 @@ public class ConfigController {
     private final FeatureFlagService featureFlagService;
     private final FormDefinitionService formService;
     private final TenantThemeService themeService;
+    private final RoleRedirectUrlService roleRedirectUrlService;
 
-    public ConfigController(FeatureFlagService featureFlagService, FormDefinitionService formService, TenantThemeService themeService) {
+    public ConfigController(FeatureFlagService featureFlagService, FormDefinitionService formService, TenantThemeService themeService, RoleRedirectUrlService roleRedirectUrlService) {
         this.featureFlagService = featureFlagService;
         this.formService = formService;
         this.themeService = themeService;
+        this.roleRedirectUrlService = roleRedirectUrlService;
+    }
+    // ----- Role Redirect URLs -----
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/role-redirects")
+    public ApiResponse<List<RoleRedirectUrl>> listRoleRedirects(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader) {
+        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+        return ApiResponse.success(roleRedirectUrlService.getAllForTenant(tenantId));
+    }
+
+    @GetMapping("/role-redirects/{roleKey}")
+    public ApiResponse<RoleRedirectUrl> getRoleRedirect(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
+                                                       @PathVariable("roleKey") String roleKey) {
+        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+        return roleRedirectUrlService.getByTenantAndRole(tenantId, roleKey)
+                .map(ApiResponse::success)
+                .orElse(ApiResponse.error("Role redirect not found"));
+    }
+
+    record RoleRedirectUrlRequest(@NotBlank String roleKey, @NotBlank String redirectUrl) {}
+
+    @PostMapping(value = "/role-redirects", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ApiResponse<RoleRedirectUrl> upsertRoleRedirect(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
+                                                          @RequestBody RoleRedirectUrlRequest request) {
+        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+        RoleRedirectUrl saved = roleRedirectUrlService.saveOrUpdate(tenantId, request.roleKey(), request.redirectUrl());
+        return ApiResponse.success(saved);
+    }
+
+    @DeleteMapping("/role-redirects/{roleKey}")
+    public ApiResponse<Void> deleteRoleRedirect(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
+                                               @PathVariable("roleKey") String roleKey) {
+        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+        roleRedirectUrlService.delete(tenantId, roleKey);
+        return ApiResponse.success(null);
     }
 
     // ----- Feature Flags -----

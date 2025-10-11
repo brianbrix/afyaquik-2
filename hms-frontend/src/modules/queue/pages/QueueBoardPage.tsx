@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Badge,
@@ -21,6 +21,7 @@ import type {
   QueueTimelineEntry
 } from "../../../types/queue";
 import { useRoleContext } from "../../../hooks/useRoleContext";
+import { useAuth } from "../../../hooks/useAuth";
 import { useStaffDirectory } from '../../../services/staffDirectoryApi';
 
 // --- Temporary static option sources (TODO: replace with backend directory endpoints) ---
@@ -296,7 +297,7 @@ export function QueueBoardPage() {
                       <td>{item.visitReason}</td>
                       <td><QueueStatusBadge status={item.status} /></td>
                       <td><Badge bg={priorityVariant(item.priority)}>{item.priority}</Badge></td>
-                      <td>{item.currentAssigneeId ?? "Unassigned"}</td>
+                      <td>{item.currentAssigneeUsername || item.currentAssigneeId || "Unassigned"}</td>
                       <td>{item.departmentId ?? "—"}</td>
                       <td>{formatDateTime(item.createdAt)}</td>
                       <td>{formatDateTime(item.slaDueAt)}</td>
@@ -400,6 +401,7 @@ export function QueueBoardPage() {
   );
 }
 
+
 function AssignModal({
   show,
   onHide,
@@ -414,6 +416,25 @@ function AssignModal({
   const [selectedStaff, setSelectedStaff] = useState<StaffDirectoryEntry | null>(null);
   const [roleQuery, setRoleQuery] = useState("");
   const [deptQuery, setDeptQuery] = useState("");
+  const { user } = useAuth();
+
+  // Always pre-select current user and their primary role when modal opens
+  React.useEffect(() => {
+    if (show && user) {
+      const staff = staffData.find(s => s.username === user.username);
+      if (staff) {
+        setSelectedStaff(staff);
+        setStaffQuery(staff.displayName);
+        setRoleQuery(staff.roles[0] || '');
+        setDeptQuery(staff.departments[0] || '');
+      }
+    } else if (!show) {
+      setSelectedStaff(null);
+      setStaffQuery("");
+      setRoleQuery("");
+      setDeptQuery("");
+    }
+  }, [show, user, staffData]);
 
   const staffFiltered = useMemo(() => {
     const q = staffQuery.toLowerCase();
@@ -458,7 +479,7 @@ function AssignModal({
               ))}
               {staffFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
             </div>
-            <input type="hidden" name="assigneeId" value={selectedStaff?.id || ''} required />
+              <input type="hidden" name="assigneeId" value={selectedStaff?.username || ''} required />
             <input type="hidden" name="assigneeDisplayName" value={selectedStaff?.displayName || ''} />
           </Form.Group>
 
@@ -531,6 +552,25 @@ function TransitionModal({
   const [selectedActor, setSelectedActor] = useState<StaffDirectoryEntry | null>(null);
   const [roleQuery, setRoleQuery] = useState("");
   const [deptQuery, setDeptQuery] = useState("");
+  const { user } = useAuth();
+
+  // Always pre-select current user and their primary role when modal opens
+  React.useEffect(() => {
+    if (show && user) {
+      const staff = staffData.find(s => s.username === user.username);
+      if (staff) {
+        setSelectedActor(staff);
+        setActorQuery(staff.displayName);
+        setRoleQuery(staff.roles[0] || '');
+        setDeptQuery(staff.departments[0] || '');
+      }
+    } else if (!show) {
+      setSelectedActor(null);
+      setActorQuery("");
+      setRoleQuery("");
+      setDeptQuery("");
+    }
+  }, [show, user, staffData]);
 
   const staffFiltered = useMemo(() => {
     const q = actorQuery.toLowerCase();
@@ -748,6 +788,25 @@ function AdvanceAssignModal({
   const [selectedStaff, setSelectedStaff] = useState<StaffDirectoryEntry | null>(null);
   const [roleQuery, setRoleQuery] = useState('');
   const [deptQuery, setDeptQuery] = useState('');
+  const { user } = useAuth();
+
+  // Always pre-select current user and their primary role when modal opens
+  React.useEffect(() => {
+    if (show && user) {
+      const staff = staffData.find(s => s.username === user.username);
+      if (staff) {
+        setSelectedStaff(staff);
+        setStaffQuery(staff.displayName);
+        setRoleQuery(staff.roles[0] || '');
+        setDeptQuery(staff.departments[0] || '');
+      }
+    } else if (!show) {
+      setSelectedStaff(null);
+      setStaffQuery("");
+      setRoleQuery("");
+      setDeptQuery("");
+    }
+  }, [show, user, staffData]);
   const staffFiltered = useMemo(() => {
     const q = staffQuery.toLowerCase();
     return staffData.filter(s => s.username.toLowerCase().includes(q) || s.displayName.toLowerCase().includes(q));
@@ -788,7 +847,7 @@ function AdvanceAssignModal({
               ))}
               {staffFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
             </div>
-            <input type="hidden" name="assigneeId" value={selectedStaff?.username || ''} required />
+              <input type="hidden" name="assigneeId" value={selectedStaff?.username || ''} required />
             <input type="hidden" name="assigneeDisplayName" value={selectedStaff?.displayName || ''} />
           </Form.Group>
           <Form.Group>

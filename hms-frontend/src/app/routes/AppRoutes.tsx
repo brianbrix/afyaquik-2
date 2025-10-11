@@ -10,6 +10,7 @@ import { AdminLayout } from "../../components/admin/AdminLayout";
 import { UserDirectory } from "../../components/admin/UserDirectory";
 import { RoleListWithFormDemo } from "../../components/admin/RoleList";
 import { DepartmentTable } from "../../components/admin/DepartmentTable";
+import { RoleRedirectUrlTable } from "../../components/admin/RoleRedirectUrlTable";
 import { DynamicFormPage } from "../../components/admin/DynamicFormPage";
 
 export function AppRoutes() {
@@ -23,10 +24,11 @@ export function AppRoutes() {
         <Route path="/patients" element={<PatientsPage />} />
         <Route path="/scheduling" element={<SchedulingCalendarPage />} />
         <Route path="/reports" element={<ReportsPage />} />
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="users" replace />} />
           <Route path="users" element={<UserDirectory />} />
           <Route path="roles" element={<RoleListWithFormDemo />} />
+          <Route path="role-redirects" element={<RoleRedirectUrlTable />} />
           <Route path="departments" element={<DepartmentTable />} />
           <Route path="forms/:formKey" element={<DynamicFormPage />} />
         </Route>

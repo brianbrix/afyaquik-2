@@ -32,7 +32,7 @@ public class StaffDirectoryController {
             @RequestParam(name = "q", required = false) String q) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
         String query = q == null ? null : q.trim().toLowerCase(Locale.ROOT);
-        Stream<StaffUser> stream = staffUserRepository.findByTenantId(tenantId).stream().filter(StaffUser::isEnabled);
+    Stream<StaffUser> stream = staffUserRepository.findByTenantIdWithDepartments(tenantId).stream().filter(StaffUser::isEnabled);
         if (query != null && !query.isBlank()) {
             stream = stream.filter(u -> u.getUsername().toLowerCase(Locale.ROOT).contains(query) ||
                     u.getDisplayName().toLowerCase(Locale.ROOT).contains(query));
@@ -42,7 +42,7 @@ public class StaffDirectoryController {
             u.getId(),
             u.getUsername(),
             u.getDisplayName(),
-            u.getRoles().stream().map(r -> r.getRoleKey()).sorted().toList(),
+            u.getRoles().stream().map(r -> r.getRoleKey() == null ? null : r.getRoleKey().toUpperCase()).sorted().toList(),
             u.getDepartments().stream().map(d -> d.getDepartmentId()).sorted().toList()
         ))
                 .sorted((a,b) -> a.displayName.compareToIgnoreCase(b.displayName))

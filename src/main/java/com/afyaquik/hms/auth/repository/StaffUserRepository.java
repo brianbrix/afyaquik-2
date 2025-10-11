@@ -1,3 +1,7 @@
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+    @Query("SELECT u FROM StaffUser u LEFT JOIN FETCH u.departments WHERE u.tenantId = :tenantId")
+    List<StaffUser> findByTenantIdWithDepartments(@Param("tenantId") String tenantId);
 package com.afyaquik.hms.auth.repository;
 
 import com.afyaquik.hms.auth.domain.StaffUser;
@@ -13,4 +17,6 @@ public interface StaffUserRepository extends JpaRepository<StaffUser, Long> {
 
     @EntityGraph(attributePaths = "roles")
     List<StaffUser> findByTenantId(String tenantId);
+    @Query("SELECT u FROM StaffUser u LEFT JOIN FETCH u.departments WHERE u.tenantId = :tenantId")
+    List<StaffUser> findByTenantIdWithDepartments(@Param("tenantId") String tenantId);
 }

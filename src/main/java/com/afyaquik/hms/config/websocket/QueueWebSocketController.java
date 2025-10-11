@@ -7,7 +7,6 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.annotation.SendToUser;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Controller;
  * SimpleBroker and templates for broadcasting.
  */
 @Controller
-@PreAuthorize("hasAnyRole('RECEPTION','TRIAGE','PROVIDER','PHARMACY','BILLING','ADMIN')")
 public class QueueWebSocketController {
 
     private final QueueService queueService;

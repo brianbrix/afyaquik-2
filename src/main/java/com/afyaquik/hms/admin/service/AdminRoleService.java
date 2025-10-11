@@ -30,12 +30,13 @@ public class AdminRoleService {
     }
 
     public RoleDto create(String tenantId, CreateRoleRequest req) {
-        roleRepository.findByTenantIdAndRoleKey(tenantId, req.roleKey()).ifPresent(r -> {
+        String upperRoleKey = req.roleKey() == null ? null : req.roleKey().toUpperCase();
+        roleRepository.findByTenantIdAndRoleKey(tenantId, upperRoleKey).ifPresent(r -> {
             throw new IllegalArgumentException("Role key already exists");
         });
         StaffRole role = new StaffRole();
         role.setTenantId(tenantId);
-        role.setRoleKey(req.roleKey());
+        role.setRoleKey(upperRoleKey);
         role.setDisplayName(req.displayName());
         return mapper.toDto(roleRepository.save(role));
     }

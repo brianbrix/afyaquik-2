@@ -53,7 +53,7 @@ describe("queueApi", () => {
     const payload = {
       assigneeId: "nurse-1",
       assigneeDisplayName: "Nurse One",
-      assigneeRole: "triage",
+  assigneeRole: "TRIAGE",
       departmentId: "TRIAGE",
       note: "Taking over"
     };
@@ -85,7 +85,7 @@ describe("queueApi", () => {
     const payload = {
       targetStatus: "IN_CONSULT" as QueueStatus,
       actorId: "provider-1",
-      actorRole: "provider",
+  actorRole: "PROVIDER",
       actorDisplayName: "Dr. Smith",
       note: "Calling patient"
     };
@@ -121,7 +121,7 @@ describe("queueApi", () => {
         fromStatus: null,
         toStatus: "PENDING_CHECKIN",
         actorId: "reception-1",
-        actorRole: "reception",
+  actorRole: "RECEPTION",
         actorDisplayName: "Reception Team",
         note: "Patient arrived",
         departmentId: "REG",

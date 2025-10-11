@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import com.afyaquik.hms.configuration.service.FormDefinitionService;
+import com.afyaquik.hms.configuration.service.RoleRedirectUrlService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -46,6 +47,7 @@ public class DemoDataInitializer implements CommandLineRunner {
     private final VisitQueueItemRepository visitQueueItemRepository;
     private final QueueService queueService;
     private final FormDefinitionService formDefinitionService;
+    private final RoleRedirectUrlService roleRedirectUrlService;
 
     public DemoDataInitializer(
             PasswordEncoder passwordEncoder,
@@ -56,7 +58,8 @@ public class DemoDataInitializer implements CommandLineRunner {
             FormDefinitionService formDefinitionService,
             PatientRepository patientRepository,
             VisitQueueItemRepository visitQueueItemRepository,
-            QueueService queueService) {
+            QueueService queueService,
+            RoleRedirectUrlService roleRedirectUrlService) {
         this.passwordEncoder = passwordEncoder;
         this.staffRoleRepository = staffRoleRepository;
         this.staffUserRepository = staffUserRepository;
@@ -66,6 +69,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         this.patientRepository = patientRepository;
         this.visitQueueItemRepository = visitQueueItemRepository;
         this.queueService = queueService;
+        this.roleRedirectUrlService = roleRedirectUrlService;
     }
 
     @Override
@@ -76,10 +80,17 @@ public class DemoDataInitializer implements CommandLineRunner {
     }
 
     private void seedTenant(String tenantId) {
-    StaffRole adminRole = ensureRole(tenantId, "admin", "Administrator");
-    StaffRole doctorRole = ensureRole(tenantId, "doctor", "Doctor");
-        StaffRole nurseRole = ensureRole(tenantId, "nurse", "Nurse");
-        StaffRole receptionistRole = ensureRole(tenantId, "reception", "Front Desk");
+        StaffRole adminRole = ensureRole(tenantId, "ADMIN", "Administrator");
+        StaffRole doctorRole = ensureRole(tenantId, "DOCTOR", "Doctor");
+        StaffRole nurseRole = ensureRole(tenantId, "NURSE", "Nurse");
+    // Seed default role redirect URLs for all common roles
+    roleRedirectUrlService.saveOrUpdate(tenantId, "ADMIN", "/admin");
+    roleRedirectUrlService.saveOrUpdate(tenantId, "DOCTOR", "/provider");
+    roleRedirectUrlService.saveOrUpdate(tenantId, "NURSE", "/nurse");
+    roleRedirectUrlService.saveOrUpdate(tenantId, "RECEPTION", "/queue");
+    roleRedirectUrlService.saveOrUpdate(tenantId, "LAB", "/lab");
+    roleRedirectUrlService.saveOrUpdate(tenantId, "PHARMACY", "/pharmacy");
+    StaffRole receptionistRole = ensureRole(tenantId, "RECEPTION", "Front Desk");
 
         ensureUser(
                     tenantId,
@@ -209,10 +220,10 @@ public class DemoDataInitializer implements CommandLineRunner {
 
         // Advance & assign first two to show different workflow states
         try {
-            queueService.advanceAndAssign(tenantId, visitQueueItemRepository.findFirstByTenantIdAndPatientIdOrderByCreatedAtDesc(tenantId, p1.getId()).get().getId(),
-                    "IN_REGISTRATION", new QueueAssignmentRequest(receptionist.getUsername(), receptionist.getDisplayName(), "reception", "front_office", "Initial registration"));
-            queueService.advanceAndAssign(tenantId, visitQueueItemRepository.findFirstByTenantIdAndPatientIdOrderByCreatedAtDesc(tenantId, p2.getId()).get().getId(),
-                    "IN_REGISTRATION", new QueueAssignmentRequest(receptionist.getUsername(), receptionist.getDisplayName(), "reception", "front_office", "Urgent registration"));
+        queueService.advanceAndAssign(tenantId, visitQueueItemRepository.findFirstByTenantIdAndPatientIdOrderByCreatedAtDesc(tenantId, p1.getId()).get().getId(),
+            "IN_REGISTRATION", new QueueAssignmentRequest(receptionist.getUsername(), receptionist.getDisplayName(), "RECEPTION", "front_office", "Initial registration"));
+        queueService.advanceAndAssign(tenantId, visitQueueItemRepository.findFirstByTenantIdAndPatientIdOrderByCreatedAtDesc(tenantId, p2.getId()).get().getId(),
+            "IN_REGISTRATION", new QueueAssignmentRequest(receptionist.getUsername(), receptionist.getDisplayName(), "RECEPTION", "front_office", "Urgent registration"));
         } catch (Exception e) {
             log.warn("Failed to advance & assign demo queue items for tenant {}: {}", tenantId, e.getMessage());
         }
@@ -270,12 +281,13 @@ public class DemoDataInitializer implements CommandLineRunner {
     }
     
     private StaffRole ensureRole(String tenantId, String key, String displayName) {
+        String upperKey = key == null ? null : key.toUpperCase();
         return staffRoleRepository
-                .findByTenantIdAndRoleKey(tenantId, key)
+                .findByTenantIdAndRoleKey(tenantId, upperKey)
                 .orElseGet(() -> {
                     StaffRole role = new StaffRole();
                     role.setTenantId(tenantId);
-                    role.setRoleKey(key);
+                    role.setRoleKey(upperKey);
                     role.setDisplayName(displayName);
                     return staffRoleRepository.save(role);
                 });

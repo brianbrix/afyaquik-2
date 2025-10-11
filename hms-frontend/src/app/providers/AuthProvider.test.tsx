@@ -45,7 +45,7 @@ describe("AuthProvider", () => {
         username: "demo",
         displayName: "Demo User",
         tenantId: "tenantA",
-  roles: ["provider"] as RoleKey[]
+  roles: ["PROVIDER"] as RoleKey[]
       }
     };
 
@@ -74,7 +74,7 @@ describe("AuthProvider", () => {
         username: "reception",
         displayName: "Reception Desk",
         tenantId: "tenantA",
-  roles: ["reception"] as RoleKey[]
+  roles: ["RECEPTION"] as RoleKey[]
       }
     };
 
@@ -101,7 +101,7 @@ describe("AuthProvider", () => {
         username: "triage",
         displayName: "Triage Nurse",
         tenantId: "tenantA",
-  roles: ["triage"] as RoleKey[]
+  roles: ["TRIAGE"] as RoleKey[]
       }
     };
 

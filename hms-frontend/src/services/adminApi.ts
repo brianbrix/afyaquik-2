@@ -2,6 +2,7 @@ import { apiClient } from './apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // ---- Types ----
+// All role keys/types are dynamic from backend
 export interface AdminRole { id: number; roleKey: string; displayName: string; }
 export interface AdminDepartment { id: number; departmentId: string; displayName: string; description?: string; }
 export interface AdminUser { id: number; username: string; displayName: string; email?: string; enabled: boolean; roles: AdminRole[]; }

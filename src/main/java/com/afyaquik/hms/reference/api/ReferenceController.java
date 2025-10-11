@@ -28,7 +28,7 @@ public class ReferenceController {
     public ApiResponse<List<RoleRef>> roles(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader) {
         String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
     var list = staffRoleRepository.findByTenantIdOrderByDisplayNameAsc(tenantId).stream()
-        .map(r -> new RoleRef(r.getRoleKey(), r.getDisplayName()))
+        .map(r -> new RoleRef(r.getRoleKey() == null ? null : r.getRoleKey().toUpperCase(), r.getDisplayName()))
         .toList();
         return ApiResponse.success(list);
     }

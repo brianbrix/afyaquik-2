@@ -17,22 +17,17 @@ export function AppLayout() {
           <Navbar.Toggle aria-controls="primary-nav" />
           <Navbar.Collapse id="primary-nav" className="justify-content-between">
             <Nav className="me-auto gap-2">
-              <Nav.Link as={NavLink} to="/dashboard">
-                Dashboard
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/queue">
-                Queue
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/patients">
-                Patients
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/scheduling">
-                Scheduling
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/reports">Reports</Nav.Link>
-              {isAdmin && flagEnabled('admin-ui') && (
-                <Nav.Link as={NavLink} to="/admin">Admin</Nav.Link>
-              )}
+              {isAdmin
+                ? (flagEnabled('admin-ui') && <Nav.Link as={NavLink} to="/admin">Admin</Nav.Link>)
+                : <>
+                    <Nav.Link as={NavLink} to="/dashboard">Dashboard</Nav.Link>
+                    <Nav.Link as={NavLink} to="/queue">Queue</Nav.Link>
+                    <Nav.Link as={NavLink} to="/patients">Patients</Nav.Link>
+                    <Nav.Link as={NavLink} to="/scheduling">Scheduling</Nav.Link>
+                    <Nav.Link as={NavLink} to="/reports">Reports</Nav.Link>
+                    {flagEnabled('admin-ui') && <Nav.Link as={NavLink} to="/admin">Admin</Nav.Link>}
+                  </>
+              }
             </Nav>
             <div className="d-flex align-items-center gap-3">
               <RoleSwitcher />

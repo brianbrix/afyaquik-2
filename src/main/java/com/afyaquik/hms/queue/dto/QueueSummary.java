@@ -12,6 +12,7 @@ public record QueueSummary(
         QueueStatus status,
         QueuePriority priority,
         String currentAssigneeId,
+        String currentAssigneeUsername,
         String departmentId,
         Instant createdAt,
         Instant slaDueAt) {

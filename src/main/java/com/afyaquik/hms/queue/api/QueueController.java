@@ -23,7 +23,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/queue")
-@PreAuthorize("hasAnyRole('RECEPTION','TRIAGE','PROVIDER','PHARMACY','BILLING','ADMIN')")
 public class QueueController {
 
     private final QueueService queueService;
@@ -58,7 +57,18 @@ public class QueueController {
         } catch (IllegalArgumentException ex) {
             throw new IllegalStateException("Unsupported status filter: " + status);
         }
-        return ApiResponse.success(queueService.listByStatus(tenantId, queueStatus));
+        // Get current user details
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        String username = auth != null ? auth.getName() : null;
+        boolean isReception = false;
+        if (auth != null && auth.getAuthorities() != null) {
+            isReception = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_RECEPTION") || a.getAuthority().equals("RECEPTION"));
+        }
+        if (isReception) {
+            return ApiResponse.success(queueService.listByStatus(tenantId, queueStatus));
+        } else {
+            return ApiResponse.success(queueService.listByStatusAndAssignee(tenantId, queueStatus, username));
+        }
     }
 
     @PostMapping("/{queueItemId}/assign")

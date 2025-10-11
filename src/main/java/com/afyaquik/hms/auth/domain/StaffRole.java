@@ -23,7 +23,7 @@ public class StaffRole extends BaseEntity {
     }
 
     public void setRoleKey(String roleKey) {
-        this.roleKey = roleKey;
+        this.roleKey = roleKey == null ? null : roleKey.toUpperCase();
     }
 
     public String getDisplayName() {

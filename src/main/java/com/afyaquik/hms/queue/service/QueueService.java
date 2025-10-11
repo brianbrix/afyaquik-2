@@ -26,6 +26,11 @@ import org.springframework.stereotype.Service;
 import com.afyaquik.hms.queue.events.QueueEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
+
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.auth.domain.StaffUser;
+import org.springframework.beans.factory.annotation.Autowired;
+
 @Service
 @Transactional(readOnly = true)
 public class QueueService {
@@ -53,14 +58,19 @@ public class QueueService {
     private final QueueTimelineEntryRepository timelineRepository;
     private final QueueEventPublisher eventPublisher;
 
+    private final StaffUserRepository staffUserRepository;
+
+    @Autowired
     public QueueService(VisitQueueItemRepository queueRepository,
                         PatientRepository patientRepository,
                         QueueTimelineEntryRepository timelineRepository,
-                        QueueEventPublisher eventPublisher) {
+                        QueueEventPublisher eventPublisher,
+                        StaffUserRepository staffUserRepository) {
         this.queueRepository = queueRepository;
         this.patientRepository = patientRepository;
         this.timelineRepository = timelineRepository;
         this.eventPublisher = eventPublisher;
+        this.staffUserRepository = staffUserRepository;
     }
 
     @Transactional
@@ -88,9 +98,21 @@ public class QueueService {
         return response;
     }
 
+
     public List<QueueSummary> listByStatus(String tenantId, QueueStatus status) {
         return queueRepository
                 .findByTenantIdAndCurrentStatusOrderByCreatedAtAsc(tenantId, status)
+                .stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
+    public List<QueueSummary> listByStatusAndAssignee(String tenantId, QueueStatus status, String assigneeId) {
+        if (assigneeId == null || assigneeId.isBlank()) {
+            return List.of();
+        }
+        return queueRepository
+                .findByTenantIdAndCurrentStatusAndCurrentAssigneeIdOrderByCreatedAtAsc(tenantId, status, assigneeId)
                 .stream()
                 .map(this::toSummary)
                 .toList();
@@ -102,7 +124,8 @@ public class QueueService {
         if (queueItem.getCurrentStatus() == QueueStatus.PENDING_CHECKIN) {
             throw new IllegalStateException("Cannot assign while patient is in PENDING_CHECKIN. Transition first.");
         }
-        queueItem.setCurrentAssigneeId(request.assigneeId());
+    // Always store username as currentAssigneeId (assume assigneeId is username)
+    queueItem.setCurrentAssigneeId(request.assigneeId());
         if (request.departmentId() != null && !request.departmentId().isBlank()) {
             queueItem.setDepartmentId(request.departmentId().trim());
         }
@@ -167,7 +190,8 @@ public class QueueService {
         queueItem.setCurrentStatus(targetStatus);
         queueItem.setSlaDueAt(calculateSlaDueAtForStatus(targetStatus, queueItem.getPriority()));
         // Perform assignment after status change
-        queueItem.setCurrentAssigneeId(assignReq.assigneeId());
+    // Always store username as currentAssigneeId (assume assigneeId is username)
+    queueItem.setCurrentAssigneeId(assignReq.assigneeId());
         if (assignReq.departmentId() != null && !assignReq.departmentId().isBlank()) {
             queueItem.setDepartmentId(assignReq.departmentId().trim());
         }
@@ -206,6 +230,13 @@ public class QueueService {
 
     private QueueSummary toSummary(VisitQueueItem item) {
         String patientName = item.getPatient().getFirstName() + " " + item.getPatient().getLastName();
+        String assigneeUsername = null;
+        if (item.getCurrentAssigneeId() != null && !item.getCurrentAssigneeId().isBlank()) {
+            StaffUser user = staffUserRepository.findByTenantIdAndUsername(item.getTenantId(), item.getCurrentAssigneeId()).orElse(null);
+            if (user != null) {
+                assigneeUsername = user.getUsername();
+            }
+        }
         return new QueueSummary(
                 item.getId(),
                 item.getTicketNumber(),
@@ -214,6 +245,7 @@ public class QueueService {
                 item.getCurrentStatus(),
                 item.getPriority(),
                 item.getCurrentAssigneeId(),
+                assigneeUsername,
                 item.getDepartmentId(),
                 item.getCreatedAt(),
                 item.getSlaDueAt());
