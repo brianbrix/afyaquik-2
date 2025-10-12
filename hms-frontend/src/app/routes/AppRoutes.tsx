@@ -14,6 +14,9 @@ import { DepartmentTable } from "../../components/admin/DepartmentTable";
 import { RoleRedirectUrlTable } from "../../components/admin/RoleRedirectUrlTable";
 import { DynamicFormPage } from "../../components/admin/DynamicFormPage";
 import { AdminUserGroupsPage } from "../../modules/admin/pages/AdminUserGroupsPage";
+import PermissionMatrixAdminPage from "../../modules/admin/permissions/PermissionMatrixAdminPage";
+import { NotificationTemplatesAdminPage } from "../../modules/admin/pages/NotificationTemplatesAdminPage";
+import { AdminShiftTypesPage } from "../../modules/admin/pages/AdminShiftTypesPage";
 
 export function AppRoutes() {
   return (
@@ -32,7 +35,10 @@ export function AppRoutes() {
           <Route path="roles" element={<RoleListWithFormDemo />} />
           <Route path="user-groups" element={<AdminUserGroupsPage />} />
           <Route path="role-redirects" element={<RoleRedirectUrlTable />} />
+          <Route path="permissions" element={<PermissionMatrixAdminPage />} />
           <Route path="departments" element={<DepartmentTable />} />
+          <Route path="notification-templates" element={<NotificationTemplatesAdminPage />} />
+          <Route path="shift-types" element={<AdminShiftTypesPage />} />
           <Route path="forms/:formKey" element={<DynamicFormPage />} />
         </Route>
       </Route>

@@ -11,11 +11,15 @@ import com.afyaquik.hms.auth.jwt.TokenType;
 import com.afyaquik.hms.auth.domain.StaffRole;
 import java.util.List;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final StaffUserService staffUserService;
     private final JwtService jwtService;
@@ -28,18 +32,23 @@ public class AuthService {
     }
 
     public LoginResponse login(String tenantId, LoginRequest request) {
+        log.info("Login attempt for tenant={} username={}", tenantId, request.username());
         StaffUser user = staffUserService
                 .findByTenantAndUsername(tenantId, request.username())
                 .filter(StaffUser::isEnabled)
-                .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
+                .orElseThrow(() -> {
+                    log.warn("Login failed: user not found or disabled for tenant={} username={}", tenantId, request.username());
+                    return new BadCredentialsException("Invalid username or password");
+                });
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            log.warn("Login failed: bad password for tenant={} username={}", tenantId, request.username());
             throw new BadCredentialsException("Invalid username or password");
         }
 
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
-
+        log.info("Login success for tenant={} username={}", tenantId, request.username());
         return new LoginResponse(
                 accessToken,
                 jwtService.getAccessTokenTtlSeconds(),
@@ -49,26 +58,33 @@ public class AuthService {
     }
 
     public TokenRefreshResponse refresh(String tenantId, String refreshToken) {
+        log.info("Token refresh attempt for tenant={}", tenantId);
         JwtPrincipal principal = jwtService.parseToken(refreshToken, TokenType.REFRESH);
         if (!tenantId.equals(principal.tenantId())) {
+            log.warn("Token refresh failed: tenant mismatch");
             throw new BadCredentialsException("Invalid refresh token for tenant");
         }
 
         StaffUser user = staffUserService
                 .findById(principal.userId())
                 .filter(StaffUser::isEnabled)
-                .orElseThrow(() -> new BadCredentialsException("User no longer available"));
+                .orElseThrow(() -> {
+                    log.warn("Token refresh failed: user not found or disabled");
+                    return new BadCredentialsException("User no longer available");
+                });
 
         String accessToken = jwtService.generateAccessToken(user);
+        log.info("Token refresh success for tenant={} username={}", tenantId, user.getUsername());
         return new TokenRefreshResponse(accessToken, jwtService.getAccessTokenTtlSeconds());
     }
 
     public UserProfileDto toDto(StaffUser user) {
-    List<String> roles = user.getRoles().stream()
-        .map(StaffRole::getRoleKey)
-        .map(k -> k == null ? null : k.toUpperCase())
-        .sorted()
-        .toList();
+        log.debug("Mapping StaffUser to UserProfileDto for userId={}", user.getId());
+        List<String> roles = user.getRoles().stream()
+            .map(StaffRole::getRoleKey)
+            .map(k -> k == null ? null : k.toUpperCase())
+            .sorted()
+            .toList();
         return new UserProfileDto(user.getId(), user.getUsername(), user.getDisplayName(), user.getTenantId(), roles);
     }
 }

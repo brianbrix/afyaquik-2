@@ -19,4 +19,8 @@ public interface VisitQueueItemRepository extends JpaRepository<VisitQueueItem, 
 
     Optional<VisitQueueItem> findFirstByTenantIdAndPatientIdOrderByCreatedAtDesc(String tenantId, Long patientId);
     List<VisitQueueItem> findByTenantIdAndCurrentStatusAndCurrentAssigneeIdOrderByCreatedAtAsc(String tenantId, QueueStatus status, String currentAssigneeId);
+
+    // Returns true if a PENDING_CHECKIN exists for this patient today
+    boolean existsByTenantIdAndPatient_IdAndCurrentStatusAndCreatedAtBetween(
+    String tenantId, Long patientId, QueueStatus status, java.time.Instant start, java.time.Instant end);
 }

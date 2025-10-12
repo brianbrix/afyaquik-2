@@ -20,11 +20,12 @@ export const AdminLayout: React.FC = () => {
         <nav className="nav flex-column p-2 gap-1">
           <NavLink to="users" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Users</NavLink>
           <NavLink to="roles" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Roles</NavLink>
+          <NavLink to="departments" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Departments</NavLink>
           <NavLink to="user-groups" className={({isActive}) => `nav-link ${isActive?'active':''}`}>User Groups</NavLink>
           <NavLink to="role-redirects" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Role Redirect URLs</NavLink>
-          {flagEnabled(FEATURE_FLAGS.DEPARTMENTS_ADMIN) && (
-            <NavLink to="departments" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Departments</NavLink>
-          )}
+          <NavLink to="permissions" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Permissions</NavLink>
+          <NavLink to="shift-types" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Shift Types</NavLink>
+          <NavLink to="notification-templates" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Notification Templates</NavLink>
         </nav>
       </aside>
       <main className="flex-grow-1 p-3">

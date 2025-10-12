@@ -1,8 +1,15 @@
 import { Card, Col, Row } from "react-bootstrap";
 import { PageHeader } from "../../../components/shared/PageHeader";
+import { useResolvedPermissions, hasPermission } from '../../../hooks/usePermissions';
 import { FilterBar } from "../../../components/shared/FilterBar";
 
 export function ReportsPage() {
+  const { permissions, loading: permLoading } = useResolvedPermissions();
+  const REQUIRED_PERMISSION = 'VIEW_REPORTS';
+  if (permLoading) return <div>Loading permissions...</div>;
+  if (!hasPermission(permissions, REQUIRED_PERMISSION)) {
+    return <div className="alert alert-danger mt-4">You do not have permission to view reports.</div>;
+  }
   return (
     <div className="d-flex flex-column gap-3">
       <PageHeader

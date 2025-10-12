@@ -1,7 +1,7 @@
 package com.afyaquik.hms.configuration.api;
 
 import com.afyaquik.hms.common.web.ApiResponse;
-import com.afyaquik.hms.common.web.TenantHeaderResolver;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.configuration.domain.FeatureFlag;
 import com.afyaquik.hms.configuration.domain.FormDefinition;
 import com.afyaquik.hms.configuration.domain.TenantTheme;
@@ -37,15 +37,14 @@ public class ConfigController {
     // ----- Role Redirect URLs -----
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/role-redirects")
-    public ApiResponse<List<RoleRedirectUrl>> listRoleRedirects(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+    public ApiResponse<List<RoleRedirectUrl>> listRoleRedirects() {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return ApiResponse.success(roleRedirectUrlService.getAllForTenant(tenantId));
     }
 
     @GetMapping("/role-redirects/{roleKey}")
-    public ApiResponse<RoleRedirectUrl> getRoleRedirect(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
-                                                       @PathVariable("roleKey") String roleKey) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+    public ApiResponse<RoleRedirectUrl> getRoleRedirect(@PathVariable("roleKey") String roleKey) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return roleRedirectUrlService.getByTenantAndRole(tenantId, roleKey)
                 .map(ApiResponse::success)
                 .orElse(ApiResponse.error("Role redirect not found"));
@@ -54,42 +53,38 @@ public class ConfigController {
     record RoleRedirectUrlRequest(@NotBlank String roleKey, @NotBlank String redirectUrl) {}
 
     @PostMapping(value = "/role-redirects", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ApiResponse<RoleRedirectUrl> upsertRoleRedirect(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
-                                                          @RequestBody RoleRedirectUrlRequest request) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+    public ApiResponse<RoleRedirectUrl> upsertRoleRedirect(@RequestBody RoleRedirectUrlRequest request) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         RoleRedirectUrl saved = roleRedirectUrlService.saveOrUpdate(tenantId, request.roleKey(), request.redirectUrl());
         return ApiResponse.success(saved);
     }
 
     @DeleteMapping("/role-redirects/{roleKey}")
-    public ApiResponse<Void> deleteRoleRedirect(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
-                                               @PathVariable("roleKey") String roleKey) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+    public ApiResponse<Void> deleteRoleRedirect(@PathVariable("roleKey") String roleKey) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         roleRedirectUrlService.delete(tenantId, roleKey);
         return ApiResponse.success(null);
     }
 
     // ----- Feature Flags -----
     @GetMapping("/features")
-    public ApiResponse<List<FeatureFlag>> listFeatures(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+    public ApiResponse<List<FeatureFlag>> listFeatures() {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return ApiResponse.success(featureFlagService.list(tenantId));
     }
 
     @PostMapping("/features/{key}")
-    public ApiResponse<FeatureFlag> upsertFeature(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
-                                                  @PathVariable("key") String key,
+    public ApiResponse<FeatureFlag> upsertFeature(@PathVariable("key") String key,
                                                   @RequestParam("enabled") boolean enabled,
                                                   @RequestParam(value = "description", required = false) String description) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return ApiResponse.success(featureFlagService.upsert(tenantId, key, enabled, description));
     }
 
     // ----- Form Definitions -----
     @GetMapping("/forms/{formKey}")
-    public ApiResponse<FormDefinition> getLatestForm(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
-                                                      @PathVariable("formKey") String formKey) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+    public ApiResponse<FormDefinition> getLatestForm(@PathVariable("formKey") String formKey) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return formService.getLatest(tenantId, formKey)
                 .map(ApiResponse::success)
                 .orElse(ApiResponse.error("Form not found"));
@@ -98,17 +93,16 @@ public class ConfigController {
     record FormDefinitionRequest(@NotBlank String schemaJson) {}
 
     @PostMapping(value = "/forms/{formKey}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ApiResponse<FormDefinition> newFormVersion(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
-                                                       @PathVariable("formKey") String formKey,
-                                                       @RequestBody FormDefinitionRequest request) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+    public ApiResponse<FormDefinition> newFormVersion(@PathVariable("formKey") String formKey,
+                                                     @RequestBody FormDefinitionRequest request) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return ApiResponse.success(formService.saveNewVersion(tenantId, formKey, request.schemaJson()));
     }
 
     // ----- Tenant Theme -----
     @GetMapping("/theme")
-    public ApiResponse<TenantTheme> getTheme(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+    public ApiResponse<TenantTheme> getTheme() {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return themeService.get(tenantId)
                 .map(ApiResponse::success)
                 .orElseGet(() -> {
@@ -125,9 +119,8 @@ public class ConfigController {
     record ThemeUpdateRequest(String primaryColor, String logoUrl, String updatedBy) {}
 
     @PostMapping("/theme")
-    public ApiResponse<TenantTheme> updateTheme(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
-                                                @RequestBody ThemeUpdateRequest request) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+    public ApiResponse<TenantTheme> updateTheme(@RequestBody ThemeUpdateRequest request) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return ApiResponse.success(themeService.update(tenantId, request.primaryColor(), request.logoUrl(), request.updatedBy()));
     }
 }

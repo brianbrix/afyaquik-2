@@ -11,6 +11,8 @@ import java.util.List;
 
 @Repository
 public interface UserGroupRepository extends JpaRepository<UserGroup, Long> {
+    @Query("SELECT g.id FROM UserGroup g JOIN g.members m WHERE m.id = :userId")
+    List<Long> findGroupIdsByMemberId(@Param("userId") Long userId);
     Optional<UserGroup> findByName(String name);
 
     @Query("SELECT DISTINCT g FROM UserGroup g LEFT JOIN FETCH g.members")

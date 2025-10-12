@@ -3,11 +3,10 @@ package com.afyaquik.hms.reference.api;
 import com.afyaquik.hms.auth.repository.DepartmentRepository;
 import com.afyaquik.hms.auth.repository.StaffRoleRepository;
 import com.afyaquik.hms.common.web.ApiResponse;
-import com.afyaquik.hms.common.web.TenantHeaderResolver;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,20 +24,20 @@ public class ReferenceController {
     }
 
     @GetMapping("/roles")
-    public ApiResponse<List<RoleRef>> roles(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
-    var list = staffRoleRepository.findByTenantIdOrderByDisplayNameAsc(tenantId).stream()
-        .map(r -> new RoleRef(r.getRoleKey() == null ? null : r.getRoleKey().toUpperCase(), r.getDisplayName()))
-        .toList();
+    public ApiResponse<List<RoleRef>> roles() {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        var list = staffRoleRepository.findByTenantIdOrderByDisplayNameAsc(tenantId).stream()
+            .map(r -> new RoleRef(r.getRoleKey() == null ? null : r.getRoleKey().toUpperCase(), r.getDisplayName()))
+            .toList();
         return ApiResponse.success(list);
     }
 
     @GetMapping("/departments")
-    public ApiResponse<List<DepartmentRef>> departments(@RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
-    var list = departmentRepository.findByTenantIdOrderByDisplayNameAsc(tenantId).stream()
-        .map(d -> new DepartmentRef(d.getDepartmentId(), d.getDisplayName()))
-        .toList();
+    public ApiResponse<List<DepartmentRef>> departments() {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        var list = departmentRepository.findByTenantIdOrderByDisplayNameAsc(tenantId).stream()
+            .map(d -> new DepartmentRef(d.getDepartmentId(), d.getDisplayName()))
+            .toList();
         return ApiResponse.success(list);
     }
 

@@ -1,3 +1,4 @@
+
 package com.afyaquik.hms.patient.repository;
 
 import com.afyaquik.hms.patient.domain.Patient;
@@ -6,8 +7,12 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 @Repository
-public interface PatientRepository extends JpaRepository<Patient, Long> {
+
+public interface PatientRepository extends JpaRepository<Patient, Long>, JpaSpecificationExecutor<Patient> {
+
 
     Optional<Patient> findByTenantIdAndMedicalRecordNumber(String tenantId, String medicalRecordNumber);
 

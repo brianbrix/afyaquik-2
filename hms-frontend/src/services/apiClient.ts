@@ -1,10 +1,11 @@
 import axios from "axios";
+import { API_V1_BASE } from "./baseUrls";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+
 export const DEFAULT_TENANT_ID = import.meta.env.VITE_TENANT_ID ?? ""; // no implicit tenant
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_V1_BASE,
   headers: {
     "Content-Type": "application/json"
   }
@@ -34,3 +35,23 @@ export function setAuthToken(token: string | null) {
 }
 
 // Intentionally do not set a tenant header by default; it will be applied after successful login.
+
+// Global error interceptor: extract error message from API error response
+apiClient.interceptors.response.use(
+  response => response,
+  error => {
+    // If the error response has the expected structure, extract the first error message
+    if (
+      error.response &&
+      error.response.data &&
+      error.response.data.errors &&
+      Array.isArray(error.response.data.errors) &&
+      error.response.data.errors.length > 0 &&
+      error.response.data.errors[0].message
+    ) {
+      // Attach the message to the error object for easier access
+      error.message = error.response.data.errors[0].message;
+    }
+    return Promise.reject(error);
+  }
+);

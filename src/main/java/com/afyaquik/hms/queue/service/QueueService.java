@@ -1,3 +1,4 @@
+
 package com.afyaquik.hms.queue.service;
 
 import com.afyaquik.hms.patient.domain.Patient;
@@ -18,6 +19,8 @@ import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Instant;
 import java.util.List;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -29,11 +32,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.afyaquik.hms.auth.repository.StaffUserRepository;
 import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.notification.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 @Transactional(readOnly = true)
 public class QueueService {
+
+    private static final Logger log = LoggerFactory.getLogger(QueueService.class);
 
     private static final Map<QueueStatus, Set<QueueStatus>> ALLOWED_TRANSITIONS = Map.ofEntries(
             Map.entry(QueueStatus.PENDING_CHECKIN, Set.of(QueueStatus.IN_REGISTRATION, QueueStatus.CANCELLED, QueueStatus.NO_SHOW)),
@@ -59,30 +68,50 @@ public class QueueService {
     private final QueueEventPublisher eventPublisher;
 
     private final StaffUserRepository staffUserRepository;
+    private final NotificationService notificationService;
 
     @Autowired
     public QueueService(VisitQueueItemRepository queueRepository,
                         PatientRepository patientRepository,
                         QueueTimelineEntryRepository timelineRepository,
                         QueueEventPublisher eventPublisher,
-                        StaffUserRepository staffUserRepository) {
+                        StaffUserRepository staffUserRepository,
+                        NotificationService notificationService) {
         this.queueRepository = queueRepository;
         this.patientRepository = patientRepository;
         this.timelineRepository = timelineRepository;
         this.eventPublisher = eventPublisher;
         this.staffUserRepository = staffUserRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional
     public QueueItemResponse checkIn(String tenantId, QueueCheckInRequest request) {
-        Patient patient = patientRepository.findById(request.patientId())
-                .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
+        log.info("Queue check-in attempt for tenant={} patientId={}", tenantId, request.patientId());
+    Patient patient = patientRepository.findById(request.patientId())
+        .orElseThrow(() -> {
+            log.warn("Check-in failed: patient not found tenant={} patientId={}", tenantId, request.patientId());
+            return new EntityNotFoundException("Patient not found");
+        });
         if (!tenantId.equals(patient.getTenantId())) {
+            log.warn("Check-in failed: patient tenant mismatch tenant={} patientId={}", tenantId, request.patientId());
             throw new EntityNotFoundException("Patient not found for tenant");
+        }
+
+        // Check for existing PENDING_CHECKIN for this patient today
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        java.time.Instant startOfDay = today.atStartOfDay().toInstant(ZoneOffset.UTC);
+        java.time.Instant endOfDay = today.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).minusMillis(1);
+        boolean exists = queueRepository.existsByTenantIdAndPatient_IdAndCurrentStatusAndCreatedAtBetween(
+            tenantId, patient.getId(), QueueStatus.PENDING_CHECKIN, startOfDay, endOfDay);
+        if (exists) {
+            log.warn("Check-in rejected: duplicate pending_checkin for tenant={} patientId={}", tenantId, patient.getId());
+            throw new IllegalStateException("A pending check-in already exists for this patient today.");
         }
 
         VisitQueueItem queueItem = new VisitQueueItem();
         queueItem.setTenantId(tenantId);
+
         queueItem.setPatient(patient);
         queueItem.setTicketNumber(generateTicketNumber(tenantId));
         queueItem.setVisitReason(request.visitReason());
@@ -91,15 +120,17 @@ public class QueueService {
         queueItem.setDepartmentId(request.departmentId());
         queueItem.setSlaDueAt(calculateSlaDueAtForStatus(queueItem.getCurrentStatus(), queueItem.getPriority()));
 
-        VisitQueueItem saved = queueRepository.save(queueItem);
-        recordTimeline(saved, QueueEventType.CHECKED_IN, null, saved.getCurrentStatus(), null, null, null, saved.getDepartmentId(), "Patient checked in");
-        QueueItemResponse response = toResponse(saved);
-        eventPublisher.publish(response);
-        return response;
+    VisitQueueItem saved = queueRepository.save(queueItem);
+    recordTimeline(saved, QueueEventType.CHECKED_IN, null, saved.getCurrentStatus(), null, null, null, saved.getDepartmentId(), "Patient checked in");
+    QueueItemResponse response = toResponse(saved);
+    eventPublisher.publish(response);
+    log.info("Queue check-in success for tenant={} patientId={} queueItemId={}", tenantId, patient.getId(), saved.getId());
+    return response;
     }
 
 
     public List<QueueSummary> listByStatus(String tenantId, QueueStatus status) {
+        log.debug("Listing queue by status tenant={} status={}", tenantId, status);
         return queueRepository
                 .findByTenantIdAndCurrentStatusOrderByCreatedAtAsc(tenantId, status)
                 .stream()
@@ -108,6 +139,7 @@ public class QueueService {
     }
 
     public List<QueueSummary> listByStatusAndAssignee(String tenantId, QueueStatus status, String assigneeId) {
+        log.debug("Listing queue by status and assignee tenant={} status={} assigneeId={}", tenantId, status, assigneeId);
         if (assigneeId == null || assigneeId.isBlank()) {
             return List.of();
         }
@@ -117,20 +149,40 @@ public class QueueService {
                 .map(this::toSummary)
                 .toList();
     }
+        @Transactional
+    public QueueItemResponse updateQueueItem(String tenantId, Long queueItemId, com.afyaquik.hms.queue.api.UpdateQueueItemRequest request) {
+        log.info("Updating queue item tenant={} queueItemId={}", tenantId, queueItemId);
+        VisitQueueItem queueItem = getQueueItemForTenant(tenantId, queueItemId);
+        if (request.getVisitReason() != null) {
+            queueItem.setVisitReason(request.getVisitReason());
+        }
+        if (request.getPriority() != null) {
+            queueItem.setPriority(request.getPriority());
+        }
+        if (request.getDepartmentId() != null) {
+            queueItem.setDepartmentId(request.getDepartmentId());
+        }
+        VisitQueueItem saved = queueRepository.save(queueItem);
+        QueueItemResponse response = toResponse(saved);
+        eventPublisher.publish(response);
+        return response;
+    }
 
     @Transactional
     public QueueItemResponse assign(String tenantId, Long queueItemId, QueueAssignmentRequest request) {
+        log.info("Assigning queue item tenant={} queueItemId={} assigneeId={}", tenantId, queueItemId, request.assigneeId());
         VisitQueueItem queueItem = getQueueItemForTenant(tenantId, queueItemId);
         if (queueItem.getCurrentStatus() == QueueStatus.PENDING_CHECKIN) {
+            log.warn("Assign failed: queueItemId={} is in PENDING_CHECKIN", queueItemId);
             throw new IllegalStateException("Cannot assign while patient is in PENDING_CHECKIN. Transition first.");
         }
-    // Always store username as currentAssigneeId (assume assigneeId is username)
-    queueItem.setCurrentAssigneeId(request.assigneeId());
+        // Always store username as currentAssigneeId (assume assigneeId is username)
+        queueItem.setCurrentAssigneeId(request.assigneeId());
         if (request.departmentId() != null && !request.departmentId().isBlank()) {
             queueItem.setDepartmentId(request.departmentId().trim());
         }
 
-    VisitQueueItem saved = queueRepository.save(queueItem);
+        VisitQueueItem saved = queueRepository.save(queueItem);
         recordTimeline(
                 saved,
                 QueueEventType.ASSIGNED,
@@ -141,13 +193,15 @@ public class QueueService {
                 request.assigneeDisplayName(),
                 saved.getDepartmentId(),
                 request.note());
-    QueueItemResponse response = toResponse(saved);
-    eventPublisher.publish(response);
-    return response;
+        QueueItemResponse response = toResponse(saved);
+        eventPublisher.publish(response);
+        log.info("Assign success for queueItemId={} assigneeId={}", queueItemId, request.assigneeId());
+        return response;
     }
 
     @Transactional
     public QueueItemResponse transitionStatus(String tenantId, Long queueItemId, QueueTransitionRequest request) {
+        log.info("Transitioning queue item tenant={} queueItemId={} targetStatus={}", tenantId, queueItemId, request.targetStatus());
         VisitQueueItem queueItem = getQueueItemForTenant(tenantId, queueItemId);
         QueueStatus targetStatus = parseStatus(request.targetStatus());
 
@@ -161,7 +215,7 @@ public class QueueService {
         }
         queueItem.setSlaDueAt(calculateSlaDueAtForStatus(targetStatus, queueItem.getPriority()));
 
-    VisitQueueItem saved = queueRepository.save(queueItem);
+        VisitQueueItem saved = queueRepository.save(queueItem);
         recordTimeline(
                 saved,
                 QueueEventType.STATUS_CHANGED,
@@ -172,15 +226,18 @@ public class QueueService {
                 request.actorDisplayName(),
                 saved.getDepartmentId(),
                 request.note());
-    QueueItemResponse response = toResponse(saved);
-    eventPublisher.publish(response);
-    return response;
+        QueueItemResponse response = toResponse(saved);
+        eventPublisher.publish(response);
+        log.info("Transition success for queueItemId={} to status={}", queueItemId, targetStatus);
+        return response;
     }
 
     @Transactional
     public QueueItemResponse advanceAndAssign(String tenantId, Long queueItemId, String targetStatusRaw, QueueAssignmentRequest assignReq) {
+        log.info("Advance and assign queue item tenant={} queueItemId={} targetStatus={} assigneeId={}", tenantId, queueItemId, targetStatusRaw, assignReq.assigneeId());
         VisitQueueItem queueItem = getQueueItemForTenant(tenantId, queueItemId);
         if (queueItem.getCurrentStatus() != QueueStatus.PENDING_CHECKIN) {
+            log.warn("Advance & assign failed: queueItemId={} not in PENDING_CHECKIN", queueItemId);
             throw new IllegalStateException("Advance & assign only valid from PENDING_CHECKIN");
         }
         QueueStatus targetStatus = parseStatus(targetStatusRaw);
@@ -190,8 +247,7 @@ public class QueueService {
         queueItem.setCurrentStatus(targetStatus);
         queueItem.setSlaDueAt(calculateSlaDueAtForStatus(targetStatus, queueItem.getPriority()));
         // Perform assignment after status change
-    // Always store username as currentAssigneeId (assume assigneeId is username)
-    queueItem.setCurrentAssigneeId(assignReq.assigneeId());
+        queueItem.setCurrentAssigneeId(assignReq.assigneeId());
         if (assignReq.departmentId() != null && !assignReq.departmentId().isBlank()) {
             queueItem.setDepartmentId(assignReq.departmentId().trim());
         }
@@ -201,12 +257,14 @@ public class QueueService {
         recordTimeline(saved, QueueEventType.ASSIGNED, targetStatus, targetStatus, assignReq.assigneeId(), assignReq.assigneeRole(), assignReq.assigneeDisplayName(), saved.getDepartmentId(), assignReq.note());
         QueueItemResponse response = toResponse(saved);
         eventPublisher.publish(response);
+        log.info("Advance & assign success for queueItemId={} to status={} assigneeId={}", queueItemId, targetStatus, assignReq.assigneeId());
         return response;
     }
 
     public List<QueueTimelineEntryResponse> getTimeline(String tenantId, Long queueItemId) {
+        log.debug("Getting timeline for tenant={} queueItemId={}", tenantId, queueItemId);
         getQueueItemForTenant(tenantId, queueItemId);
-    return timelineRepository.findByTenantIdAndQueueItem_IdOrderByCreatedAtAsc(tenantId, queueItemId)
+        return timelineRepository.findByTenantIdAndQueueItem_IdOrderByCreatedAtAsc(tenantId, queueItemId)
                 .stream()
                 .map(this::toTimelineResponse)
                 .toList();

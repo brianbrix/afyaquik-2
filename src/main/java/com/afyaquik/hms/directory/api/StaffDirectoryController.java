@@ -3,12 +3,10 @@ package com.afyaquik.hms.directory.api;
 import com.afyaquik.hms.auth.domain.StaffUser;
 import com.afyaquik.hms.auth.repository.StaffUserRepository;
 import com.afyaquik.hms.common.web.ApiResponse;
-import com.afyaquik.hms.common.web.TenantHeaderResolver;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Stream;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,11 +26,10 @@ public class StaffDirectoryController {
 
     @GetMapping("/staff")
     public ApiResponse<List<StaffDirectoryEntry>> listStaff(
-            @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader,
             @RequestParam(name = "q", required = false) String q) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         String query = q == null ? null : q.trim().toLowerCase(Locale.ROOT);
-    Stream<StaffUser> stream = staffUserRepository.findByTenantIdWithDepartments(tenantId).stream().filter(StaffUser::isEnabled);
+        java.util.stream.Stream<StaffUser> stream = staffUserRepository.findByTenantIdWithDepartments(tenantId).stream().filter(StaffUser::isEnabled);
         if (query != null && !query.isBlank()) {
             stream = stream.filter(u -> u.getUsername().toLowerCase(Locale.ROOT).contains(query) ||
                     u.getDisplayName().toLowerCase(Locale.ROOT).contains(query));

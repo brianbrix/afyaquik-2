@@ -1,6 +1,8 @@
 package com.afyaquik.hms.patient.api;
 
-import com.afyaquik.hms.common.web.TenantHeaderResolver;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
 import com.afyaquik.hms.patient.dto.PatientSummary;
 import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.patient.service.PatientService;
@@ -9,7 +11,6 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -21,34 +22,40 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/patients")
 public class PatientController {
 
-    private final PatientService patientService;
+        private final PatientService patientService;
 
     public PatientController(PatientService patientService) {
         this.patientService = patientService;
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<PatientResponse>> updatePatient(
+            @PathVariable Long id,
+            @Valid @RequestBody CreatePatientRequest request) {
+        String tenantId = com.afyaquik.hms.common.web.TenantHeaderInterceptor.getCurrentTenant();
+        PatientResponse response = patientService.update(tenantId, id, request);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @PostMapping
     public ResponseEntity<ApiResponse<PatientResponse>> register(
-            @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @Valid @RequestBody CreatePatientRequest request) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
+        String tenantId = com.afyaquik.hms.common.web.TenantHeaderInterceptor.getCurrentTenant();
         PatientResponse response = patientService.register(tenantId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     @GetMapping("/{medicalRecordNumber}")
     public ApiResponse<PatientResponse> getPatient(
-            @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @PathVariable String medicalRecordNumber) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
+        String tenantId = com.afyaquik.hms.common.web.TenantHeaderInterceptor.getCurrentTenant();
         return ApiResponse.success(patientService.getByMrn(tenantId, medicalRecordNumber));
     }
 
     @GetMapping
     public ApiResponse<List<PatientSummary>> search(
-            @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenant,
             @RequestParam(value = "q", required = false) String query) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenant);
+        String tenantId = com.afyaquik.hms.common.web.TenantHeaderInterceptor.getCurrentTenant();
         return ApiResponse.success(patientService.search(tenantId, query));
     }
 }
