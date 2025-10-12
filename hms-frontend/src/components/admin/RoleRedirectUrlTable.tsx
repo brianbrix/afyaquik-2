@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Table, Button, Modal, Form, InputGroup } from "react-bootstrap";
+import { Table, Button, Form, InputGroup } from "react-bootstrap";
+import { FormModal } from "../shared/FormModal";
 import { fetchRoleRedirects, upsertRoleRedirect, deleteRoleRedirect, RoleRedirectUrl } from "../../services/roleRedirectApi";
 // Common URLs seeded in backend
 const COMMON_ROLE_URLS = [
@@ -117,51 +118,48 @@ export function RoleRedirectUrlTable() {
           })}
         </tbody>
       </Table>
-      <Modal show={showModal} onHide={closeModal}>
-        <Form onSubmit={handleSave}>
-          <Modal.Header closeButton>
-            <Modal.Title>{editing ? "Edit Redirect" : "Add Redirect"}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label>Role</Form.Label>
-              <Form.Select value={roleKey} onChange={e => setRoleKey(e.target.value)} disabled={!!editing} required>
-                <option value="" disabled>Select role...</option>
-                {roles.map(role => (
-                  <option key={role.roleKey} value={role.roleKey}>{role.displayName} ({role.roleKey})</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Redirect URL</Form.Label>
-              <InputGroup>
-                <Form.Select
-                  value={redirectUrl}
-                  onChange={e => setRedirectUrl(e.target.value)}
-                  required
-                >
-                  <option value="">Select or enter a URL...</option>
-                  {COMMON_ROLE_URLS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label} ({opt.value})</option>
-                  ))}
-                </Form.Select>
-                <Form.Control
-                  type="text"
-                  value={redirectUrl}
-                  onChange={e => setRedirectUrl(e.target.value)}
-                  required
-                  placeholder="Or enter a custom URL (e.g. /dashboard)"
-                  style={{ marginTop: 8 }}
-                />
-              </InputGroup>
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={closeModal} disabled={saving}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
+      <FormModal
+        show={showModal}
+        onHide={closeModal}
+        onSubmit={handleSave}
+        title={editing ? "Edit Redirect" : "Add Redirect"}
+        isSubmitting={saving}
+        submitLabel={saving ? "Saving..." : "Save"}
+        cancelLabel="Cancel"
+      >
+        <Form.Group className="mb-3">
+          <Form.Label>Role</Form.Label>
+          <Form.Select value={roleKey} onChange={e => setRoleKey(e.target.value)} disabled={!!editing} required>
+            <option value="" disabled>Select role...</option>
+            {roles.map(role => (
+              <option key={role.roleKey} value={role.roleKey}>{role.displayName} ({role.roleKey})</option>
+            ))}
+          </Form.Select>
+        </Form.Group>
+        <Form.Group className="mb-3">
+          <Form.Label>Redirect URL</Form.Label>
+          <InputGroup>
+            <Form.Select
+              value={redirectUrl}
+              onChange={e => setRedirectUrl(e.target.value)}
+              required
+            >
+              <option value="">Select or enter a URL...</option>
+              {COMMON_ROLE_URLS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label} ({opt.value})</option>
+              ))}
+            </Form.Select>
+            <Form.Control
+              type="text"
+              value={redirectUrl}
+              onChange={e => setRedirectUrl(e.target.value)}
+              required
+              placeholder="Or enter a custom URL (e.g. /dashboard)"
+              style={{ marginTop: 8 }}
+            />
+          </InputGroup>
+        </Form.Group>
+      </FormModal>
     </div>
   );
 }

@@ -13,28 +13,28 @@ const UI_FALLBACK_THEME: TenantTheme = { id: 0, primaryColor: '#0d9488', logoUrl
 
 // ---- Raw API ----
 export async function fetchFeatureFlags(): Promise<FeatureFlag[]> {
-  const res = await apiClient.get<ApiEnvelope<FeatureFlag[]>>('/api/v1/config/features');
+  const res = await apiClient.get<ApiEnvelope<FeatureFlag[]>>('/config/features');
   return res.data.data;
 }
 export async function upsertFeatureFlag(params: { key: string; enabled: boolean; description?: string }): Promise<FeatureFlag> {
   const { key, enabled, description } = params;
-  const url = `/api/v1/config/features/${encodeURIComponent(key)}?enabled=${enabled}${description ? `&description=${encodeURIComponent(description)}` : ''}`;
+  const url = `/config/features/${encodeURIComponent(key)}?enabled=${enabled}${description ? `&description=${encodeURIComponent(description)}` : ''}`;
   const res = await apiClient.post<ApiEnvelope<FeatureFlag>>(url);
   return res.data.data;
 }
 
 export async function fetchFormDefinition(formKey: string): Promise<FormDefinition | null> {
-  const res = await apiClient.get<ApiEnvelope<FormDefinition | null>>(`/api/v1/config/forms/${encodeURIComponent(formKey)}`);
+  const res = await apiClient.get<ApiEnvelope<FormDefinition | null>>(`/config/forms/${encodeURIComponent(formKey)}`);
   return res.data.data;
 }
 export async function createFormVersion(formKey: string, schemaJson: string): Promise<FormDefinition> {
-  const res = await apiClient.post<ApiEnvelope<FormDefinition>>(`/api/v1/config/forms/${encodeURIComponent(formKey)}`, { schemaJson });
+  const res = await apiClient.post<ApiEnvelope<FormDefinition>>(`/config/forms/${encodeURIComponent(formKey)}`, { schemaJson });
   return res.data.data;
 }
 
 export async function fetchTenantTheme(): Promise<TenantTheme | null> {
   try {
-    const res = await apiClient.get<ApiEnvelope<TenantTheme | null>>('/api/v1/config/theme');
+    const res = await apiClient.get<ApiEnvelope<TenantTheme | null>>('/config/theme');
     const data = res.data.data;
     if (!data) return UI_FALLBACK_THEME; // should not happen now, backend returns default
     // if backend meta marks default
@@ -48,7 +48,7 @@ export async function fetchTenantTheme(): Promise<TenantTheme | null> {
   }
 }
 export async function updateTenantTheme(payload: { primaryColor?: string; logoUrl?: string; updatedBy?: string }): Promise<TenantTheme> {
-  const res = await apiClient.post<ApiEnvelope<TenantTheme>>('/api/v1/config/theme', payload);
+  const res = await apiClient.post<ApiEnvelope<TenantTheme>>('/config/theme', payload);
   return res.data.data;
 }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAdminRoles, useCreateUser } from '../../services/adminApi';
+import { FormModal } from '../shared/FormModal';
 
 interface UserFormModalProps { show: boolean; onClose: () => void; }
 
@@ -35,54 +36,48 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ show, onClose }) =
   if (!show) return null;
 
   return (
-    <div className="modal d-block" style={{background:'rgba(0,0,0,0.4)'}}>
-      <div className="modal-dialog modal-lg">
-        <div className="modal-content">
-          <form onSubmit={submit}>
-            <div className="modal-header">
-              <h5 className="modal-title">New User</h5>
-              <button type="button" className="btn-close" onClick={onClose} />
-            </div>
-            <div className="modal-body">
-              {error && <div className="alert alert-danger py-1 small mb-2">{error}</div>}
-              <div className="row g-2">
-                <div className="col-md-4">
-                  <label className="form-label form-label-sm">Username *</label>
-                  <input className="form-control form-control-sm" value={username} onChange={e=>setUsername(e.target.value)} />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label form-label-sm">Display Name *</label>
-                  <input className="form-control form-control-sm" value={displayName} onChange={e=>setDisplayName(e.target.value)} />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label form-label-sm">Email</label>
-                  <input type="email" className="form-control form-control-sm" value={email} onChange={e=>setEmail(e.target.value)} />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label form-label-sm">Password *</label>
-                  <input type="password" className="form-control form-control-sm" value={password} onChange={e=>setPassword(e.target.value)} />
-                </div>
-              </div>
-              <hr />
-              <div>
-                <div className="fw-semibold small mb-1">Assign Roles</div>
-                <div className="d-flex flex-wrap gap-2">
-                  {roles?.map(r => (
-                    <button key={r.id} type="button" className={`btn btn-sm ${selected.includes(r.roleKey) ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={()=>toggleRole(r.roleKey)}>
-                      {r.displayName}
-                    </button>
-                  ))}
-                  {!roles?.length && <span className="text-muted small">No roles defined yet.</span>}
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-light" onClick={onClose} disabled={createUser.isPending}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={createUser.isPending}>{createUser.isPending ? 'Creating...' : 'Create User'}</button>
-            </div>
-          </form>
+    <FormModal
+      show={show}
+      onHide={onClose}
+      onSubmit={submit}
+      title="New User"
+      isSubmitting={createUser.isPending}
+      submitLabel={createUser.isPending ? 'Creating...' : 'Create User'}
+      cancelLabel="Cancel"
+      disableSubmit={createUser.isPending || !username.trim() || !displayName.trim() || !password.trim()}
+      size="lg"
+    >
+      {error && <div className="alert alert-danger py-1 small mb-2">{error}</div>}
+      <div className="row g-2">
+        <div className="col-md-4">
+          <label className="form-label form-label-sm">Username *</label>
+          <input className="form-control form-control-sm" value={username} onChange={e=>setUsername(e.target.value)} />
+        </div>
+        <div className="col-md-4">
+          <label className="form-label form-label-sm">Display Name *</label>
+          <input className="form-control form-control-sm" value={displayName} onChange={e=>setDisplayName(e.target.value)} />
+        </div>
+        <div className="col-md-4">
+          <label className="form-label form-label-sm">Email</label>
+          <input type="email" className="form-control form-control-sm" value={email} onChange={e=>setEmail(e.target.value)} />
+        </div>
+        <div className="col-md-4">
+          <label className="form-label form-label-sm">Password *</label>
+          <input type="password" className="form-control form-control-sm" value={password} onChange={e=>setPassword(e.target.value)} />
         </div>
       </div>
-    </div>
+      <hr />
+      <div>
+        <div className="fw-semibold small mb-1">Assign Roles</div>
+        <div className="d-flex flex-wrap gap-2">
+          {roles?.map(r => (
+            <button key={r.id} type="button" className={`btn btn-sm ${selected.includes(r.roleKey) ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={()=>toggleRole(r.roleKey)}>
+              {r.displayName}
+            </button>
+          ))}
+          {!roles?.length && <span className="text-muted small">No roles defined yet.</span>}
+        </div>
+      </div>
+    </FormModal>
   );
 };

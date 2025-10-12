@@ -1,3 +1,12 @@
+import { fetchShiftAlerts } from "../../../services/schedulingApi";
+
+export function useShiftAlerts(pollInterval = 60000) {
+	return useQuery<StaffShift[]>({
+		queryKey: ["scheduling", "shift-alerts"],
+		queryFn: fetchShiftAlerts,
+		refetchInterval: pollInterval,
+	});
+}
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	approveShiftSwap,

@@ -9,14 +9,14 @@ export interface StaffUser {
 }
 
 export async function fetchGroupMembers(groupId: number): Promise<StaffUser[]> {
-  const res = await apiClient.get(`/api/v1/group-membership/${groupId}/members`);
+  const res = await apiClient.get(`/group-membership/${groupId}/members`);
   return res.data;
 }
 
 export async function addGroupMembers(groupId: number, userIds: number[]): Promise<void> {
-  await apiClient.post(`/api/v1/group-membership/${groupId}/members`, userIds);
+  await apiClient.post(`/group-membership/${groupId}/members`, userIds);
 }
 
 export async function removeGroupMember(groupId: number, userId: number): Promise<void> {
-  await apiClient.delete(`/api/v1/group-membership/${groupId}/members/${userId}`);
+  await apiClient.delete(`/group-membership/${groupId}/members/${userId}`);
 }

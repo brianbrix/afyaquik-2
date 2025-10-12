@@ -56,6 +56,7 @@ public class PermissionSeeder {
                 new Permission("DELETE_BILL", "Delete bill"),
                 new Permission("MANAGE_SETTINGS", "Manage system settings"),
                 new Permission("MANAGE_PERMISSIONS", "Manage permissions"),
+                new Permission("MANAGE_SHIFT_TYPES", "Manage Shift Types"),
                 new Permission("MANAGE_GROUPS", "Manage groups"),
                 new Permission("MANAGE_ROLES", "Manage roles"),
                 new Permission("MANAGE_USERS", "Administer users"),

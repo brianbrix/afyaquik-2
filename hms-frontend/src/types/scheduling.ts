@@ -1,28 +1,4 @@
-export type ShiftType =
-	| "MORNING"
-	| "AFTERNOON"
-	| "EVENING"
-	| "NIGHT"
-	| "ON_CALL"
-	| "FLEX";
 
-export const SHIFT_TYPES: readonly ShiftType[] = [
-	"MORNING",
-	"AFTERNOON",
-	"EVENING",
-	"NIGHT",
-	"ON_CALL",
-	"FLEX"
-] as const;
-
-export const SHIFT_TYPE_LABELS: Record<ShiftType, string> = {
-	MORNING: "Morning",
-	AFTERNOON: "Afternoon",
-	EVENING: "Evening",
-	NIGHT: "Night",
-	ON_CALL: "On call",
-	FLEX: "Flexible"
-};
 
 export type ShiftStatus =
 	| "SCHEDULED"
@@ -43,50 +19,56 @@ export const SHIFT_STATUS_LABELS: Record<ShiftStatus, string> = {
 	SWAPPED: "Swapped"
 };
 
-export type StaffShift = {
-	id: number;
-	staffUserId: number;
-	staffDisplayName: string;
-	roleKey: string;
-	departmentId: string;
-	shiftType: ShiftType;
-	status: ShiftStatus;
-	startsAt: string;
-	endsAt: string;
-	notes?: string | null;
-	handoverNotes?: string | null;
-};
+	export type StaffShift = {
+		id: number;
+		staffUserId: number;
+		staffDisplayName: string;
+		roleId: number;
+		roleName: string;
+		departmentId: number;
+		departmentName: string;
+		shiftType: number;
+		status: ShiftStatus;
+		startsAt: string;
+		endsAt: string;
+		notes?: string | null;
+		handoverNotes?: string | null;
+	};
 
-export type StaffShiftFilters = {
-	staffUserId?: number;
-	status?: ShiftStatus;
-	roleKey?: string;
-	departmentId?: string;
-	rangeStart?: string;
-	rangeEnd?: string;
-};
 
-export type CreateStaffShiftPayload = {
-	staffUserId: number;
-	roleKey: string;
-	departmentId: string;
-	shiftType: ShiftType;
-	startsAt: string;
-	endsAt: string;
-	notes?: string | null;
-};
+	export type StaffShiftFilters = {
+		staffUserId?: number;
+		status?: ShiftStatus;
+		roleId?: number;
+		departmentId?: number;
+		shiftType?: number;
+		rangeStart?: string;
+		rangeEnd?: string;
+	};
 
-export type UpdateStaffShiftPayload = {
-	staffUserId?: number;
-	shiftType?: ShiftType;
-	status?: ShiftStatus;
-	roleKey?: string;
-	departmentId?: string;
-	startsAt?: string;
-	endsAt?: string;
-	notes?: string | null;
-	handoverNotes?: string | null;
-};
+
+	export type CreateStaffShiftPayload = {
+		staffUserId: number;
+		roleId: number;
+		departmentId: number;
+		shiftType: number;
+		startsAt: string;
+		endsAt: string;
+		notes?: string | null;
+	};
+
+
+	export type UpdateStaffShiftPayload = {
+		staffUserId?: number;
+		shiftType?: number;
+		status?: ShiftStatus;
+		roleId?: number;
+		departmentId?: number;
+		startsAt?: string;
+		endsAt?: string;
+		notes?: string | null;
+		handoverNotes?: string | null;
+	};
 
 export type ShiftSwapRequestPayload = {
 	note: string;

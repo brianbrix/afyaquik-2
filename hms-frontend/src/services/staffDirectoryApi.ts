@@ -10,7 +10,7 @@ export interface StaffDirectoryEntry {
 }
 
 async function fetchStaff(q?: string): Promise<StaffDirectoryEntry[]> {
-  const res = await apiClient.get('/api/v1/directory/staff', { params: q ? { q } : undefined });
+  const res = await apiClient.get('/directory/staff', { params: q ? { q } : undefined });
   const data = res.data?.data ?? res.data;
   return data as StaffDirectoryEntry[];
 }

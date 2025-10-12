@@ -31,14 +31,14 @@ const PATIENTS_KEY = (q: string | null) => ["patients", q ?? "all"];
 export async function searchPatients(query?: string): Promise<PatientSummary[]> {
   const params: Record<string, string> = {};
   if (query && query.trim()) params.q = query.trim();
-  const res = await apiClient.get(`/api/v1/patients`, { params });
+  const res = await apiClient.get(`/patients`, { params });
   // Supports ApiResponse or raw
   const data = res.data?.data ?? res.data;
   return data as PatientSummary[];
 }
 
 export async function createPatient(payload: CreatePatientPayload): Promise<Patient> {
-  const res = await apiClient.post(`/api/v1/patients`, payload);
+  const res = await apiClient.post(`/patients`, payload);
   const data = res.data?.data ?? res.data;
   return data as Patient;
 }

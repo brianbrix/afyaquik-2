@@ -1,15 +1,15 @@
-export type RoleKey = string;
 
 export interface RoleDefinition {
-  roleKey: RoleKey;
+  id: number;
+  name: string;
   displayName: string;
 }
 
 export interface DepartmentDefinition {
-  departmentId: string;
+  id: number;
+  name: string;
   displayName: string;
 }
 
-// After ApiResponse envelope: backend returns ApiResponse<RoleRef[]> etc.
 export type RolesResponse = RoleDefinition[];
 export type DepartmentsResponse = DepartmentDefinition[];

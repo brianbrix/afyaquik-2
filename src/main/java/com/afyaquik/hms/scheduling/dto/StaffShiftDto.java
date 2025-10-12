@@ -1,7 +1,6 @@
 package com.afyaquik.hms.scheduling.dto;
 
 import com.afyaquik.hms.scheduling.domain.ShiftStatus;
-import com.afyaquik.hms.scheduling.domain.ShiftType;
 import java.time.OffsetDateTime;
 
 /**
@@ -12,9 +11,12 @@ public record StaffShiftDto(
 	Long id,
 	Long staffUserId,
 	String staffDisplayName,
-	String roleKey,
-	String departmentId,
-	ShiftType shiftType,
+	Long roleId,
+	String roleName,
+	Long departmentId,
+	String departmentName,
+	Long shiftTypeId,
+	String shiftTypeName,
 	ShiftStatus status,
 	OffsetDateTime startsAt,
 	OffsetDateTime endsAt,

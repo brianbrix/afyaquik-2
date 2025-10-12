@@ -1,5 +1,7 @@
+
 package com.afyaquik.hms.common.bootstrap;
 
+import java.time.LocalTime;
 import com.afyaquik.hms.auth.domain.Department;
 import com.afyaquik.hms.auth.domain.StaffRole;
 import com.afyaquik.hms.auth.domain.StaffUser;
@@ -36,10 +38,24 @@ import org.springframework.transaction.annotation.Transactional;
 @Profile("!test")
 public class DemoDataInitializer implements CommandLineRunner {
 
+    private ShiftType ensureShiftType(String tenantId, String name, String description, LocalTime start, LocalTime end) {
+        return shiftTypeRepository.findByName(name)
+            .orElseGet(() -> {
+                ShiftType st = new ShiftType();
+                st.setTenantId(tenantId);
+                st.setName(name);
+                st.setDescription(description);
+                st.setStartTime(start);
+                st.setEndTime(end);
+                return shiftTypeRepository.save(st);
+            });
+    }
+
     private static final Logger log = LoggerFactory.getLogger(DemoDataInitializer.class);
 
     private final PasswordEncoder passwordEncoder;
     private final StaffRoleRepository staffRoleRepository;
+    private final com.afyaquik.hms.scheduling.repository.ShiftTypeRepository shiftTypeRepository;
     private final StaffUserRepository staffUserRepository;
     private final StaffShiftRepository staffShiftRepository;
     private final DepartmentRepository departmentRepository;
@@ -59,7 +75,8 @@ public class DemoDataInitializer implements CommandLineRunner {
             PatientRepository patientRepository,
             VisitQueueItemRepository visitQueueItemRepository,
             QueueService queueService,
-            RoleRedirectUrlService roleRedirectUrlService) {
+            RoleRedirectUrlService roleRedirectUrlService,
+            com.afyaquik.hms.scheduling.repository.ShiftTypeRepository shiftTypeRepository) {
         this.passwordEncoder = passwordEncoder;
         this.staffRoleRepository = staffRoleRepository;
         this.staffUserRepository = staffUserRepository;
@@ -70,6 +87,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         this.visitQueueItemRepository = visitQueueItemRepository;
         this.queueService = queueService;
         this.roleRedirectUrlService = roleRedirectUrlService;
+        this.shiftTypeRepository = shiftTypeRepository;
     }
 
     @Override
@@ -83,6 +101,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         StaffRole adminRole = ensureRole(tenantId, "ADMIN", "Administrator");
         StaffRole doctorRole = ensureRole(tenantId, "DOCTOR", "Doctor");
         StaffRole nurseRole = ensureRole(tenantId, "NURSE", "Nurse");
+        StaffRole schedulingManagerRole = ensureRole(tenantId, "SCHEDULING_MANAGER", "Scheduling Manager");
     // Seed default role redirect URLs for all common roles
     roleRedirectUrlService.saveOrUpdate(tenantId, "ADMIN", "/admin");
     roleRedirectUrlService.saveOrUpdate(tenantId, "DOCTOR", "/provider");
@@ -141,63 +160,71 @@ public class DemoDataInitializer implements CommandLineRunner {
                 .withSecond(0)
                 .withNano(0);
 
-        createShift(
-                tenantId,
-                doctor,
-                doctorRole.getRoleKey(),
-                "cardiology",
-                ShiftType.MORNING,
-                ShiftStatus.SCHEDULED,
-                base,
-                base.plusHours(8),
-                "Morning rounds and consultations");
+    ShiftType morning = ensureShiftType(tenantId, "MORNING", "Morning shift", LocalTime.of(8,0), LocalTime.of(16,0));
+    ShiftType afternoon = ensureShiftType(tenantId, "AFTERNOON", "Afternoon shift", LocalTime.of(16,0), LocalTime.of(0,0));
+    ShiftType night = ensureShiftType(tenantId, "NIGHT", "Night shift", LocalTime.of(0,0), LocalTime.of(8,0));
+    Department cardiology = departmentRepository.findByTenantIdAndDepartmentId(tenantId, "cardiology").orElseThrow();
+    Department emergency = departmentRepository.findByTenantIdAndDepartmentId(tenantId, "emergency").orElseThrow();
+    Department surgery = departmentRepository.findByTenantIdAndDepartmentId(tenantId, "surgery").orElseThrow();
+    Department frontOffice = departmentRepository.findByTenantIdAndDepartmentId(tenantId, "front_office").orElseThrow();
 
-        createShift(
-                tenantId,
-                doctor,
-                doctorRole.getRoleKey(),
-                "cardiology",
-                ShiftType.AFTERNOON,
-                ShiftStatus.SCHEDULED,
-                base.plusDays(1),
-                base.plusDays(1).plusHours(8),
-                "Follow-up clinic for chronic patients");
+    createShift(
+        tenantId,
+        doctor,
+        doctorRole,
+        cardiology,
+        morning,
+        ShiftStatus.SCHEDULED,
+        base,
+        base.plusHours(8),
+        "Morning rounds and consultations");
 
-        OffsetDateTime nightStart = base.withHour(20);
-        createShift(
-                tenantId,
-                nurse,
-                nurseRole.getRoleKey(),
-                "emergency",
-                ShiftType.NIGHT,
-                ShiftStatus.SCHEDULED,
-                nightStart,
-                nightStart.plusHours(12),
-                "Overnight triage coverage");
+    createShift(
+        tenantId,
+        doctor,
+        doctorRole,
+        cardiology,
+        afternoon,
+        ShiftStatus.SCHEDULED,
+        base.plusDays(1),
+        base.plusDays(1).plusHours(8),
+        "Follow-up clinic for chronic patients");
 
-        OffsetDateTime weekendStart = base.plusDays(2);
-        createShift(
-                tenantId,
-                nurse,
-                nurseRole.getRoleKey(),
-                "surgery",
-                ShiftType.MORNING,
-                ShiftStatus.SCHEDULED,
-                weekendStart,
-                weekendStart.plusHours(8),
-                "Pre-op prep and recovery checks");
+    OffsetDateTime nightStart = base.withHour(20);
+    createShift(
+        tenantId,
+        nurse,
+        nurseRole,
+        emergency,
+        night,
+        ShiftStatus.SCHEDULED,
+        nightStart,
+        nightStart.plusHours(12),
+        "Overnight triage coverage");
 
-        OffsetDateTime frontDeskStart = base.plusHours(4);
-        createShift(
-                tenantId,
-                receptionist,
-                receptionistRole.getRoleKey(),
-                "front_office",
-                ShiftType.AFTERNOON,
-                ShiftStatus.SCHEDULED,
-                frontDeskStart,
-                frontDeskStart.plusHours(6),
-                "Front desk coverage and appointment coordination");
+    OffsetDateTime weekendStart = base.plusDays(2);
+    createShift(
+        tenantId,
+        nurse,
+        nurseRole,
+        surgery,
+        morning,
+        ShiftStatus.SCHEDULED,
+        weekendStart,
+        weekendStart.plusHours(8),
+        "Pre-op prep and recovery checks");
+
+    OffsetDateTime frontDeskStart = base.plusHours(4);
+    createShift(
+        tenantId,
+        receptionist,
+        receptionistRole,
+        frontOffice,
+        afternoon,
+        ShiftStatus.SCHEDULED,
+        frontDeskStart,
+        frontDeskStart.plusHours(6),
+        "Front desk coverage and appointment coordination");
     }
 
     private void seedQueue(String tenantId, StaffUser doctor, StaffUser nurse, StaffUser receptionist) {
@@ -339,8 +366,8 @@ public class DemoDataInitializer implements CommandLineRunner {
     private void createShift(
             String tenantId,
             StaffUser staffUser,
-            String roleKey,
-            String departmentId,
+            StaffRole role,
+            Department department,
             ShiftType shiftType,
             ShiftStatus status,
             OffsetDateTime startsAt,
@@ -349,8 +376,8 @@ public class DemoDataInitializer implements CommandLineRunner {
         StaffShift shift = new StaffShift();
         shift.setTenantId(tenantId);
         shift.setStaffUser(staffUser);
-        shift.setRoleKey(roleKey);
-        shift.setDepartmentId(departmentId);
+        shift.setRole(role);
+        shift.setDepartment(department);
         shift.setShiftType(shiftType);
         shift.setStatus(status);
         shift.setStartsAt(startsAt);

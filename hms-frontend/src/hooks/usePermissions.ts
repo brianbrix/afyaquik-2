@@ -14,7 +14,7 @@ export function useResolvedPermissions() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    apiClient.get('/api/v1/permissions/resolve')
+    apiClient.get('/permissions/resolve')
       .then(res => setPermissions(res.data.permissions))
       .finally(() => setLoading(false));
   }, [user, activeRole]);

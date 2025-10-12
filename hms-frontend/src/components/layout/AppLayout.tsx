@@ -1,14 +1,25 @@
 import { Container, Nav, Navbar, Dropdown } from "react-bootstrap";
+import { ShiftAlertsBanner } from "../scheduling/ShiftAlertsBanner";
+import { useShiftAction } from "../../hooks/useShiftAction";
+import type { StaffShift } from "../../types/scheduling";
 import { NavLink, Outlet } from "react-router-dom";
 import { RoleSwitcher } from "../role/RoleSwitcher";
 import { useFeatureFlags } from "../../services/configApi";
 import { useAuth } from "../../hooks/useAuth";
+import { NotificationBell } from '../shared/NotificationBell';
 
 export function AppLayout() {
   const { user, logout } = useAuth();
   const { data: flags } = useFeatureFlags();
   const isAdmin = user?.roles?.some((r: any) => (typeof r === 'string' ? (r === 'ADMIN' || r === 'ROLE_ADMIN') : (r.roleKey === 'ADMIN' || r.roleKey === 'ROLE_ADMIN')));
   const flagEnabled = (key: string) => flags?.some(f => f.flagKey === key && f.enabled);
+  const shiftAction = useShiftAction();
+  const handleCheckIn = (shift: StaffShift) => {
+    shiftAction.mutate({ shift, status: "CHECKED_IN" });
+  };
+  const handleCheckOut = (shift: StaffShift) => {
+    shiftAction.mutate({ shift, status: "COMPLETED" });
+  };
   return (
     <div className="app-shell min-vh-100 d-flex flex-column">
       <Navbar bg="primary" variant="dark" expand="lg" className="shadow-sm">
@@ -31,6 +42,7 @@ export function AppLayout() {
             </Nav>
             <div className="d-flex align-items-center gap-3">
               <RoleSwitcher />
+              <NotificationBell />
               <Dropdown align="end">
                 <Dropdown.Toggle size="sm" variant="outline-light">
                   {user?.displayName ?? user?.username ?? "Account"}
@@ -47,6 +59,7 @@ export function AppLayout() {
       </Navbar>
       <main className="flex-grow-1 bg-light">
         <Container fluid className="py-4">
+          <ShiftAlertsBanner onCheckIn={handleCheckIn} onCheckOut={handleCheckOut} />
           <Outlet />
         </Container>
       </main>

@@ -38,7 +38,7 @@ export async function login(
   tenantId: string,
   credentials: { username: string; password: string }
 ): Promise<LoginResponse> {
-  const response = await apiClient.post<any>("/api/v1/auth/login", credentials, {
+  const response = await apiClient.post<any>("/auth/login", credentials, {
     headers: { "X-Tenant-Id": tenantId }
   });
   return unwrap<LoginResponse>(response.data);
@@ -49,7 +49,7 @@ export async function refreshAccessToken(
   refreshToken: string
 ): Promise<RefreshResponse> {
   const response = await apiClient.post<any>(
-    "/api/v1/auth/refresh",
+    "/auth/refresh",
     { refreshToken },
     {
       headers: { "X-Tenant-Id": tenantId }
@@ -59,13 +59,13 @@ export async function refreshAccessToken(
 }
 
 export async function fetchProfile(): Promise<UserProfile> {
-  const response = await apiClient.get<any>("/api/v1/auth/me");
+  const response = await apiClient.get<any>("/auth/me");
   return unwrap<UserProfile>(response.data);
 }
 
 export async function fetchActiveRole(): Promise<RoleKey | null> {
   const config: AxiosRequestConfig = {
-    url: "/api/v1/auth/active-role",
+    url: "/auth/active-role",
     method: "get",
     validateStatus: (status) => (status >= 200 && status < 300) || status === 204
   };
@@ -80,6 +80,6 @@ export async function fetchActiveRole(): Promise<RoleKey | null> {
 }
 
 export async function updateActiveRole(role: RoleKey): Promise<RoleKey> {
-  const response = await apiClient.post<ActiveRoleResponse>("/api/v1/auth/active-role", { role });
+  const response = await apiClient.post<ActiveRoleResponse>("/auth/active-role", { role });
   return response.data.role;
 }

@@ -51,7 +51,7 @@ The queue board expects the backend to be reachable at the configured base URL. 
 - Navigate to the login screen at [`#/login`](http://localhost:5173/#/login). The app automatically redirects unauthenticated users to this route.
 - Provide a tenant ID (defaults to `tenantA`), username, and password. For local smoke tests you can use the seeded backend account: tenant `tenantA`, username `reception`, password `password`.
 - Successful login stores JWT access/refresh tokens and the user profile in `localStorage` under `afyaquik.hms.session`. Tokens are applied to the shared Axios client via the `Authorization` header, and a token refresh is scheduled ~60 seconds before expiry.
-- On app start the session is rehydrated, validated via `/api/v1/auth/me`, and the active role is fetched. If validation fails (tenant mismatch, expired refresh token, etc.) the session is cleared and the user is returned to the login page.
+- On app start the session is rehydrated, validated via `/auth/me`, and the active role is fetched. If validation fails (tenant mismatch, expired refresh token, etc.) the session is cleared and the user is returned to the login page.
 - Use the avatar dropdown in the top navigation to sign out. This clears cached tokens, removes the tenant header, and redirects to the login screen.
 
 ## Project structure

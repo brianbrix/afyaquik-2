@@ -6,7 +6,7 @@ export type EditPatientPayload = Partial<CreatePatientPayload> & { id: number };
 
 export async function editPatient(payload: EditPatientPayload): Promise<Patient> {
   const { id, ...rest } = payload;
-  const res = await apiClient.put(`/api/v1/patients/${id}`, rest);
+  const res = await apiClient.put(`/patients/${id}`, rest);
   return res.data?.data ?? res.data;
 }
 

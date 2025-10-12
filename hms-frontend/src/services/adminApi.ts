@@ -11,57 +11,57 @@ interface ApiEnvelope<T> { status: string; data: T; errors?: any; meta?: any; }
 
 // ---- API functions ----
 export async function fetchRoles(): Promise<AdminRole[]> {
-  const res = await apiClient.get<ApiEnvelope<AdminRole[]>>('/api/v1/admin/roles');
+  const res = await apiClient.get<ApiEnvelope<AdminRole[]>>('/admin/roles');
   return res.data.data;
 }
 export async function createRole(payload: { roleKey: string; displayName: string; }): Promise<AdminRole> {
-  const res = await apiClient.post<ApiEnvelope<AdminRole>>('/api/v1/admin/roles', payload);
+  const res = await apiClient.post<ApiEnvelope<AdminRole>>('/admin/roles', payload);
   return res.data.data;
 }
 export async function updateRole(id: number, payload: { displayName: string; }): Promise<AdminRole> {
-  const res = await apiClient.put<ApiEnvelope<AdminRole>>(`/api/v1/admin/roles/${id}`, payload);
+  const res = await apiClient.put<ApiEnvelope<AdminRole>>(`/admin/roles/${id}`, payload);
   return res.data.data;
 }
 export async function deleteRole(id: number): Promise<void> {
-  await apiClient.delete<ApiEnvelope<void>>(`/api/v1/admin/roles/${id}`);
+  await apiClient.delete<ApiEnvelope<void>>(`/admin/roles/${id}`);
 }
 
 export async function fetchDepartments(): Promise<AdminDepartment[]> {
-  const res = await apiClient.get<ApiEnvelope<AdminDepartment[]>>('/api/v1/admin/departments');
+  const res = await apiClient.get<ApiEnvelope<AdminDepartment[]>>('/admin/departments');
   return res.data.data;
 }
 export async function createDepartment(payload: { departmentId: string; displayName: string; description?: string; }): Promise<AdminDepartment> {
-  const res = await apiClient.post<ApiEnvelope<AdminDepartment>>('/api/v1/admin/departments', payload);
+  const res = await apiClient.post<ApiEnvelope<AdminDepartment>>('/admin/departments', payload);
   return res.data.data;
 }
 export async function updateDepartment(id: number, payload: { displayName: string; description?: string; }): Promise<AdminDepartment> {
-  const res = await apiClient.put<ApiEnvelope<AdminDepartment>>(`/api/v1/admin/departments/${id}`, payload);
+  const res = await apiClient.put<ApiEnvelope<AdminDepartment>>(`/admin/departments/${id}`, payload);
   return res.data.data;
 }
 export async function deleteDepartment(id: number): Promise<void> {
-  await apiClient.delete<ApiEnvelope<void>>(`/api/v1/admin/departments/${id}`);
+  await apiClient.delete<ApiEnvelope<void>>(`/admin/departments/${id}`);
 }
 
 export async function fetchUsers(): Promise<AdminUser[]> {
-  const res = await apiClient.get<ApiEnvelope<AdminUser[]>>('/api/v1/admin/users');
+  const res = await apiClient.get<ApiEnvelope<AdminUser[]>>('/admin/users');
   return res.data.data;
 }
 export async function createUser(payload: { username: string; displayName: string; email?: string; password: string; roleKeys?: string[]; }): Promise<AdminUser> {
-  const res = await apiClient.post<ApiEnvelope<AdminUser>>('/api/v1/admin/users', payload);
+  const res = await apiClient.post<ApiEnvelope<AdminUser>>('/admin/users', payload);
   return res.data.data;
 }
 
 export async function updateUser(id: number, payload: { displayName: string; email?: string; enabled: boolean; }): Promise<AdminUser> {
-  const res = await apiClient.put<ApiEnvelope<AdminUser>>(`/api/v1/admin/users/${id}` , payload);
+  const res = await apiClient.put<ApiEnvelope<AdminUser>>(`/admin/users/${id}` , payload);
   return res.data.data;
 }
 
 export async function updateUserRoles(id: number, roleKeys: string[]): Promise<AdminUser> {
-  const res = await apiClient.patch<ApiEnvelope<AdminUser>>(`/api/v1/admin/users/${id}/roles`, { roleKeys });
+  const res = await apiClient.patch<ApiEnvelope<AdminUser>>(`/admin/users/${id}/roles`, { roleKeys });
   return res.data.data;
 }
 export async function deleteUser(id: number): Promise<void> {
-  await apiClient.delete<ApiEnvelope<void>>(`/api/v1/admin/users/${id}`);
+  await apiClient.delete<ApiEnvelope<void>>(`/admin/users/${id}`);
 }
 
 // ---- Hooks ----

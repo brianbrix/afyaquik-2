@@ -21,7 +21,7 @@ afterEach(() => {
 
 describe("authApi", () => {
   it("logs in a user with tenant header", async () => {
-    mock.onPost("/api/v1/auth/login").reply((config) => {
+    mock.onPost("/auth/login").reply((config) => {
       expect(config.headers?.["X-Tenant-Id"]).toBe("tenantA");
       expect(JSON.parse(config.data)).toEqual({ username: "demo", password: "pass" });
       return [200, { status: "OK", data: {
@@ -46,7 +46,7 @@ describe("authApi", () => {
   });
 
   it("refreshes access token", async () => {
-    mock.onPost("/api/v1/auth/refresh").reply((config) => {
+    mock.onPost("/auth/refresh").reply((config) => {
       expect(config.headers?.["X-Tenant-Id"]).toBe("tenantA");
       expect(JSON.parse(config.data)).toEqual({ refreshToken: "refresh-token" });
   return [200, { status: "OK", data: { accessToken: "new-access", accessTokenExpiresIn: 900 } }];
@@ -58,7 +58,7 @@ describe("authApi", () => {
   });
 
   it("fetches current profile", async () => {
-    mock.onGet("/api/v1/auth/me").reply(200, { status: "OK", data: {
+    mock.onGet("/auth/me").reply(200, { status: "OK", data: {
       id: 1,
       username: "demo",
       displayName: "Demo User",
@@ -72,7 +72,7 @@ describe("authApi", () => {
   });
 
   it("fetches current active role", async () => {
-  mock.onGet("/api/v1/auth/active-role").reply(200, { role: "PROVIDER" });
+  mock.onGet("/auth/active-role").reply(200, { role: "PROVIDER" });
 
     const role = await fetchActiveRole();
 
@@ -80,7 +80,7 @@ describe("authApi", () => {
   });
 
   it("returns null when no active role is set", async () => {
-    mock.onGet("/api/v1/auth/active-role").reply(204);
+    mock.onGet("/auth/active-role").reply(204);
 
     const role = await fetchActiveRole();
 
@@ -88,7 +88,7 @@ describe("authApi", () => {
   });
 
   it("persists selected active role", async () => {
-  mock.onPost("/api/v1/auth/active-role", { role: "TRIAGE" }).reply(200, { role: "TRIAGE" });
+  mock.onPost("/auth/active-role", { role: "TRIAGE" }).reply(200, { role: "TRIAGE" });
 
   const role = await updateActiveRole("TRIAGE");
 

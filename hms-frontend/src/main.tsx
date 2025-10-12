@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./app/App";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./styles/index.scss";
+import "bootstrap-icons/font/bootstrap-icons.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

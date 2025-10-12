@@ -1,6 +1,5 @@
 package com.afyaquik.hms.scheduling.api;
 
-import com.afyaquik.hms.scheduling.domain.ShiftType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -10,16 +9,14 @@ public record CreateStaffShiftRequest(
 	@NotNull(message = "Staff user id is required")
 	Long staffUserId,
 
-	@NotBlank(message = "Role key is required")
-	@Size(max = 64)
-	String roleKey,
+	@NotNull(message = "Role id is required")
+	Long roleId,
 
-	@NotBlank(message = "Department id is required")
-	@Size(max = 64)
-	String departmentId,
+	@NotNull(message = "Department id is required")
+	Long departmentId,
 
 	@NotNull(message = "Shift type is required")
-	ShiftType shiftType,
+	Long shiftTypeId,
 
 	@NotNull(message = "Shift start time is required")
 	OffsetDateTime startsAt,

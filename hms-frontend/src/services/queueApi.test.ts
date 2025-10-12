@@ -36,7 +36,7 @@ describe("queueApi", () => {
       }
     ];
 
-    mock.onGet("/api/v1/queue").reply((config) => {
+    mock.onGet("/queue").reply((config) => {
       const headers = config.headers as any;
       const tenantHeader =
         typeof headers?.get === "function" ? headers.get("X-Tenant-Id") : headers?.["X-Tenant-Id"];
@@ -72,7 +72,7 @@ describe("queueApi", () => {
       slaDueAt: new Date().toISOString()
     };
 
-    mock.onPost("/api/v1/queue/42/assign").reply((config) => {
+    mock.onPost("/queue/42/assign").reply((config) => {
       expect(JSON.parse(config.data)).toEqual(payload);
       return [200, sampleResponse];
     });
@@ -104,7 +104,7 @@ describe("queueApi", () => {
       slaDueAt: new Date().toISOString()
     };
 
-    mock.onPost("/api/v1/queue/42/transition").reply((config) => {
+    mock.onPost("/queue/42/transition").reply((config) => {
       expect(JSON.parse(config.data)).toEqual(payload);
       return [200, sampleResponse];
     });
@@ -129,7 +129,7 @@ describe("queueApi", () => {
       }
     ];
 
-    mock.onGet("/api/v1/queue/42/timeline").reply(200, sampleResponse);
+    mock.onGet("/queue/42/timeline").reply(200, sampleResponse);
 
     const result = await fetchQueueTimeline(42);
     expect(result).toEqual(sampleResponse);

@@ -18,15 +18,15 @@ export type Permission = {
 export type PermissionMatrix = Record<string, 'UNSET' | 'ALLOWED' | 'NOT_ALLOWED'>;
 
 async function fetchPermissions(): Promise<Permission[]> {
-  const res = await apiClient.get('/api/v1/permissions');
+  const res = await apiClient.get('/permissions');
   return res.data;
 }
 async function fetchMatrix(targetType: string, targetId: number): Promise<PermissionMatrix> {
-  const res = await apiClient.get(`/api/v1/permissions/matrix`, { params: { targetType, targetId } });
+  const res = await apiClient.get(`/permissions/matrix`, { params: { targetType, targetId } });
   return res.data.permissions;
 }
 async function saveAssignment(targetType: string, targetId: number, code: string, state: 'UNSET' | 'ALLOWED' | 'NOT_ALLOWED') {
-  await apiClient.post('/api/v1/permissions/assignments', { targetType, targetId, permission: { code }, state });
+  await apiClient.post('/permissions/assignments', { targetType, targetId, permission: { code }, state });
 }
 
 const TARGET_TYPES = ['USER', 'GROUP', 'ROLE'] as const;

@@ -53,125 +53,148 @@ class StaffSchedulingControllerTest {
 		.build();
     }
 
-    @Test
-    void listShifts_returnsResults() throws Exception {
-	StaffShiftDto dto = new StaffShiftDto(
-		10L,
-		77L,
-		"Dr. Alice",
-		"PROVIDER",
-		"CLINIC-A",
-		ShiftType.MORNING,
-		ShiftStatus.SCHEDULED,
-		OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-		OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
-		"Covering",
-		null);
+	@Test
+	void listShifts_returnsResults() throws Exception {
+		StaffShiftDto resp = new StaffShiftDto(
+			10L, // id
+			77L, // staffUserId
+			"Dr. Alice", // staffDisplayName
+			2L, // roleId
+			"Provider", // roleName
+			3L, // departmentId
+			"Clinic A", // departmentName
+			1L, // shiftTypeId
+			"Morning", // shiftTypeName
+			ShiftStatus.SCHEDULED,
+			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
+			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
+			"Covering",
+			null);
 
-	when(schedulingService.listShifts(eq("tenant-xyz"), any(), any(), any(), any(), any()))
-		.thenReturn(List.of(dto));
+		when(schedulingService.listShifts(eq("tenant-xyz"), any(), any(), any(), any(), any(), any(), any()))
+			.thenReturn(List.of(resp));
 
-	mockMvc.perform(get("/api/v1/scheduling/shifts")
-			.header(TENANT_HEADER, "tenant-xyz"))
-		.andExpect(status().isOk())
-		.andExpect(jsonPath("$", hasSize(1)))
-		.andExpect(jsonPath("$[0].staffUserId").value(77L))
-		.andExpect(jsonPath("$[0].shiftType").value("MORNING"));
-    }
+		mockMvc.perform(get("/api/v1/scheduling/shifts")
+				.header(TENANT_HEADER, "tenant-xyz"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$", hasSize(1)))
+			.andExpect(jsonPath("$[0].staffUserId").value(77L))
+			.andExpect(jsonPath("$[0].shiftTypeId").value(1L))
+			.andExpect(jsonPath("$[0].roleId").value(2L))
+			.andExpect(jsonPath("$[0].departmentId").value(3L));
+	}
 
-    @Test
-    void createShift_persistsAndReturns201() throws Exception {
-	StaffShiftDto dto = new StaffShiftDto(
-		33L,
-		77L,
-		"Dr. Alice",
-		"PROVIDER",
-		"CLINIC-A",
-		ShiftType.MORNING,
-		ShiftStatus.SCHEDULED,
-		OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-		OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
-		"Covering",
-		null);
+	@Test
+	void createShift_persistsAndReturns201() throws Exception {
+		StaffShiftDto resp = new StaffShiftDto(
+			33L,
+			77L,
+			"Dr. Alice",
+			2L,
+			"Provider",
+			3L,
+			"Clinic A",
+			1L,
+			"Morning",
+			ShiftStatus.SCHEDULED,
+			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
+			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
+			"Covering",
+			null);
 
-	when(schedulingService.createShift(eq("tenant-xyz"), any(CreateStaffShiftRequest.class))).thenReturn(dto);
+		when(schedulingService.createShift(eq("tenant-xyz"), any(CreateStaffShiftRequest.class))).thenReturn(resp);
 
-	String payload = "{" +
-		"\"staffUserId\":77," +
-		"\"roleKey\":\"PROVIDER\"," +
-		"\"departmentId\":\"CLINIC-A\"," +
-		"\"shiftType\":\"MORNING\"," +
-		"\"startsAt\":\"2025-10-09T08:00:00Z\"," +
-		"\"endsAt\":\"2025-10-09T14:00:00Z\"," +
-		"\"notes\":\"Covering\"" +
-		"}";
+		String payload = "{" +
+			"\"staffUserId\":77," +
+			"\"roleId\":2," +
+			"\"departmentId\":3," +
+			"\"shiftTypeId\":1," +
+			"\"startsAt\":\"2025-10-09T08:00:00Z\"," +
+			"\"endsAt\":\"2025-10-09T14:00:00Z\"," +
+			"\"notes\":\"Covering\"" +
+			"}";
 
-	mockMvc.perform(post("/api/v1/scheduling/shifts")
-			.header(TENANT_HEADER, "tenant-xyz")
-			.contentType(MediaType.APPLICATION_JSON)
-			.content(payload))
-		.andExpect(status().isCreated())
-		.andExpect(jsonPath("$.id").value(33L));
-    }
+		mockMvc.perform(post("/api/v1/scheduling/shifts")
+				.header(TENANT_HEADER, "tenant-xyz")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.id").value(33L))
+			.andExpect(jsonPath("$.roleId").value(2L))
+			.andExpect(jsonPath("$.departmentId").value(3L))
+			.andExpect(jsonPath("$.shiftTypeId").value(1L));
+	}
 
-    @Test
-    void approveSwap_endpointInvokesService() throws Exception {
-	StaffShiftDto dto = new StaffShiftDto(
-		55L,
-		88L,
-		"Dr. Bob",
-		"PROVIDER",
-		"CLINIC-A",
-		ShiftType.MORNING,
-		ShiftStatus.SWAPPED,
-		OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-		OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
-		"Swapped",
-		"Keys ready");
+	@Test
+	void approveSwap_endpointInvokesService() throws Exception {
+		StaffShiftDto resp = new StaffShiftDto(
+			55L,
+			88L,
+			"Dr. Bob",
+			2L,
+			"Provider",
+			3L,
+			"Clinic A",
+			1L,
+			"Morning",
+			ShiftStatus.SWAPPED,
+			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
+			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
+			"Swapped",
+			"Keys ready");
 
-	when(schedulingService.approveSwap(eq("tenant-xyz"), anyLong(), anyLong(), any(), any())).thenReturn(dto);
+		when(schedulingService.approveSwap(eq("tenant-xyz"), anyLong(), anyLong(), any(), any())).thenReturn(resp);
 
-	String payload = "{" +
-		"\"targetStaffUserId\":88," +
-		"\"note\":\"Swapped\"," +
-		"\"handoverNotes\":\"Keys ready\"" +
-		"}";
+		String payload = "{" +
+			"\"targetStaffUserId\":88," +
+			"\"note\":\"Swapped\"," +
+			"\"handoverNotes\":\"Keys ready\"" +
+			"}";
 
-	mockMvc.perform(post("/api/v1/scheduling/shifts/55/swap-approve")
-			.header(TENANT_HEADER, "tenant-xyz")
-			.contentType(MediaType.APPLICATION_JSON)
-			.content(payload))
-		.andExpect(status().isOk())
-		.andExpect(jsonPath("$.status").value("SWAPPED"));
+		mockMvc.perform(post("/api/v1/scheduling/shifts/55/swap-approve")
+				.header(TENANT_HEADER, "tenant-xyz")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("SWAPPED"))
+			.andExpect(jsonPath("$.roleId").value(2L))
+			.andExpect(jsonPath("$.departmentId").value(3L))
+			.andExpect(jsonPath("$.shiftTypeId").value(1L));
 
-	verify(schedulingService).approveSwap(eq("tenant-xyz"), eq(55L), eq(88L), eq("Swapped"), eq("Keys ready"));
-    }
+		verify(schedulingService).approveSwap(eq("tenant-xyz"), eq(55L), eq(88L), eq("Swapped"), eq("Keys ready"));
+	}
 
-    @Test
-    void updateShift_forwardsRequestPayload() throws Exception {
-	StaffShiftDto dto = new StaffShiftDto(
-		33L,
-		77L,
-		"Dr. Alice",
-		"PROVIDER",
-		"CLINIC-A",
-		ShiftType.MORNING,
-		ShiftStatus.CHECKED_IN,
-		OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-		OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
-		"Covering",
-		null);
-	when(schedulingService.updateShift(eq("tenant-xyz"), eq(33L), any(UpdateStaffShiftRequest.class))).thenReturn(dto);
+	@Test
+	void updateShift_forwardsRequestPayload() throws Exception {
+		StaffShiftDto resp = new StaffShiftDto(
+			33L,
+			77L,
+			"Dr. Alice",
+			2L,
+			"Provider",
+			3L,
+			"Clinic A",
+			1L,
+			"Morning",
+			ShiftStatus.CHECKED_IN,
+			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
+			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
+			"Covering",
+			null);
+		when(schedulingService.updateShift(eq("tenant-xyz"), eq(33L), any(UpdateStaffShiftRequest.class))).thenReturn(resp);
 
-	String payload = "{" +
-		"\"status\":\"CHECKED_IN\"" +
-		"}";
+		String payload = "{" +
+			"\"status\":\"CHECKED_IN\"" +
+			"}";
 
-	mockMvc.perform(put("/api/v1/scheduling/shifts/33")
-			.header(TENANT_HEADER, "tenant-xyz")
-			.contentType(MediaType.APPLICATION_JSON)
-			.content(payload))
-		.andExpect(status().isOk())
-		.andExpect(jsonPath("$.status").value("CHECKED_IN"));
-    }
+		mockMvc.perform(put("/api/v1/scheduling/shifts/33")
+				.header(TENANT_HEADER, "tenant-xyz")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value("CHECKED_IN"))
+			.andExpect(jsonPath("$.roleId").value(2L))
+			.andExpect(jsonPath("$.departmentId").value(3L))
+			.andExpect(jsonPath("$.shiftTypeId").value(1L));
+	}
 }

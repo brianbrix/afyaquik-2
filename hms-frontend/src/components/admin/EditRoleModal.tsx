@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AdminRole, useUpdateRole } from '../../services/adminApi';
+import { FormModal } from '../shared/FormModal';
 
 interface EditRoleModalProps { show: boolean; onClose: () => void; role?: AdminRole; onSave?: (displayName: string) => void; }
 
@@ -15,31 +16,24 @@ export const EditRoleModal: React.FC<EditRoleModalProps> = ({ show, onClose, rol
   };
 
   return (
-    <div className="modal d-block" style={{background:'rgba(0,0,0,0.4)'}}>
-      <div className="modal-dialog">
-        <div className="modal-content">
-          <form onSubmit={submit}>
-            <div className="modal-header">
-              <h5 className="modal-title">Edit Role</h5>
-              <button className="btn-close" onClick={onClose} />
-            </div>
-            <div className="modal-body">
-              <div className="mb-3">
-                <label className="form-label form-label-sm">Role Key</label>
-                <input className="form-control form-control-sm" value={role.roleKey} disabled />
-              </div>
-              <div className="mb-3">
-                <label className="form-label form-label-sm">Display Name</label>
-                <input className="form-control form-control-sm" value={displayName} onChange={e=>setDisplayName(e.target.value)} />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-light" onClick={onClose} disabled={updateRole.isPending}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={updateRole.isPending}>{updateRole.isPending?'Saving...':'Save'}</button>
-            </div>
-          </form>
-        </div>
+    <FormModal
+      show={show}
+      onHide={onClose}
+      onSubmit={submit}
+      title="Edit Role"
+      isSubmitting={updateRole.isPending}
+      submitLabel={updateRole.isPending ? 'Saving...' : 'Save'}
+      cancelLabel="Cancel"
+      disableSubmit={updateRole.isPending || !displayName.trim()}
+    >
+      <div className="mb-3">
+        <label className="form-label form-label-sm">Role Key</label>
+        <input className="form-control form-control-sm" value={role.roleKey} disabled />
       </div>
-    </div>
+      <div className="mb-3">
+        <label className="form-label form-label-sm">Display Name</label>
+        <input className="form-control form-control-sm" value={displayName} onChange={e=>setDisplayName(e.target.value)} />
+      </div>
+    </FormModal>
   );
 };

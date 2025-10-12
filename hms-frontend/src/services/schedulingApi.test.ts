@@ -29,7 +29,7 @@ describe("schedulingApi", () => {
 
 		const result = await fetchStaffShifts({ status: "SCHEDULED", departmentId: "OPD" });
 
-		expect(apiClient.get).toHaveBeenCalledWith("/api/v1/scheduling/shifts", {
+		expect(apiClient.get).toHaveBeenCalledWith("/scheduling/shifts", {
 			params: {
 				staffUserId: undefined,
 				status: "SCHEDULED",
@@ -57,7 +57,7 @@ describe("schedulingApi", () => {
 
 		const result = await createStaffShift(payload);
 
-		expect(apiClient.post).toHaveBeenCalledWith("/api/v1/scheduling/shifts", payload);
+		expect(apiClient.post).toHaveBeenCalledWith("/scheduling/shifts", payload);
 		expect(result).toEqual(mockResponse.data);
 	});
 
@@ -67,7 +67,7 @@ describe("schedulingApi", () => {
 
 		const result = await updateStaffShift(4, { status: "CHECKED_IN" });
 
-		expect(apiClient.put).toHaveBeenCalledWith("/api/v1/scheduling/shifts/4", { status: "CHECKED_IN" });
+		expect(apiClient.put).toHaveBeenCalledWith("/scheduling/shifts/4", { status: "CHECKED_IN" });
 		expect(result).toEqual(mockResponse.data);
 	});
 
@@ -78,7 +78,7 @@ describe("schedulingApi", () => {
 		const result = await requestShiftSwap(7, { note: "Need cover" });
 
 		expect(apiClient.post).toHaveBeenCalledWith(
-			"/api/v1/scheduling/shifts/7/swap-request",
+			"/scheduling/shifts/7/swap-request",
 			{ note: "Need cover" }
 		);
 		expect(result).toEqual(mockResponse.data);
@@ -97,7 +97,7 @@ describe("schedulingApi", () => {
 		const result = await approveShiftSwap(10, payload);
 
 		expect(apiClient.post).toHaveBeenCalledWith(
-			"/api/v1/scheduling/shifts/10/swap-approve",
+			"/scheduling/shifts/10/swap-approve",
 			payload
 		);
 		expect(result).toEqual(mockResponse.data);

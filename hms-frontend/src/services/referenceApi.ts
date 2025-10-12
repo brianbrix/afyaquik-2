@@ -28,13 +28,13 @@ function normalizeDepartments(raw: any[]): DepartmentsResponse {
 }
 
 export async function fetchRoles(): Promise<RolesResponse> {
-  const response = await apiClient.get("/api/v1/reference/roles");
+  const response = await apiClient.get("/reference/roles");
   const raw = unwrap<any[]>(response.data);
   return normalizeRoles(raw);
 }
 
 export async function fetchDepartments(): Promise<DepartmentsResponse> {
-  const response = await apiClient.get("/api/v1/reference/departments");
+  const response = await apiClient.get("/reference/departments");
   const raw = unwrap<any[]>(response.data);
   return normalizeDepartments(raw);
 }

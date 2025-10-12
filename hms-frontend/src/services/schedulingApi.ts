@@ -1,3 +1,4 @@
+
 import { apiClient } from "./apiClient";
 import type {
 	StaffShift,
@@ -8,14 +9,21 @@ import type {
 	ShiftSwapApprovalPayload
 } from "../types/scheduling";
 
+
+// Fetch pending check-in/out alerts for the logged-in staff
+export async function fetchShiftAlerts(): Promise<StaffShift[]> {
+	const response = await apiClient.get<StaffShift[]>("/scheduling/shifts/alerts");
+	return response.data;
+}
 export async function fetchStaffShifts(filters: StaffShiftFilters = {}): Promise<StaffShift[]> {
-	const response = await apiClient.get<StaffShift[]>("/api/v1/scheduling/shifts", {
+	const response = await apiClient.get<StaffShift[]>("/scheduling/shifts", {
 		params: {
 			...filters,
 			staffUserId: filters.staffUserId ?? undefined,
 			status: filters.status ?? undefined,
-			roleKey: filters.roleKey ?? undefined,
+			roleId: filters.roleId ?? undefined,
 			departmentId: filters.departmentId ?? undefined,
+			shiftType: filters.shiftType ?? undefined,
 			rangeStart: filters.rangeStart ?? undefined,
 			rangeEnd: filters.rangeEnd ?? undefined
 		}
@@ -24,7 +32,7 @@ export async function fetchStaffShifts(filters: StaffShiftFilters = {}): Promise
 }
 
 export async function createStaffShift(payload: CreateStaffShiftPayload): Promise<StaffShift> {
-	const response = await apiClient.post<StaffShift>("/api/v1/scheduling/shifts", payload);
+	const response = await apiClient.post<StaffShift>("/scheduling/shifts", payload);
 	return response.data;
 }
 
@@ -32,7 +40,7 @@ export async function updateStaffShift(
 	shiftId: number,
 	payload: UpdateStaffShiftPayload
 ): Promise<StaffShift> {
-	const response = await apiClient.put<StaffShift>(`/api/v1/scheduling/shifts/${shiftId}`, payload);
+	const response = await apiClient.put<StaffShift>(`/scheduling/shifts/${shiftId}`, payload);
 	return response.data;
 }
 
@@ -41,7 +49,7 @@ export async function requestShiftSwap(
 	payload: ShiftSwapRequestPayload
 ): Promise<StaffShift> {
 	const response = await apiClient.post<StaffShift>(
-		`/api/v1/scheduling/shifts/${shiftId}/swap-request`,
+		`/scheduling/shifts/${shiftId}/swap-request`,
 		payload
 	);
 	return response.data;
@@ -52,7 +60,7 @@ export async function approveShiftSwap(
 	payload: ShiftSwapApprovalPayload
 ): Promise<StaffShift> {
 	const response = await apiClient.post<StaffShift>(
-		`/api/v1/scheduling/shifts/${shiftId}/swap-approve`,
+		`/scheduling/shifts/${shiftId}/swap-approve`,
 		payload
 	);
 	return response.data;

@@ -1,30 +1,48 @@
 package com.afyaquik.hms.scheduling.domain;
 
-/**
- * Enumerates the supported shift templates available in the scheduling module.
- * These values are intentionally broad so tenants can map them to their
- * internal rota terminology while still driving analytics and filtering.
- */
-public enum ShiftType {
+import com.afyaquik.hms.common.domain.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import java.time.LocalTime;
 
-	/** Morning duty, typically opening hours. */
-	MORNING,
+@Entity
+@Table(name = "shift_types")
+public class ShiftType extends BaseEntity {
+    @Column(name = "name", nullable = false, unique = true, length = 64)
+    private String name;
 
-	/** Afternoon coverage or mid-day duty. */
-	AFTERNOON,
+    @Column(name = "description", length = 256)
+    private String description;
 
-	/** Evening service window (late clinic, urgent care, etc.). */
-	EVENING,
+    @Column(name = "start_time")
+    private LocalTime startTime;
 
-	/** Overnight shift. */
-	NIGHT,
+    @Column(name = "end_time")
+    private LocalTime endTime;
 
-	/** On-call coverage, may span longer durations. */
-	ON_CALL,
-
-	/**
-	 * Flexible or ad-hoc assignment. Used when a shift does not match the
-	 * predefined templates but must still be tracked.
-	 */
-	FLEX
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
+    public String getDescription() {
+        return description;
+    }
+    public void setDescription(String description) {
+        this.description = description;
+    }
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+    public void setStartTime(LocalTime startTime) {
+        this.startTime = startTime;
+    }
+    public LocalTime getEndTime() {
+        return endTime;
+    }
+    public void setEndTime(LocalTime endTime) {
+        this.endTime = endTime;
+    }
 }

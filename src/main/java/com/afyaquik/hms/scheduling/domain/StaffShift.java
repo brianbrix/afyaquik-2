@@ -1,11 +1,13 @@
+
 package com.afyaquik.hms.scheduling.domain;
+
+import com.afyaquik.hms.auth.domain.Department;
+import com.afyaquik.hms.auth.domain.StaffRole;
 
 import com.afyaquik.hms.auth.domain.StaffUser;
 import com.afyaquik.hms.common.domain.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -26,17 +28,18 @@ public class StaffShift extends BaseEntity {
 	@JoinColumn(name = "staff_user_id", nullable = false)
 	private StaffUser staffUser;
 
-	@Column(name = "role_key", nullable = false, length = 64)
-	private String roleKey;
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "role_id", nullable = false)
+	private StaffRole role;
 
-	@Column(name = "department_id", nullable = false, length = 64)
-	private String departmentId;
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "department_id", nullable = false)
+	private Department department;
 
-	@Enumerated(EnumType.STRING)
-	@Column(name = "shift_type", nullable = false, length = 32)
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "shift_type_id", nullable = false)
 	private ShiftType shiftType;
 
-	@Enumerated(EnumType.STRING)
 	@Column(name = "status", nullable = false, length = 32)
 	private ShiftStatus status = ShiftStatus.SCHEDULED;
 
@@ -60,20 +63,20 @@ public class StaffShift extends BaseEntity {
 		this.staffUser = staffUser;
 	}
 
-	public String getRoleKey() {
-		return roleKey;
+	public StaffRole getRole() {
+		return role;
 	}
 
-	public void setRoleKey(String roleKey) {
-		this.roleKey = roleKey;
+	public void setRole(StaffRole role) {
+		this.role = role;
 	}
 
-	public String getDepartmentId() {
-		return departmentId;
+	public Department getDepartment() {
+		return department;
 	}
 
-	public void setDepartmentId(String departmentId) {
-		this.departmentId = departmentId;
+	public void setDepartment(Department department) {
+		this.department = department;
 	}
 
 	public ShiftType getShiftType() {
