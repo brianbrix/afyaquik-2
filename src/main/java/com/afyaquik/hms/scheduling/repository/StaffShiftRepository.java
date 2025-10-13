@@ -1,6 +1,7 @@
 package com.afyaquik.hms.scheduling.repository;
 
 import com.afyaquik.hms.scheduling.domain.StaffShift;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.time.OffsetDateTime;

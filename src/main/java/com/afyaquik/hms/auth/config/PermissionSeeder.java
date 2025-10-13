@@ -19,6 +19,7 @@ public class PermissionSeeder {
                 new Permission("VIEW_PATIENT", "View patient details"),
                 new Permission("DELETE_PATIENT", "Delete a patient record"),
                 new Permission("MERGE_PATIENT", "Merge duplicate patient records"),
+                new Permission("MANAGE_SHIFTS", "Manage staff shifts"),
                 new Permission("CREATE_QUEUE", "Create a new queue"),
                 new Permission("EDIT_QUEUE", "Edit queue details"),
                 new Permission("VIEW_QUEUE", "View queue"),

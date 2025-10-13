@@ -8,7 +8,9 @@ export function useShiftAction() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: async ({ shift, status }: { shift: StaffShift; status: ShiftStatus }) => {
-      return updateStaffShift(shift.id, { status });
+      // Use PATCH /owner endpoint for CHECKED_IN (owner check-in), else use PUT
+      const useOwnerEndpoint = status === "CHECKED_IN";
+      return updateStaffShift(shift.id, { status }, useOwnerEndpoint);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shift-alerts"] });

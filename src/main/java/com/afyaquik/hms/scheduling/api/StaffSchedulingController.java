@@ -11,6 +11,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,15 +25,24 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.PatchMapping;
+
+
+
+// imports cleaned
+
 @RestController
 @RequestMapping("/api/v1/scheduling")
+
 public class StaffSchedulingController {
 
 	private final StaffSchedulingService schedulingService;
+	// removed unused logger
 
 	public StaffSchedulingController(StaffSchedulingService schedulingService) {
 		this.schedulingService = schedulingService;
 	}
+
 
 
 
@@ -63,15 +73,9 @@ public class StaffSchedulingController {
 	 * Returns pending check-in and check-out alerts for the logged-in staff user.
 	 */
 	@GetMapping("/shifts/alerts")
-		public List<StaffShiftDto> getShiftAlerts(
-			org.springframework.security.core.Authentication authentication) {
+	public List<StaffShiftDto> getShiftAlerts(org.springframework.security.core.Authentication authentication) {
 		String tenantId = TenantHeaderInterceptor.getCurrentTenant();
-		Long staffUserId;
-		try {
-			staffUserId = Long.parseLong(authentication.getName());
-		} catch (Exception e) {
-			return List.of();
-		}
+	Long staffUserId = schedulingService.getStaffUserIdFromAuthentication(authentication);
 		return schedulingService.findPendingShiftAlerts(tenantId, staffUserId);
 	}
 
@@ -133,5 +137,18 @@ public class StaffSchedulingController {
 		}
 	}
 
-	   // Removed toResponse method
+	/**
+	 * Allows the shift owner to update their own shift's status and notes only.
+	 * No role annotation; ownership is checked in code.
+	 */
+	@PatchMapping("/shifts/{shiftId}/owner")
+	public StaffShiftDto updateOwnShift(
+			@PathVariable Long shiftId,
+			@Valid @RequestBody UpdateStaffShiftRequest request,
+			org.springframework.security.core.Authentication authentication) {
+		String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+	Long staffUserId = schedulingService.getStaffUserIdFromAuthentication(authentication);
+		return schedulingService.updateOwnShift(tenantId, shiftId, staffUserId, request);
+	}
+
 }

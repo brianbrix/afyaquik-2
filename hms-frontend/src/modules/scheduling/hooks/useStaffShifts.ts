@@ -45,9 +45,9 @@ export function useCreateStaffShift(filters: StaffShiftFilters) {
 
 export function useUpdateStaffShift(filters: StaffShiftFilters) {
 	const queryClient = useQueryClient();
-	return useMutation<StaffShift, Error, { shiftId: number; payload: UpdateStaffShiftPayload }>({
-		mutationFn: ({ shiftId, payload }: { shiftId: number; payload: UpdateStaffShiftPayload }) =>
-			updateStaffShift(shiftId, payload),
+	return useMutation<StaffShift, Error, { shiftId: number; payload: UpdateStaffShiftPayload; useOwnerEndpoint?: boolean }>({
+		mutationFn: ({ shiftId, payload, useOwnerEndpoint }: { shiftId: number; payload: UpdateStaffShiftPayload; useOwnerEndpoint?: boolean }) =>
+			updateStaffShift(shiftId, payload, !!useOwnerEndpoint),
 		onSuccess: async (
 			_data: StaffShift,
 			variables: { shiftId: number; payload: UpdateStaffShiftPayload }

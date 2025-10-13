@@ -1,4 +1,5 @@
 
+
 package com.afyaquik.hms.scheduling.service;
 
 import com.afyaquik.hms.auth.domain.StaffUser;
@@ -14,13 +15,17 @@ import com.afyaquik.hms.scheduling.repository.ShiftTypeRepository;
 import com.afyaquik.hms.auth.repository.DepartmentRepository;
 import com.afyaquik.hms.auth.repository.StaffRoleRepository;
 import jakarta.persistence.EntityNotFoundException;
+
+
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import org.springframework.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +60,19 @@ public class StaffSchedulingService {
 		this.departmentRepository = departmentRepository;
 		this.staffRoleRepository = staffRoleRepository;
 		this.notificationService = notificationService;
+	}
+
+
+
+	/**
+	 * Utility to get staff user ID from authentication principal (username)
+	 */
+	public Long getStaffUserIdFromAuthentication(org.springframework.security.core.Authentication authentication) {
+		String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+		String username = authentication.getName();
+		StaffUser user = staffUserRepository.findByTenantIdAndUsername(tenantId, username)
+			.orElseThrow(() -> new IllegalStateException("Staff user not found for username: " + username));
+		return user.getId();
 	}
 
 	public List<StaffShiftDto> listShifts(String tenantId,
@@ -94,18 +112,42 @@ public class StaffSchedulingService {
 		return dtos;
 	}
 
+	/**
+	 * Allows the shift owner to update their own shift's status and notes only.
+	 * Throws if not owner or invalid transition.
+	 */
+	@Transactional
+	public StaffShiftDto updateOwnShift(String tenantId, Long shiftId, Long staffUserId, UpdateStaffShiftRequest request) {
+		StaffShift shift = getShiftForTenant(tenantId, shiftId);
+		if (!shift.getStaffUser().getId().equals(staffUserId)) {
+			throw new IllegalStateException("Only the shift owner can update their shift");
+		}
+		// Only allow status transitions that are valid
+		ensureTransitionAllowed(shift.getStatus(), request.status());
+		shift.setStatus(request.status());
+		shift.setNotes(trimToNull(request.notes()));
+		// Save and return updated DTO
+		shiftRepository.save(shift);
+		return toDto(shift);
+	}
+
 
 	/**
 	 * Returns shifts for a staff user that require check-in or check-out alerts.
 	 */
 	public List<StaffShiftDto> findPendingShiftAlerts(String tenantId, Long staffUserId) {
-		OffsetDateTime now = OffsetDateTime.now();
+		OffsetDateTime now = OffsetDateTime.now(ZoneId.of("Africa/Nairobi"));
+
 		// Shifts that are scheduled to start now or earlier but not checked in
+		log.info("Finding pending check-in for tenantId: {}, staffUserId: {}, status: {}, before: {}", tenantId, staffUserId, ShiftStatus.SCHEDULED, now.plusMinutes(1));
+
 		List<StaffShift> pendingCheckIn = shiftRepository.findPendingCheckIn(
 			tenantId, staffUserId, ShiftStatus.SCHEDULED, now.plusMinutes(1));
 		// Shifts that are past their end time but not checked out (still checked in or in progress)
 		List<StaffShift> pendingCheckOut = shiftRepository.findPendingCheckOut(
 			tenantId, staffUserId, List.of(ShiftStatus.CHECKED_IN, ShiftStatus.IN_PROGRESS), now);
+		log.info("Found {} pending check-in and {} pending check-out shifts for staffUserId={} tenant={}",
+			pendingCheckIn.size(), pendingCheckOut.size(), staffUserId, tenantId);
 		return java.util.stream.Stream.concat(pendingCheckIn.stream(), pendingCheckOut.stream())
 			.map(this::toDto)
 			.toList();

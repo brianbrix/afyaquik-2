@@ -27,7 +27,7 @@ public class ReferenceController {
     public ApiResponse<List<RoleRef>> roles() {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         var list = staffRoleRepository.findByTenantIdOrderByDisplayNameAsc(tenantId).stream()
-            .map(r -> new RoleRef(r.getRoleKey() == null ? null : r.getRoleKey().toUpperCase(), r.getDisplayName()))
+            .map(r -> new RoleRef(r.getId(),r.getRoleKey() == null ? null : r.getRoleKey().toUpperCase(), r.getDisplayName()))
             .toList();
         return ApiResponse.success(list);
     }
@@ -36,12 +36,12 @@ public class ReferenceController {
     public ApiResponse<List<DepartmentRef>> departments() {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         var list = departmentRepository.findByTenantIdOrderByDisplayNameAsc(tenantId).stream()
-            .map(d -> new DepartmentRef(d.getDepartmentId(), d.getDisplayName()))
+            .map(d -> new DepartmentRef(d.getId(),d.getDepartmentId(), d.getDisplayName()))
             .toList();
         return ApiResponse.success(list);
     }
 
     // Normalized field names so frontend can directly map without translation.
-    public record RoleRef(String roleKey, String displayName) {}
-    public record DepartmentRef(String departmentId, String displayName) {}
+    public record RoleRef(Long id,String roleKey, String displayName) {}
+    public record DepartmentRef(Long id,String departmentId, String displayName) {}
 }

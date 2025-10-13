@@ -13,6 +13,13 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
+
+import com.afyaquik.hms.patient.model.PatientInsuranceDetails;
+import java.util.Set;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.Lob;
+
 @Entity
 @Table(name = "visit_queue_items",
        indexes = {
@@ -51,7 +58,36 @@ public class VisitQueueItem extends BaseEntity {
     private String departmentId;
 
     @Column(name = "sla_due_at")
+
     private Instant slaDueAt;
+
+    @Lob
+    @Column(name = "additional_details")
+    private String additionalDetails;
+
+    public String getAdditionalDetails() {
+        return additionalDetails;
+    }
+
+    public void setAdditionalDetails(String additionalDetails) {
+        this.additionalDetails = additionalDetails;
+    }
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "queue_item_insurance_details",
+        joinColumns = @JoinColumn(name = "queue_item_id"),
+        inverseJoinColumns = @JoinColumn(name = "insurance_details_id")
+    )
+    private Set<PatientInsuranceDetails> insuranceDetails;
+
+    public Set<PatientInsuranceDetails> getInsuranceDetails() {
+        return insuranceDetails;
+    }
+
+    public void setInsuranceDetails(Set<PatientInsuranceDetails> insuranceDetails) {
+        this.insuranceDetails = insuranceDetails;
+    }
 
     public Patient getPatient() {
         return patient;

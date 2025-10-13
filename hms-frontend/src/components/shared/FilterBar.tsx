@@ -109,6 +109,9 @@ export function FilterBar(props: CombinedProps) {
     } else {
       nextValues[fieldKey] = nextValue;
     }
+    if (fieldKey === 'roleId') {
+      console.log('[FilterBar] handleValueChange roleId:', { nextValue, nextValues });
+    }
     onChange(nextValues);
   };
 

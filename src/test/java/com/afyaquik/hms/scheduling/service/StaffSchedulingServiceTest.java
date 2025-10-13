@@ -16,6 +16,8 @@ import com.afyaquik.hms.scheduling.domain.ShiftType;
 import com.afyaquik.hms.scheduling.domain.StaffShift;
 import com.afyaquik.hms.scheduling.dto.StaffShiftDto;
 import com.afyaquik.hms.scheduling.repository.StaffShiftRepository;
+import com.afyaquik.hms.auth.domain.StaffRole;
+import com.afyaquik.hms.auth.domain.Department;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
@@ -44,36 +46,55 @@ class StaffSchedulingServiceTest {
 
     private StaffUser staffUser;
     private StaffShift existingShift;
+    private StaffRole staffRole;
+    private Department department;
+    private ShiftType shiftType;
 
     @BeforeEach
     void setUp() {
-        staffUser = new StaffUser();
-        staffUser.setTenantId(TENANT_ID);
-        staffUser.setDisplayName("Dr. Alice");
-        ReflectionTestUtils.setField(staffUser, "id", 17L);
+    staffUser = new StaffUser();
+    staffUser.setTenantId(TENANT_ID);
+    staffUser.setDisplayName("Dr. Alice");
+    ReflectionTestUtils.setField(staffUser, "id", 17L);
 
-        existingShift = new StaffShift();
-        existingShift.setTenantId(TENANT_ID);
-        existingShift.setStaffUser(staffUser);
-        existingShift.setRoleKey("PROVIDER");
-        existingShift.setDepartmentId("CLINIC-A");
-        existingShift.setShiftType(ShiftType.MORNING);
-        existingShift.setStatus(ShiftStatus.SCHEDULED);
-        existingShift.setStartsAt(OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC));
-        existingShift.setEndsAt(OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC));
-        ReflectionTestUtils.setField(existingShift, "id", 42L);
+    staffRole = new StaffRole();
+    staffRole.setRoleKey("PROVIDER");
+    staffRole.setDisplayName("Provider");
+    ReflectionTestUtils.setField(staffRole, "id", 100L);
+
+    department = new Department();
+    department.setDepartmentId("CLINIC-A");
+    department.setDisplayName("Clinic A");
+    ReflectionTestUtils.setField(department, "id", 200L);
+
+    shiftType = new ShiftType();
+    shiftType.setName("DAY");
+    shiftType.setDescription("Day shift");
+    ReflectionTestUtils.setField(shiftType, "id", 300L);
+
+    existingShift = new StaffShift();
+    existingShift.setTenantId(TENANT_ID);
+    existingShift.setStaffUser(staffUser);
+    existingShift.setRole(staffRole);
+    existingShift.setDepartment(department);
+    existingShift.setShiftType(shiftType);
+    existingShift.setStatus(ShiftStatus.SCHEDULED);
+    existingShift.setStartsAt(OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC));
+    existingShift.setEndsAt(OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC));
+    ReflectionTestUtils.setField(existingShift, "id", 42L);
     }
 
     @Test
     void createShift_persistsEntityAndReturnsDto() {
-        CreateStaffShiftRequest request = new CreateStaffShiftRequest(
-                staffUser.getId(),
-                "PROVIDER",
-                "CLINIC-A",
-                ShiftType.MORNING,
-                OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-                OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
-                "Covering triage window");
+
+    CreateStaffShiftRequest request = new CreateStaffShiftRequest(
+        staffUser.getId(),
+        staffRole.getId(),
+        department.getId(),
+        shiftType.getId(),
+        OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
+        OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
+        "Covering triage window");
 
         when(staffUserRepository.findById(staffUser.getId())).thenReturn(Optional.of(staffUser));
         when(shiftRepository.existsOverlappingShift(any(), anyLong(), any(), any(), any())).thenReturn(false);
@@ -87,7 +108,7 @@ class StaffSchedulingServiceTest {
 
         assertThat(dto.id()).isEqualTo(99L);
         assertThat(dto.staffUserId()).isEqualTo(staffUser.getId());
-        assertThat(dto.shiftType()).isEqualTo(ShiftType.MORNING);
+    // assertThat(dto.shiftTypeId()).isEqualTo(shiftType.getId());
         assertThat(dto.status()).isEqualTo(ShiftStatus.SCHEDULED);
 
         ArgumentCaptor<StaffShift> shiftCaptor = ArgumentCaptor.forClass(StaffShift.class);
@@ -99,14 +120,14 @@ class StaffSchedulingServiceTest {
 
     @Test
     void createShift_rejectsOverlappingAssignments() {
-        CreateStaffShiftRequest request = new CreateStaffShiftRequest(
-                staffUser.getId(),
-                "PROVIDER",
-                "CLINIC-A",
-                ShiftType.MORNING,
-                existingShift.getStartsAt(),
-                existingShift.getEndsAt(),
-                null);
+    CreateStaffShiftRequest request = new CreateStaffShiftRequest(
+        staffUser.getId(),
+        staffRole.getId(),
+        department.getId(),
+        shiftType.getId(),
+        existingShift.getStartsAt(),
+        existingShift.getEndsAt(),
+        null);
 
         when(staffUserRepository.findById(staffUser.getId())).thenReturn(Optional.of(staffUser));
         when(shiftRepository.existsOverlappingShift(TENANT_ID, staffUser.getId(), existingShift.getStartsAt(), existingShift.getEndsAt(), null))

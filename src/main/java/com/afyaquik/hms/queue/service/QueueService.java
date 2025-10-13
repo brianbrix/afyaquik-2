@@ -2,7 +2,9 @@
 package com.afyaquik.hms.queue.service;
 
 import com.afyaquik.hms.patient.domain.Patient;
+import com.afyaquik.hms.patient.model.PatientInsuranceDetails;
 import com.afyaquik.hms.patient.repository.PatientRepository;
+import com.afyaquik.hms.patient.repository.PatientInsuranceDetailsRepository;
 import com.afyaquik.hms.queue.api.QueueAssignmentRequest;
 import com.afyaquik.hms.queue.api.QueueCheckInRequest;
 import com.afyaquik.hms.queue.api.QueueItemResponse;
@@ -64,11 +66,14 @@ public class QueueService {
 
     private final VisitQueueItemRepository queueRepository;
     private final PatientRepository patientRepository;
+
     private final QueueTimelineEntryRepository timelineRepository;
     private final QueueEventPublisher eventPublisher;
 
     private final StaffUserRepository staffUserRepository;
     private final NotificationService notificationService;
+
+    private final PatientInsuranceDetailsRepository insuranceDetailsRepository;
 
     @Autowired
     public QueueService(VisitQueueItemRepository queueRepository,
@@ -76,13 +81,15 @@ public class QueueService {
                         QueueTimelineEntryRepository timelineRepository,
                         QueueEventPublisher eventPublisher,
                         StaffUserRepository staffUserRepository,
-                        NotificationService notificationService) {
+                        NotificationService notificationService,
+                        PatientInsuranceDetailsRepository insuranceDetailsRepository) {
         this.queueRepository = queueRepository;
         this.patientRepository = patientRepository;
         this.timelineRepository = timelineRepository;
         this.eventPublisher = eventPublisher;
         this.staffUserRepository = staffUserRepository;
         this.notificationService = notificationService;
+        this.insuranceDetailsRepository = insuranceDetailsRepository;
     }
 
     @Transactional
@@ -161,6 +168,25 @@ public class QueueService {
         }
         if (request.getDepartmentId() != null) {
             queueItem.setDepartmentId(request.getDepartmentId());
+        }
+
+        // Set additional details if provided
+        if (request.getAdditionalDetails() != null) {
+            queueItem.setAdditionalDetails(request.getAdditionalDetails());
+        }
+
+        // Set insurance details if provided
+        if (request.getInsuranceDetailsIds() != null) {
+            java.util.Set<Long> ids = request.getInsuranceDetailsIds();
+            if (!ids.isEmpty()) {
+                java.util.Set<com.afyaquik.hms.patient.model.PatientInsuranceDetails> details =
+                    new java.util.HashSet<>(
+                        insuranceDetailsRepository.findAllById(ids)
+                    );
+                queueItem.setInsuranceDetails(details);
+            } else {
+                queueItem.setInsuranceDetails(null);
+            }
         }
         VisitQueueItem saved = queueRepository.save(queueItem);
         QueueItemResponse response = toResponse(saved);
@@ -274,7 +300,7 @@ public class QueueService {
         return new QueueItemResponse(
                 item.getId(),
                 item.getPatient().getId(),
-        item.getTenantId(),
+             item.getTenantId(),
                 item.getTicketNumber(),
                 item.getVisitReason(),
                 item.getCurrentStatus(),
@@ -282,8 +308,14 @@ public class QueueService {
                 item.getPriority(),
                 item.getCurrentAssigneeId(),
                 item.getDepartmentId(),
-                item.getCreatedAt(),
-                item.getSlaDueAt());
+                item.getCreatedAt() != null ? item.getCreatedAt().toInstant() : null,
+                item.getSlaDueAt(),
+                item.getAdditionalDetails(),
+                item.getInsuranceDetails() == null ? List.of() : item.getInsuranceDetails().stream().map(PatientInsuranceDetails::getId).toList()
+
+
+        );
+
     }
 
     private QueueSummary toSummary(VisitQueueItem item) {
@@ -295,18 +327,24 @@ public class QueueService {
                 assigneeUsername = user.getUsername();
             }
         }
+        Set<Long> insuranceDetailsIds = item.getInsuranceDetails() == null ? null : item.getInsuranceDetails().stream().map(d -> d.getId()).collect(java.util.stream.Collectors.toSet());
+        String additionalDetails = item.getAdditionalDetails();
         return new QueueSummary(
-                item.getId(),
-                item.getTicketNumber(),
-                patientName,
-                item.getVisitReason(),
-                item.getCurrentStatus(),
-                item.getPriority(),
-                item.getCurrentAssigneeId(),
-                assigneeUsername,
-                item.getDepartmentId(),
-                item.getCreatedAt(),
-                item.getSlaDueAt());
+            item.getId(),
+            item.getTicketNumber(),
+            patientName,
+            item.getPatient().getId(),
+            item.getVisitReason(),
+            item.getCurrentStatus(),
+            item.getPriority(),
+            item.getCurrentAssigneeId(),
+            assigneeUsername,
+            item.getDepartmentId(),
+            item.getCreatedAt() != null ? item.getCreatedAt().toInstant() : null,
+            item.getSlaDueAt(),
+            insuranceDetailsIds,
+            additionalDetails
+        );
     }
 
     private QueuePriority parsePriority(String priority) {
@@ -405,12 +443,19 @@ public class QueueService {
                 entry.getActorDisplayName(),
                 entry.getNote(),
                 entry.getDepartmentId(),
-                entry.getCreatedAt());
+                entry.getCreatedAt() != null ? entry.getCreatedAt().toInstant() : null
+);
     }
 
     private String generateTicketNumber(String tenantId) {
         String prefix = tenantId.length() > 3 ? tenantId.substring(0, 3).toUpperCase(Locale.ROOT) : tenantId.toUpperCase(Locale.ROOT);
         String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 7).toUpperCase(Locale.ROOT);
         return prefix + "-" + suffix;
+    }
+
+    public QueueItemResponse getQueueItem(String tenantId, Long queueItemId) {
+        log.debug("Getting queue item tenant={} queueItemId={}", tenantId, queueItemId);
+        VisitQueueItem item = getQueueItemForTenant(tenantId, queueItemId);
+        return toResponse(item);
     }
 }

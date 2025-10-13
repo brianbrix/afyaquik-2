@@ -26,6 +26,9 @@ export const AdminLayout: React.FC = () => {
           <NavLink to="permissions" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Permissions</NavLink>
           <NavLink to="shift-types" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Shift Types</NavLink>
           <NavLink to="notification-templates" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Notification Templates</NavLink>
+          <NavLink to="forms/patient-intake" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Patient Intake Form</NavLink>
+          <NavLink to="insurance" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Insurance</NavLink>
+          
         </nav>
       </aside>
       <main className="flex-grow-1 p-3">

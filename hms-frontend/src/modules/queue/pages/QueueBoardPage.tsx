@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { InsuranceDetailsForm, InsuranceFormData } from "../../../components/registration/InsuranceDetailsForm";
+import Swal from "sweetalert2";
 import {
   Alert,
   Badge,
@@ -23,7 +25,11 @@ import type {
 import { useRoleContext } from "../../../hooks/useRoleContext";
 import { useAuth } from "../../../hooks/useAuth";
 import { useStaffDirectory } from '../../../services/staffDirectoryApi';
-
+import { apiClient } from "../../../services/apiClient";
+import { savePatientInsuranceDetails, fetchAllPatientInsuranceDetails, deletePatientInsuranceDetails } from "../../../services/insuranceApi";
+import RichTextEditor from '../../../components/shared/RichTextEditor';
+import { FormModal } from '../../../components/shared/FormModal';
+import { updateQueueItem } from "../../../services/queueApi";
 // --- Temporary static option sources (TODO: replace with backend directory endpoints) ---
 interface StaffDirectoryEntry { id: number; username: string; displayName: string; roles: string[]; departments: string[] }
 // NOTE: Directory now fetched from backend; fallback arrays removed.
@@ -55,9 +61,14 @@ const statusOptions: QueueStatus[] = [
   "WAITING_PROVIDER",
   "IN_CONSULT",
   "WAITING_DIAGNOSTICS",
+  "IN_DIAGNOSTICS",
   "WAITING_PHARMACY",
+  "IN_PHARMACY",
   "WAITING_BILLING",
+  "IN_BILLING",
   "BLOCKED",
+  "NO_SHOW",
+  "CANCELLED",
   "CLOSED"
 ];
 
@@ -129,6 +140,8 @@ export function QueueBoardPage() {
   const [activeItem, setActiveItem] = useState<QueueSummary | null>(null);
   const [modalType, setModalType] = useState<"assign" | "transition" | "timeline" | "advanceAssign" | null>(null);
   const [staleWarning, setStaleWarning] = useState<string | null>(null);
+  const [showInsuranceModal, setShowInsuranceModal] = useState(false);
+  const [insuranceFormData, setInsuranceFormData] = useState<InsuranceFormData | undefined>(undefined);
 
   const { activeRole } = useRoleContext();
   const queueQuery = useQueueList(selectedStatus);
@@ -299,52 +312,69 @@ export function QueueBoardPage() {
                   </tr>
                 ) : (
                   filteredItems.map((item) => (
-                    <tr key={item.id}>
-                      <td className="fw-semibold">{item.ticketNumber}</td>
-                      <td>{item.patientName}</td>
-                      <td>{item.visitReason}</td>
-                      <td><QueueStatusBadge status={item.status} /></td>
-                      <td><Badge bg={priorityVariant(item.priority)}>{item.priority}</Badge></td>
-                      <td>{item.currentAssigneeUsername || item.currentAssigneeId || "Unassigned"}</td>
-                      <td>{item.departmentId ?? "—"}</td>
-                      <td>{formatDateTime(item.createdAt)}</td>
-                      <td>{formatDateTime(item.slaDueAt)}</td>
-                      <td className="text-end">
-                        <div className="d-flex gap-2 justify-content-end">
-                          {item.status === 'PENDING_CHECKIN' ? (
+                    <React.Fragment key={item.id}>
+                      <tr>
+                        <td className="fw-semibold">{item.ticketNumber}</td>
+                        <td>{item.patientName}</td>
+                        <td>{item.visitReason}</td>
+                        <td><QueueStatusBadge status={item.status} /></td>
+                        <td><Badge bg={priorityVariant(item.priority)}>{item.priority}</Badge></td>
+                        <td>{item.currentAssigneeId || "Unassigned"}</td>
+                        <td>{item.departmentId ?? "—"}</td>
+                        <td>{formatDateTime(item.createdAt)}</td>
+                        <td>{formatDateTime(item.slaDueAt)}</td>
+                        <td className="text-end">
+                          <div className="d-flex gap-2 justify-content-end">
+                            {item.status === 'PENDING_CHECKIN' ? (
+                              <Button
+                                size="sm"
+                                variant="outline-primary"
+                                onClick={() => handleOpenModal(item, 'advanceAssign')}
+                              >
+                                Advance & Assign
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline-primary"
+                                onClick={() => handleOpenModal(item, 'assign')}
+                              >
+                                Assign
+                              </Button>
+                            )}
                             <Button
                               size="sm"
-                              variant="outline-primary"
-                              onClick={() => handleOpenModal(item, 'advanceAssign')}
+                              variant="outline-success"
+                              onClick={() => handleOpenModal(item, 'transition')}
                             >
-                              Advance & Assign
+                              Transition
                             </Button>
-                          ) : (
                             <Button
                               size="sm"
-                              variant="outline-primary"
-                              onClick={() => handleOpenModal(item, 'assign')}
+                              variant="outline-secondary"
+                              onClick={() => handleOpenModal(item, 'timeline')}
                             >
-                              Assign
+                              Timeline
                             </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline-success"
-                            onClick={() => handleOpenModal(item, 'transition')}
-                          >
-                            Transition
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline-secondary"
-                            onClick={() => handleOpenModal(item, 'timeline')}
-                          >
-                            Timeline
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Expandable section for IN_REGISTRATION actions */}
+                      {item.status === 'IN_REGISTRATION' && (
+                        <tr>
+                          <td colSpan={10} className="bg-light">
+                            <details open>
+                              <summary className="fw-semibold">Registration Actions: Insurance & Additional Details</summary>
+                              <div className="mt-3">
+                                {/* Fetch and show current insurance details */}
+                                <InsuranceDetailsSection patientId={item.patientId} queueItemId={item.id} />
+              
+                              </div>
+                            </details>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
@@ -892,4 +922,183 @@ function AdvanceAssignModal({
       </Form>
     </Modal>
   );
+}
+
+function InsuranceDetailsSection(props: { patientId: number, queueItemId: number }) {
+  const { patientId, queueItemId } = props;
+  const [additionalDetails, setAdditionalDetails] = useState<string>("");
+  const [allDetails, setAllDetails] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editData, setEditData] = useState<any | undefined>(undefined);
+  const [queueItem, setQueueItem] = useState<any | null>(null);
+
+  // Fetch queue item details by queueId
+  useEffect(() => {
+    if (!queueItemId) return;
+    (async () => {
+      try {
+        const { fetchQueueItemById } = await import("../../../services/queueApi");
+        const item = await fetchQueueItemById(queueItemId);
+        setQueueItem(item || null);
+      } catch (err) {
+        setQueueItem(null);
+      }
+    })();
+  }, [queueItemId]);
+
+  // When both queueItem and allDetails are loaded, set selectedId and additionalDetails
+  useEffect(() => {
+    if (!queueItem || allDetails.length === 0) return;
+    if (Array.isArray(queueItem.insuranceDetailsIds) && queueItem.insuranceDetailsIds.length > 0) {
+      // Only set if the id exists in allDetails
+      const validId = queueItem.insuranceDetailsIds.find((id: number) => allDetails.some((d: any) => d.id === id));
+      if (validId) setSelectedId(validId);
+    }
+    if (queueItem.additionalDetails) {
+      setAdditionalDetails(queueItem.additionalDetails);
+    }
+  }, [queueItem, allDetails]);
+
+  const refreshDetails = () => {
+    setLoading(true);
+    setError(null);
+    fetchAllPatientInsuranceDetails(patientId)
+      .then((all) => {
+        setAllDetails(all);
+      })
+      .catch(err => {
+        setError(err?.message || 'Failed to fetch insurance details');
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (patientId) {
+      refreshDetails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId]);
+  return (
+    <div className="mb-2">
+      <div className="d-flex justify-content-between align-items-center mb-1">
+        <span className="fw-semibold">Insurance Details</span>
+        <Button size="sm" variant="primary" onClick={() => { setEditData(undefined); setShowModal(true); }}>
+          Add Insurance Details
+        </Button>
+      </div>
+      {allDetails.length > 0 ? (
+        <div className="mb-2">
+          <table className="table table-sm table-bordered align-middle">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Provider</th>
+                <th>Plan</th>
+                <th>Policy Number</th>
+                <th>Coverage Type</th>
+                <th>Expiry Date</th>
+                <th>Edit</th>
+                <th>Delete</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allDetails.map((d, idx) => (
+                <tr key={d.id || idx}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedId === d.id}
+                      onChange={() => setSelectedId(selectedId === d.id ? null : d.id)}
+                    />
+                  </td>
+                  <td>{d.providerName || '—'}</td>
+                  <td>{d.planName || '—'}</td>
+                  <td>{d.policyNumber || '—'}</td>
+                  <td>{d.coverageType || '—'}</td>
+                  <td>{d.expiryDate || '—'}</td>
+                  <td>
+                    <Button size="sm" variant="outline-primary" onClick={() => { setEditData(d); setShowModal(true); }}>Edit</Button>
+                  </td>
+                  <td>
+                    <Button size="sm" variant="outline-danger" onClick={async () => {
+                      const result = await Swal.fire({
+                        title: 'Delete Insurance?',
+                        text: 'Are you sure you want to delete this insurance detail?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Delete',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#d33',
+                      });
+                      if (result.isConfirmed) {
+                        try {
+                          await deletePatientInsuranceDetails(patientId, d.id);
+                          await Swal.fire({ icon: 'success', title: 'Deleted!', timer: 1200, showConfirmButton: false });
+                          refreshDetails();
+                        } catch (err: any) {
+                          await Swal.fire({ icon: 'error', title: 'Error', text: err?.message || 'Failed to delete.' });
+                        }
+                      }
+                    }}>Delete</Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+         
+          <div className="mb-2">
+            <label className="fw-semibold mb-1">Other Additional Details</label>
+            <RichTextEditor theme="snow" value={additionalDetails} onChange={setAdditionalDetails} placeholder="Enter any additional notes or details..." style={{ background: 'white' }} />
+          </div>
+        </div>
+      ) : (
+        <div className="text-muted small">No insurance details on file.</div>
+      )}
+       <div className="d-flex justify-content-end">
+            <Button size="sm" variant="success" onClick={async () => {
+              if (selectedId === null) return;
+              try {
+                  await updateQueueItem(queueItemId, { insuranceDetailsIds: [selectedId], additionalDetails })
+                await Swal.fire({ icon: 'success', title: 'Saved!', text: 'Additional details saved.', timer: 1500, showConfirmButton: false });
+              } catch (err: any) {
+                await Swal.fire({ icon: 'error', title: 'Error', text: err?.message || 'Failed to save details.' });
+              }
+            }}>
+              Save Additional Details
+            </Button>
+          </div>
+      <InsuranceDetailsForm
+        show={showModal}
+        onHide={() => setShowModal(false)}
+        title={editData ? "Edit Insurance Details" : "Add Insurance Details"}
+        initialData={editData}
+        onSave={async (data) => {
+          try {
+            const id = editData?.id !== undefined && editData?.id !== null ? Number(editData.id) : undefined;
+            await savePatientInsuranceDetails(patientId, { ...data, id });
+            await Swal.fire({
+              icon: 'success',
+              title: 'Saved!',
+              text: 'Insurance details saved.',
+              timer: 1800,
+              showConfirmButton: false
+            });
+            setShowModal(false);
+            setEditData(undefined);
+            refreshDetails();
+          } catch (err: any) {
+            await Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: err?.message || 'Failed to save insurance details.'
+            });
+          }
+        }}
+      />
+    </div>
+  );
+  
 }

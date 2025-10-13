@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import RichTextEditor from '../shared/RichTextEditor';
 
 // Schema interface expectation (from backend schemaJson string)
 // Expecting a JSON like: { title?: string, fields: [{ name, label, type, required?, options? }] }
@@ -78,7 +77,7 @@ export const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({ schema
             )}
             {f.type === 'richtext' && (
               <Controller name={f.name} control={control} rules={{ required: f.required }} render={({ field }) => (
-                <ReactQuill theme="snow" readOnly={!!readOnly} value={field.value||''} onChange={field.onChange} />
+                <RichTextEditor theme="snow" readOnly={!!readOnly} value={field.value||''} onChange={field.onChange} />
               )} />
             )}
             {errors[f.name] && <div className="text-danger small mt-1">This field is required</div>}

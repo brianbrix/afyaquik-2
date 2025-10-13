@@ -3,6 +3,7 @@ package com.afyaquik.hms.queue.api;
 import com.afyaquik.hms.queue.domain.QueuePriority;
 import com.afyaquik.hms.queue.domain.QueueStatus;
 import java.time.Instant;
+import java.util.List;
 
 public record QueueItemResponse(
         Long id,
@@ -16,5 +17,9 @@ public record QueueItemResponse(
         String currentAssigneeId,
         String departmentId,
         Instant createdAt,
-        Instant slaDueAt) {
+        Instant slaDueAt,
+        String additionalDetails,
+        List<Long> insuranceDetailsIds
+
+) {
 }

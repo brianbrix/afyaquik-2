@@ -7,6 +7,29 @@ public class UpdateQueueItemRequest {
     private QueuePriority priority;
     private String departmentId;
 
+
+    // IDs of PatientInsuranceDetails to associate with this queue item
+    private java.util.Set<Long> insuranceDetailsIds;
+
+    // WYSIWYG additional details
+    private String additionalDetails;
+
+    public String getAdditionalDetails() {
+        return additionalDetails;
+    }
+
+    public void setAdditionalDetails(String additionalDetails) {
+        this.additionalDetails = additionalDetails;
+    }
+
+    public java.util.Set<Long> getInsuranceDetailsIds() {
+        return insuranceDetailsIds;
+    }
+
+    public void setInsuranceDetailsIds(java.util.Set<Long> insuranceDetailsIds) {
+        this.insuranceDetailsIds = insuranceDetailsIds;
+    }
+
     public String getVisitReason() {
         return visitReason;
     }

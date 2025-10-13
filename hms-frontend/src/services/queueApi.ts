@@ -1,3 +1,12 @@
+// Fetch a queue item by its ID
+export async function fetchQueueItemById(queueItemId: number): Promise<QueueItem | null> {
+  try {
+    const response = await apiClient.get(`/queue/${queueItemId}`);
+    return response.data?.data ?? response.data ?? null;
+  } catch {
+    return null;
+  }
+}
 
 import { apiClient } from "./apiClient";
 import type {
@@ -71,7 +80,7 @@ export async function advanceAssignQueueItem(
 // Update queue item (edit fields)
 export async function updateQueueItem(
   queueItemId: number,
-  payload: Partial<Pick<QueueItem, 'visitReason' | 'priority' | 'departmentId'>>
+  payload: Partial<Pick<QueueItem, 'visitReason' | 'priority' | 'departmentId' | 'additionalDetails'>> & { insuranceDetailsIds?: number[]; additionalDetails?: string }
 ): Promise<QueueItem> {
   try {
     const response = await apiClient.put(`/queue/${queueItemId}`, payload);

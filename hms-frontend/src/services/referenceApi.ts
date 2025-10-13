@@ -15,16 +15,18 @@ function normalizeRoles(raw: any[]): RolesResponse {
   if (!Array.isArray(raw)) return [];
   return raw.map(r => ({
     roleKey: r.roleKey ?? r.key ?? r.id ?? '',
+    id: r.id ?? '',
     displayName: r.displayName ?? r.name ?? r.roleKey ?? r.key ?? r.id ?? ''
-  })).filter(r => r.roleKey);
+  })).filter(r => r.id);
 }
 
 function normalizeDepartments(raw: any[]): DepartmentsResponse {
   if (!Array.isArray(raw)) return [];
   return raw.map(d => ({
     departmentId: d.departmentId ?? d.id ?? '',
+    id: d.id ?? '',
     displayName: d.displayName ?? d.name ?? d.departmentId ?? d.id ?? ''
-  })).filter(d => d.departmentId);
+  })).filter(d => d.id);
 }
 
 export async function fetchRoles(): Promise<RolesResponse> {

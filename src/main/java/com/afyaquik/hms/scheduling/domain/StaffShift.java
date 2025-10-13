@@ -7,12 +7,14 @@ import com.afyaquik.hms.auth.domain.StaffRole;
 import com.afyaquik.hms.auth.domain.StaffUser;
 import com.afyaquik.hms.common.domain.BaseEntity;
 import jakarta.persistence.Column;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 /**
  * Represents a single staff shift on a tenant's rota. Shifts track the owning
@@ -40,6 +42,7 @@ public class StaffShift extends BaseEntity {
 	@JoinColumn(name = "shift_type_id", nullable = false)
 	private ShiftType shiftType;
 
+	@Enumerated(jakarta.persistence.EnumType.ORDINAL)
 	@Column(name = "status", nullable = false, length = 32)
 	private ShiftStatus status = ShiftStatus.SCHEDULED;
 
@@ -100,7 +103,11 @@ public class StaffShift extends BaseEntity {
 	}
 
 	public void setStartsAt(OffsetDateTime startsAt) {
-		this.startsAt = startsAt;
+		if (startsAt != null) {
+			this.startsAt = startsAt.withOffsetSameInstant(ZoneId.of("Africa/Nairobi").getRules().getOffset(startsAt.toInstant()));
+		} else {
+			this.startsAt = null;
+		}
 	}
 
 	public OffsetDateTime getEndsAt() {
@@ -108,7 +115,11 @@ public class StaffShift extends BaseEntity {
 	}
 
 	public void setEndsAt(OffsetDateTime endsAt) {
-		this.endsAt = endsAt;
+		if (endsAt != null) {
+			this.endsAt = endsAt.withOffsetSameInstant(ZoneId.of("Africa/Nairobi").getRules().getOffset(endsAt.toInstant()));
+		} else {
+			this.endsAt = null;
+		}
 	}
 
 	public String getNotes() {

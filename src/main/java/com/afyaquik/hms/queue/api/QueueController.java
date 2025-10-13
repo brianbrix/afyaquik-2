@@ -48,6 +48,13 @@ public class QueueController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping("/{queueItemId}")
+    public ApiResponse<QueueItemResponse> getQueueItem(
+            @PathVariable Long queueItemId) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return ApiResponse.success(queueService.getQueueItem(tenantId, queueItemId));
+    }
+
 
     @GetMapping
     public ApiResponse<List<QueueSummary>> list(

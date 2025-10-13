@@ -30,12 +30,15 @@ export type QueueItem = {
   departmentId?: string | null;
   createdAt: string;
   slaDueAt?: string | null;
+  additionalDetails?: string | null;
+  insuranceDetailsIds?: number[];
 };
 
 export type QueueSummary = {
   id: number;
   ticketNumber: string;
   patientName: string;
+  patientId: number;
   visitReason: string;
   status: QueueStatus;
   priority: QueuePriority;

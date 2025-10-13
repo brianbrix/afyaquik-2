@@ -17,6 +17,7 @@ import { AdminUserGroupsPage } from "../../modules/admin/pages/AdminUserGroupsPa
 import PermissionMatrixAdminPage from "../../modules/admin/permissions/PermissionMatrixAdminPage";
 import { NotificationTemplatesAdminPage } from "../../modules/admin/pages/NotificationTemplatesAdminPage";
 import { AdminShiftTypesPage } from "../../modules/admin/pages/AdminShiftTypesPage";
+import { InsuranceAdminPage } from "../../modules/insurance/InsuranceAdminPage";
 
 export function AppRoutes() {
   return (
@@ -40,6 +41,7 @@ export function AppRoutes() {
           <Route path="notification-templates" element={<NotificationTemplatesAdminPage />} />
           <Route path="shift-types" element={<AdminShiftTypesPage />} />
           <Route path="forms/:formKey" element={<DynamicFormPage />} />
+          <Route path="insurance" element={<InsuranceAdminPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

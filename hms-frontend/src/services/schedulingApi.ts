@@ -36,12 +36,21 @@ export async function createStaffShift(payload: CreateStaffShiftPayload): Promis
 	return response.data;
 }
 
+import { hasPermission, useResolvedPermissions } from "../hooks/usePermissions";
+
 export async function updateStaffShift(
 	shiftId: number,
-	payload: UpdateStaffShiftPayload
+	payload: UpdateStaffShiftPayload,
+	useOwnerEndpoint = false
 ): Promise<StaffShift> {
-	const response = await apiClient.put<StaffShift>(`/scheduling/shifts/${shiftId}`, payload);
-	return response.data;
+	// If useOwnerEndpoint is true, use PATCH /owner endpoint
+	if (useOwnerEndpoint) {
+		const response = await apiClient.patch<StaffShift>(`/scheduling/shifts/${shiftId}/owner`, payload);
+		return response.data;
+	} else {
+		const response = await apiClient.put<StaffShift>(`/scheduling/shifts/${shiftId}`, payload);
+		return response.data;
+	}
 }
 
 export async function requestShiftSwap(

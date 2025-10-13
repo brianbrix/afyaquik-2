@@ -373,6 +373,11 @@ public class DemoDataInitializer implements CommandLineRunner {
             OffsetDateTime startsAt,
             OffsetDateTime endsAt,
             String notes) {
+        boolean overlapping = staffShiftRepository.existsOverlappingShift(tenantId, staffUser.getId(), startsAt, endsAt, null);
+        if (overlapping) {
+            log.warn("Skipping creation of overlapping shift for user {} in tenant {} from {} to {}", staffUser.getUsername(), tenantId, startsAt, endsAt);
+            return;
+        }
         StaffShift shift = new StaffShift();
         shift.setTenantId(tenantId);
         shift.setStaffUser(staffUser);

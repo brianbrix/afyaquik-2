@@ -25,7 +25,7 @@ export function ShiftAlertsBanner({ onCheckIn, onCheckOut }: {
             {hasAlerts && alerts!.map(shift => (
               <Alert key={shift.id} variant="warning" className="d-flex align-items-center justify-content-between mb-2">
                 <div>
-                  <b>Shift Alert:</b> {SHIFT_STATUS_LABELS[shift.status]} for <b>{shift.staffDisplayName}</b> ({shift.roleKey})<br />
+                  <b>Shift Alert:</b> {SHIFT_STATUS_LABELS[shift.status]} for <b>{shift.staffDisplayName}</b> ({shift.roleName})<br />
                   <span>From <b>{new Date(shift.startsAt).toLocaleString()}</b> to <b>{new Date(shift.endsAt).toLocaleString()}</b></span>
                 </div>
                 <div>
