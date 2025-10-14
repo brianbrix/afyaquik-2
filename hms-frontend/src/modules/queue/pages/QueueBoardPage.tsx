@@ -1,4 +1,91 @@
+
 import React, { useMemo, useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { TriageActionsSection } from '../../../components/triage/TriageActionsSection';
+import { ConsultationActionsSection } from '../../../components/consult/ConsultationActionsSection';
+import { PharmacyActionsSection } from '../../../components/pharmacy/PharmacyActionsSection';
+import { DiagnosticsActionsSection } from '../../../components/diagnostics/DiagnosticsActionsSection';
+import { PreviousStaffNotesModal } from '../../../components/shared/PreviousStaffNotesModal';
+import { SearchableStaffSelect } from '../../../components/shared/SearchableStaffSelect';
+import {
+  fetchConsultationEntries,
+  createConsultationEntry,
+  updateConsultationEntry,
+  deleteConsultationEntry,
+  bulkUpsertConsultationEntries,
+  bulkDeleteConsultationEntries,
+  ConsultationEntryDto
+} from '../../../services/consultationEntriesApi';
+// Loader for consultation entries per queue item
+type ConsultationEntriesLoaderProps = {
+  queueItemId: number;
+  children: (
+    consultationEntries: ConsultationEntryDto[],
+    handlers: {
+      onAdd: (entry: { title: string; details: string }) => Promise<void>;
+      onUpdate: (id: number, entry: { title: string; details: string }) => Promise<void>;
+      onDelete: (id: number) => Promise<void>;
+      loading: boolean;
+    }
+  ) => React.ReactNode;
+};
+
+
+
+function ConsultationEntriesLoader(props: ConsultationEntriesLoaderProps) {
+  const { queueItemId, children } = props;
+  const [consultationEntries, setConsultationEntries] = React.useState<ConsultationEntryDto[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    setLoading(true);
+    fetchConsultationEntries(queueItemId)
+      .then(setConsultationEntries)
+      .finally(() => setLoading(false));
+  }, [queueItemId]);
+
+  const onAdd = async (entry: { title: string; details: string }) => {
+    setLoading(true);
+    try {
+      const created = await createConsultationEntry(queueItemId, entry);
+      setConsultationEntries(prev => [...prev, created]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const onUpdate = async (id: number, entry: { title: string; details: string }) => {
+    setLoading(true);
+    try {
+      const updated = await updateConsultationEntry(queueItemId, id, entry);
+      setConsultationEntries(prev => prev.map(e => e.id === id ? updated : e));
+    } finally {
+      setLoading(false);
+    }
+  };
+  const onDelete = async (id: number) => {
+    setLoading(true);
+    try {
+      await deleteConsultationEntry(queueItemId, id);
+      setConsultationEntries(prev => prev.filter(e => e.id !== id));
+    } finally {
+      setLoading(false);
+    }
+  };
+  return <>{children(consultationEntries, { onAdd, onUpdate, onDelete, loading })}</>;
+}
+import { fetchTriageTitles } from '../../../services/triageTitlesApi';
+import {
+  fetchTriageEntries,
+  createTriageEntry,
+  updateTriageEntry,
+  deleteTriageEntry,
+  TriageEntryDto
+} from '../../../services/triageEntriesApi';
+import {
+  bulkUpsertTriageEntries,
+  bulkDeleteTriageEntries
+} from '../../../services/triageEntriesApi.bulk';
+import type { TriageTitleDto } from '../../../services/triageTitlesApi';
 import { InsuranceDetailsForm, InsuranceFormData } from "../../../components/registration/InsuranceDetailsForm";
 import Swal from "sweetalert2";
 import {
@@ -23,6 +110,7 @@ import type {
   QueueTimelineEntry
 } from "../../../types/queue";
 import { useRoleContext } from "../../../hooks/useRoleContext";
+import { fetchQueueStatusRoleMatrix } from "../../../services/queueStatusRoleApi";
 import { useAuth } from "../../../hooks/useAuth";
 import { useStaffDirectory } from '../../../services/staffDirectoryApi';
 import { apiClient } from "../../../services/apiClient";
@@ -30,6 +118,7 @@ import { savePatientInsuranceDetails, fetchAllPatientInsuranceDetails, deletePat
 import RichTextEditor from '../../../components/shared/RichTextEditor';
 import { FormModal } from '../../../components/shared/FormModal';
 import { updateQueueItem } from "../../../services/queueApi";
+import { hasPermission, useResolvedPermissions } from "../../../hooks/usePermissions";
 // --- Temporary static option sources (TODO: replace with backend directory endpoints) ---
 interface StaffDirectoryEntry { id: number; username: string; displayName: string; roles: string[]; departments: string[] }
 // NOTE: Directory now fetched from backend; fallback arrays removed.
@@ -53,24 +142,8 @@ const statusLabels: Record<QueueStatus, string> = {
   CLOSED: "Closed"
 };
 
-const statusOptions: QueueStatus[] = [
-  "PENDING_CHECKIN",
-  "IN_REGISTRATION",
-  "WAITING_TRIAGE",
-  "IN_TRIAGE",
-  "WAITING_PROVIDER",
-  "IN_CONSULT",
-  "WAITING_DIAGNOSTICS",
-  "IN_DIAGNOSTICS",
-  "WAITING_PHARMACY",
-  "IN_PHARMACY",
-  "WAITING_BILLING",
-  "IN_BILLING",
-  "BLOCKED",
-  "NO_SHOW",
-  "CANCELLED",
-  "CLOSED"
-];
+
+// Remove static statusOptions; will be dynamic per role
 
 const allowedTransitions: Partial<Record<QueueStatus, QueueStatus[]>> = {
   PENDING_CHECKIN: ["IN_REGISTRATION", "CANCELLED", "NO_SHOW"],
@@ -82,6 +155,7 @@ const allowedTransitions: Partial<Record<QueueStatus, QueueStatus[]>> = {
     "WAITING_DIAGNOSTICS",
     "WAITING_PHARMACY",
     "WAITING_BILLING",
+    "WAITING_TRIAGE", // Allow reverse to triage
     "CLOSED",
     "BLOCKED"
   ],
@@ -133,8 +207,12 @@ function QueueStatusBadge({ status }: { status: QueueStatus }) {
   return <Badge bg={variant}>{statusLabels[status] ?? status}</Badge>;
 }
 
+
 export function QueueBoardPage() {
   const { user } = useAuth();
+  const { activeRole } = useRoleContext();
+  const{permissions} = useResolvedPermissions();
+  const CAN_VIEW_NOTES = hasPermission(permissions, 'VIEW_PATIENT_NOTES');
   const [selectedStatus, setSelectedStatus] = useState<QueueStatus>("PENDING_CHECKIN");
   const [searchValue, setSearchValue] = useState("");
   const [activeItem, setActiveItem] = useState<QueueSummary | null>(null);
@@ -142,8 +220,32 @@ export function QueueBoardPage() {
   const [staleWarning, setStaleWarning] = useState<string | null>(null);
   const [showInsuranceModal, setShowInsuranceModal] = useState(false);
   const [insuranceFormData, setInsuranceFormData] = useState<InsuranceFormData | undefined>(undefined);
+  const [showPreviousNotesModal, setShowPreviousNotesModal] = useState(false);
+  const [selectedItemForNotes, setSelectedItemForNotes] = useState<QueueSummary | null>(null);
 
-  const { activeRole } = useRoleContext();
+  // Matrix: { [roleKey]: Set<QueueStatus> }
+  const [statusMatrix, setStatusMatrix] = useState<Record<string, Set<string>>>({});
+  const [statusOptions, setStatusOptions] = useState<QueueStatus[]>([]);
+
+  // Fetch matrix on mount or when role changes
+  useEffect(() => {
+    fetchQueueStatusRoleMatrix().then(matrix => setStatusMatrix(matrix));
+  }, []);
+
+  // Update statusOptions when matrix or activeRole changes
+  useEffect(() => {
+    if (activeRole && statusMatrix[activeRole]) {
+      setStatusOptions(Array.from(statusMatrix[activeRole]) as QueueStatus[]);
+      // If current selectedStatus is not allowed, reset
+      if (!statusMatrix[activeRole].has(selectedStatus)) {
+        setSelectedStatus(Array.from(statusMatrix[activeRole])[0] as QueueStatus);
+      }
+    } else {
+      setStatusOptions([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRole, statusMatrix]);
+
   const queueQuery = useQueueList(selectedStatus);
   useQueueStream(selectedStatus);
   const assignMutation = useAssignQueueItem(selectedStatus);
@@ -153,12 +255,15 @@ export function QueueBoardPage() {
     modalType === "timeline" && activeItem ? activeItem.id : null
   );
 
-  // Refetch queue list whenever the authenticated user changes
+  // Refetch and clear queue list cache whenever the authenticated user changes
+  const queryClient = useQueryClient();
   React.useEffect(() => {
     if (user) {
+      // Invalidate all queue list queries so new user gets fresh data
+      queryClient.invalidateQueries({ queryKey: ["queueList"] });
       queueQuery.refetch();
     }
-  }, [user]);
+  }, [user, queryClient]);
 
   const filteredItems = useMemo(() => {
     const items = Array.isArray(queueQuery.data) ? queueQuery.data : [];
@@ -201,12 +306,98 @@ export function QueueBoardPage() {
       { queueItemId: activeItem.id, payload },
       {
         onSuccess: () => {
-          form.reset();
+          if (form && typeof (form as HTMLFormElement).reset === 'function') {
+            (form as HTMLFormElement).reset();
+          }
           handleCloseModal();
         }
       }
     );
   };
+// Loader for triage entries per queue item
+type TriageEntriesLoaderProps = {
+  queueItemId: number;
+  children: (
+    triageEntries: TriageEntryDto[],
+    handlers: {
+      onAdd: (entry: { title: string; details: string }) => Promise<void>;
+      onUpdate: (id: number, entry: { title: string; details: string }) => Promise<void>;
+      onDelete: (id: number) => Promise<void>;
+      loading: boolean;
+    }
+  ) => React.ReactNode;
+};
+
+
+// Loader for triage entries per queue item
+type TriageEntriesLoaderHandlers = {
+  onAdd: (entry: { title: string; details: string }) => Promise<void>;
+  onUpdate: (id: number, entry: { title: string; details: string }) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+  loading: boolean;
+};
+
+
+
+function TriageEntriesLoader(props: TriageEntriesLoaderProps) {
+  const { queueItemId, children } = props;
+  const [triageEntries, setTriageEntries] = React.useState<TriageEntryDto[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    setLoading(true);
+    fetchTriageEntries(queueItemId)
+      .then(setTriageEntries)
+      .finally(() => setLoading(false));
+  }, [queueItemId]);
+
+  const onAdd = async (entry: { title: string; details: string }) => {
+    setLoading(true);
+    try {
+      const created = await createTriageEntry(queueItemId, entry);
+      setTriageEntries(prev => [...prev, created]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const onUpdate = async (id: number, entry: { title: string; details: string }) => {
+    setLoading(true);
+    try {
+      const updated = await updateTriageEntry(queueItemId, id, entry);
+      setTriageEntries(prev => prev.map(e => e.id === id ? updated : e));
+    } finally {
+      setLoading(false);
+    }
+  };
+  const onDelete = async (id: number) => {
+    setLoading(true);
+    try {
+      await deleteTriageEntry(queueItemId, id);
+      setTriageEntries(prev => prev.filter(e => e.id !== id));
+    } finally {
+      setLoading(false);
+    }
+  };
+  return <>{children(triageEntries, { onAdd, onUpdate, onDelete, loading })}</>;
+}
+// Helper to get triage titles from localStorage (admin-configured)
+function getTriageTitlesFromStorage(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem('triageTitles') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+// Loader component to fetch triage titles from backend
+function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[]) => React.ReactNode }) {
+  const [titles, setTitles] = React.useState<TriageTitleDto[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    fetchTriageTitles().then(setTitles).finally(() => setLoading(false));
+  }, []);
+  if (loading) return <div className="text-muted small">Loading triage titles...</div>;
+  return <>{children(titles)}</>;
+}
 
   const handleTransitionSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -216,9 +407,10 @@ export function QueueBoardPage() {
     if (!targetStatus) return;
     const payload = {
       targetStatus,
+      // Use actor fields for transition
       actorId: formData.get("actorId")?.toString().trim() || undefined,
-      actorRole: formData.get("actorRole")?.toString().trim() || activeRole,
       actorDisplayName: formData.get("actorDisplayName")?.toString().trim() || undefined,
+      actorRole: formData.get("actorRole")?.toString().trim() || activeRole,
       departmentId: formData.get("departmentId")?.toString().trim() || activeItem.departmentId || undefined,
       note: formData.get("note")?.toString().trim() || undefined
     };
@@ -236,7 +428,9 @@ export function QueueBoardPage() {
       { queueItemId: activeItem.id, payload },
       {
         onSuccess: () => {
-          event.currentTarget.reset();
+          if (event.currentTarget && typeof (event.currentTarget as HTMLFormElement).reset === 'function') {
+            (event.currentTarget as HTMLFormElement).reset();
+          }
           handleCloseModal();
         }
       }
@@ -257,6 +451,7 @@ export function QueueBoardPage() {
                 value={selectedStatus}
                 onChange={(event) => setSelectedStatus(event.target.value as QueueStatus)}
                 aria-label="Queue status filter"
+                disabled={statusOptions.length === 0}
               >
                 {statusOptions.map((status) => (
                   <option key={status} value={status}>
@@ -325,6 +520,20 @@ export function QueueBoardPage() {
                         <td>{formatDateTime(item.slaDueAt)}</td>
                         <td className="text-end">
                           <div className="d-flex gap-2 justify-content-end">
+                            {CAN_VIEW_NOTES && (
+                            <Button
+                              size="sm"
+                              variant="outline-info"
+                              onClick={() => {
+                                setSelectedItemForNotes(item);
+                                setShowPreviousNotesModal(true);
+                              }}
+                              title="View previous staff notes"
+                            >
+                              <i className="bi bi-clipboard-data me-1"></i>
+                              Notes
+                            </Button>
+                            )}
                             {item.status === 'PENDING_CHECKIN' ? (
                               <Button
                                 size="sm"
@@ -363,17 +572,156 @@ export function QueueBoardPage() {
                       {item.status === 'IN_REGISTRATION' && (
                         <tr>
                           <td colSpan={10} className="bg-light">
-                            <details open>
+                            <details>
                               <summary className="fw-semibold">Registration Actions: Insurance & Additional Details</summary>
                               <div className="mt-3">
-                                {/* Fetch and show current insurance details */}
                                 <InsuranceDetailsSection patientId={item.patientId} queueItemId={item.id} />
-              
                               </div>
                             </details>
                           </td>
                         </tr>
                       )}
+
+                      {item.status === 'IN_TRIAGE' && (
+                        <tr>
+                          <td colSpan={10} className="bg-light">
+                            <details>
+                              <summary className="fw-semibold">Triage Actions</summary>
+                              <div className="mt-3">
+                                <TriageTitlesLoader>
+                                  {(triageTitles) => (
+                                    <TriageEntriesLoader queueItemId={item.id}>
+                                      {(triageEntries, { onAdd, onUpdate, onDelete, loading }) => (
+                                        <TriageActionsSection
+                                          triageTitles={triageTitles}
+                                          initialItems={triageEntries.map(e => ({
+                                            id: e.id,
+                                            title: e.title,
+                                            details: e.details,
+                                            isCustom: false
+                                          }))}
+                                          // onAdd, onUpdate, onDelete removed
+                                          loading={loading}
+                                          onSubmit={async (items) => {
+                                            // Only send changed items, and use bulk API
+                                            // 1. Find deleted items (in triageEntries but not in items)
+                                            const deletedIds = triageEntries
+                                              .filter(e => !items.some(i => i.id === e.id))
+                                              .map(e => e.id);
+                                            // 2. Find new or updated items
+                                            const upserts = items.map(i => ({
+                                              id: i.id > 0 ? i.id : undefined, // id may be undefined for new
+                                              title: i.title,
+                                              details: i.details
+                                            }));
+                                            if (deletedIds.length > 0) {
+                                              await bulkDeleteTriageEntries(item.id, deletedIds);
+                                            }
+                                            if (upserts.length > 0) {
+                                              await bulkUpsertTriageEntries(item.id, upserts);
+                                            }
+                                            Swal.fire({ icon: 'success', title: 'Triage items submitted', timer: 1200, showConfirmButton: false });
+                                          }}
+                                        />
+                                      )}
+                                    </TriageEntriesLoader>
+                                  )}
+                                </TriageTitlesLoader>
+                              </div>
+                            </details>
+                          </td>
+                        </tr>
+                      )}
+
+
+                      {item.status === 'IN_CONSULT' && (
+                        <tr>
+                          <td colSpan={10} className="bg-light">
+                            <details>
+                              <summary className="fw-semibold">Consultation Actions</summary>
+                              <div className="mt-3">
+                                <ConsultationEntriesLoader queueItemId={item.id}>
+                                  {(consultationEntries, { onAdd, onUpdate, onDelete, loading }) => (
+                                <ConsultationActionsSection
+                                  initialItems={consultationEntries.map(e => ({
+                                    id: e.id,
+                                    title: e.title,
+                                    details: e.details,
+                                    isCustom: false
+                                  }))}
+                                  loading={loading}
+                                  queueItemId={item.id}
+                                  patientId={item.patientId}
+                                  onSubmit={async (items) => {
+                                    // Use bulk API for upsert and delete
+                                    const deletedIds = consultationEntries
+                                      .filter(e => !items.some(i => i.id === e.id))
+                                      .map(e => e.id);
+                                    const upserts = items.map(i => ({
+                                      id: i.id > 0 ? i.id : undefined,
+                                      title: i.title,
+                                      details: i.details
+                                    }));
+                                    if (deletedIds.length > 0) {
+                                      await bulkDeleteConsultationEntries(item.id, deletedIds);
+                                    }
+                                    if (upserts.length > 0) {
+                                      await bulkUpsertConsultationEntries(item.id, upserts);
+                                    }
+                                    Swal.fire({ icon: 'success', title: 'Consultation items submitted', timer: 1200, showConfirmButton: false });
+                                  }}
+                                />
+                                  )}
+                                </ConsultationEntriesLoader>
+                              </div>
+                            </details>
+                          </td>
+                        </tr>
+                      )}
+
+                      {item.status === 'IN_PHARMACY' && (
+                        <tr>
+                          <td colSpan={10} className="bg-light">
+                            <details>
+                              <summary className="fw-semibold">Pharmacy Actions</summary>
+                              <div className="mt-3">
+                                <PharmacyActionsSection
+                                  initialItems={[]}
+                                  loading={false}
+                                  queueItemId={item.id}
+                                  onSubmit={async (items) => {
+                                    // TODO: Implement pharmacy actions API
+                                    console.log('Pharmacy actions submitted:', items);
+                                    Swal.fire({ 
+                                      icon: 'success', 
+                                      title: 'Pharmacy actions submitted', 
+                                      timer: 1200, 
+                                      showConfirmButton: false 
+                                    });
+                                  }}
+                                />
+                              </div>
+                            </details>
+                          </td>
+                        </tr>
+                      )}
+
+                      {item.status === 'IN_DIAGNOSTICS' && (
+                        <tr>
+                          <td colSpan={10} className="bg-light">
+                            <details>
+                              <summary className="fw-semibold">Diagnostics Actions</summary>
+                              <div className="mt-3">
+                                <DiagnosticsActionsSection
+                                  queueItemId={item.id}
+                                  patientId={item.patientId}
+                                />
+                              </div>
+                            </details>
+                          </td>
+                        </tr>
+                      )}
+
                     </React.Fragment>
                   ))
                 )}
@@ -432,8 +780,25 @@ export function QueueBoardPage() {
             departmentId: formData.get('departmentId')?.toString() || undefined,
             note: formData.get('note')?.toString() || undefined,
           };
-          advanceAssignMutation.mutate({ queueItemId: activeItem.id, payload }, { onSuccess: () => { (e.currentTarget as HTMLFormElement).reset(); handleCloseModal(); } });
+          advanceAssignMutation.mutate({ queueItemId: activeItem.id, payload }, {
+            onSuccess: (data, variables, context) => {
+              if (e.currentTarget && typeof (e.currentTarget as HTMLFormElement).reset === 'function') {
+                (e.currentTarget as HTMLFormElement).reset();
+              }
+              handleCloseModal();
+            }
+          });
         }}
+      />
+      
+      <PreviousStaffNotesModal
+        show={showPreviousNotesModal}
+        onHide={() => {
+          setShowPreviousNotesModal(false);
+          setSelectedItemForNotes(null);
+        }}
+        queueItemId={selectedItemForNotes?.id || 0}
+        patientName={selectedItemForNotes?.patientName || ''}
       />
     </div>
   );
@@ -448,43 +813,26 @@ function AssignModal({
   error,
   onSubmit
 }: { show: boolean; onHide: () => void; queueItem: QueueSummary | null; isSubmitting: boolean; error: string | null; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; }) {
-  const staffQueryResult = useStaffDirectory(show);
-  const staffData: StaffDirectoryEntry[] = staffQueryResult.data || [];
-  const [staffQuery, setStaffQuery] = useState("");
   const [selectedStaff, setSelectedStaff] = useState<StaffDirectoryEntry | null>(null);
   const [roleQuery, setRoleQuery] = useState("");
   const [deptQuery, setDeptQuery] = useState("");
   const { user } = useAuth();
 
-  // Always pre-select current user and their primary role when modal opens
+  // Always pre-select current user when modal opens
   React.useEffect(() => {
     if (show && user) {
-      const staff = staffData.find(s => s.username === user.username);
-      if (staff) {
-        setSelectedStaff(staff);
-        setStaffQuery(staff.displayName);
-        setRoleQuery(staff.roles[0] || '');
-        setDeptQuery(staff.departments[0] || '');
-      }
+      // We'll let the SearchableStaffSelect handle finding the current user
+      setRoleQuery("");
+      setDeptQuery("");
     } else if (!show) {
       setSelectedStaff(null);
-      setStaffQuery("");
       setRoleQuery("");
       setDeptQuery("");
     }
-  }, [show, user, staffData]);
-
-  const staffFiltered = useMemo(() => {
-    const q = staffQuery.toLowerCase();
-    return staffData.filter(s => s.username.toLowerCase().includes(q) || s.displayName.toLowerCase().includes(q));
-  }, [staffQuery, staffData]);
-  const roleOptions = selectedStaff ? selectedStaff.roles : Array.from(new Set(staffData.flatMap(s => s.roles)));
-  const deptOptions = selectedStaff ? selectedStaff.departments : Array.from(new Set(staffData.flatMap(s => s.departments)));
-  const roleFiltered = useMemo(() => roleOptions.filter(r => r.toLowerCase().includes(roleQuery.toLowerCase())), [roleOptions, roleQuery]);
-  const deptFiltered = useMemo(() => deptOptions.filter(d => d.toLowerCase().includes(deptQuery.toLowerCase())), [deptOptions, deptQuery]);
+  }, [show, user]);
 
   return (
-    <Modal show={show} onHide={() => { onHide(); setSelectedStaff(null); setStaffQuery(""); }} centered>
+    <Modal show={show} onHide={() => { onHide(); setSelectedStaff(null); }} centered>
       <Form onSubmit={e => { onSubmit(e); }}>
         <Modal.Header closeButton>
           <Modal.Title>Assign queue item</Modal.Title>
@@ -499,67 +847,46 @@ function AssignModal({
           )}
           {error && <Alert variant="danger" className="mb-0">{error}</Alert>}
 
-          <Form.Group>
-            <Form.Label>Assignee</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Search staff..."
-              value={staffQuery}
-              disabled={isSubmitting}
-              onChange={(e) => { setStaffQuery(e.target.value); setSelectedStaff(null); }}
-            />
-            <div className="border rounded mt-1" style={{ maxHeight: 140, overflowY: 'auto' }}>
-              {staffFiltered.map(s => (
-                <div key={s.id} className={`px-2 py-1 selectable-item${selectedStaff?.id===s.id? ' bg-light':''}`} style={{ cursor: 'pointer' }}
-                  onClick={() => { setSelectedStaff(s); setStaffQuery(s.displayName); setRoleQuery(s.roles[0] || ''); setDeptQuery(s.departments[0] || ''); }}>
-                  <strong>{s.displayName}</strong> <span className="text-muted small">({s.username})</span>
-                </div>
-              ))}
-              {staffFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
-            </div>
-              <input type="hidden" name="assigneeId" value={selectedStaff?.username || ''} required />
-            <input type="hidden" name="assigneeDisplayName" value={selectedStaff?.displayName || ''} />
-          </Form.Group>
+          <SearchableStaffSelect
+            value={selectedStaff}
+            onChange={(staff) => {
+              setSelectedStaff(staff);
+              if (staff) {
+                setRoleQuery(staff.roles[0] || '');
+                setDeptQuery(staff.departments[0] || '');
+              }
+            }}
+            placeholder="Search staff..."
+            disabled={isSubmitting}
+            required
+            label="Assignee"
+          />
+          <input type="hidden" name="assigneeId" value={selectedStaff?.username || ''} required />
+          <input type="hidden" name="assigneeDisplayName" value={selectedStaff?.displayName || ''} />
 
-          <Form.Group>
-            <Form.Label>Role</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder={selectedStaff ? `Filter (${selectedStaff.roles.join(', ')})` : 'Search role...'}
-              value={roleQuery}
-              disabled={isSubmitting || !!selectedStaff}
-              onChange={(e) => setRoleQuery(e.target.value)}
-            />
-            {!selectedStaff && (
-              <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
-                {roleFiltered.map(r => (
-                  <div key={r} className="px-2 py-1 selectable-item" style={{ cursor: 'pointer' }} onClick={() => setRoleQuery(r)}>{r}</div>
-                ))}
-                {roleFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
-              </div>
-            )}
-            <input type="hidden" name="assigneeRole" value={roleQuery || (selectedStaff?.roles[0] || '')} />
-          </Form.Group>
+              <Form.Group>
+                <Form.Label>Role</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder={selectedStaff ? `Filter (${selectedStaff.roles.join(', ')})` : 'Search role...'}
+                  value={roleQuery}
+                  disabled={isSubmitting || !!selectedStaff}
+                  onChange={(e) => setRoleQuery(e.target.value)}
+                />
+                <input type="hidden" name="assigneeRole" value={roleQuery || (selectedStaff?.roles[0] || '')} />
+              </Form.Group>
 
-          <Form.Group>
-            <Form.Label>Department</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder={selectedStaff ? `Filter (${selectedStaff.departments.join(', ')})` : 'Search department...'}
-              value={deptQuery}
-              disabled={isSubmitting || !!selectedStaff}
-              onChange={(e) => setDeptQuery(e.target.value)}
-            />
-            {!selectedStaff && (
-              <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
-                {deptFiltered.map(d => (
-                  <div key={d} className="px-2 py-1 selectable-item" style={{ cursor: 'pointer' }} onClick={() => setDeptQuery(d)}>{d}</div>
-                ))}
-                {deptFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
-              </div>
-            )}
-            <input type="hidden" name="departmentId" value={deptQuery || (selectedStaff?.departments[0] || queueItem?.departmentId || '')} />
-          </Form.Group>
+              <Form.Group>
+                <Form.Label>Department</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder={selectedStaff ? `Filter (${selectedStaff.departments.join(', ')})` : 'Search department...'}
+                  value={deptQuery}
+                  disabled={isSubmitting || !!selectedStaff}
+                  onChange={(e) => setDeptQuery(e.target.value)}
+                />
+                <input type="hidden" name="departmentId" value={deptQuery || (selectedStaff?.departments[0] || queueItem?.departmentId || '')} />
+              </Form.Group>
 
           <Form.Group controlId="note">
             <Form.Label>Note</Form.Label>
@@ -584,43 +911,26 @@ function TransitionModal({
   onSubmit
 }: { show: boolean; onHide: () => void; queueItem: QueueSummary | null; isSubmitting: boolean; error: string | null; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; }) {
   const nextStatuses = queueItem ? allowedTransitions[queueItem.status] ?? [] : [];
-  const staffQueryResult = useStaffDirectory(show);
-  const staffData: StaffDirectoryEntry[] = staffQueryResult.data || [];
-  const [actorQuery, setActorQuery] = useState("");
   const [selectedActor, setSelectedActor] = useState<StaffDirectoryEntry | null>(null);
   const [roleQuery, setRoleQuery] = useState("");
   const [deptQuery, setDeptQuery] = useState("");
   const { user } = useAuth();
 
-  // Always pre-select current user and their primary role when modal opens
+  // Always pre-select current user when modal opens
   React.useEffect(() => {
     if (show && user) {
-      const staff = staffData.find(s => s.username === user.username);
-      if (staff) {
-        setSelectedActor(staff);
-        setActorQuery(staff.displayName);
-        setRoleQuery(staff.roles[0] || '');
-        setDeptQuery(staff.departments[0] || '');
-      }
+      // We'll let the SearchableStaffSelect handle finding the current user
+      setRoleQuery("");
+      setDeptQuery("");
     } else if (!show) {
       setSelectedActor(null);
-      setActorQuery("");
       setRoleQuery("");
       setDeptQuery("");
     }
-  }, [show, user, staffData]);
-
-  const staffFiltered = useMemo(() => {
-    const q = actorQuery.toLowerCase();
-    return staffData.filter(s => s.username.toLowerCase().includes(q) || s.displayName.toLowerCase().includes(q));
-  }, [actorQuery, staffData]);
-  const roleOptions = selectedActor ? selectedActor.roles : Array.from(new Set(staffData.flatMap(s => s.roles)));
-  const deptOptions = selectedActor ? selectedActor.departments : Array.from(new Set(staffData.flatMap(s => s.departments)));
-  const roleFiltered = useMemo(() => roleOptions.filter(r => r.toLowerCase().includes(roleQuery.toLowerCase())), [roleOptions, roleQuery]);
-  const deptFiltered = useMemo(() => deptOptions.filter(d => d.toLowerCase().includes(deptQuery.toLowerCase())), [deptOptions, deptQuery]);
+  }, [show, user]);
 
   return (
-    <Modal show={show} onHide={() => { onHide(); setSelectedActor(null); setActorQuery(""); }} centered>
+    <Modal show={show} onHide={() => { onHide(); setSelectedActor(null); }} centered>
       <Form onSubmit={onSubmit}>
         <Modal.Header closeButton>
           <Modal.Title>Transition queue item</Modal.Title>
@@ -647,6 +957,29 @@ function TransitionModal({
                   key={queueItem?.id ?? "transition"}
                   disabled={isSubmitting}
                   required
+                  onChange={(e) => {
+                    const selectedStatus = e.target.value;
+                    // Check if this is a reverse transition (going backwards in the workflow)
+                    const isReverseTransition = queueItem && (
+                      (queueItem.status === 'IN_CONSULT' && selectedStatus === 'WAITING_TRIAGE') ||
+                      (queueItem.status === 'WAITING_PROVIDER' && selectedStatus === 'IN_TRIAGE') ||
+                      (queueItem.status === 'IN_DIAGNOSTICS' && selectedStatus === 'WAITING_PROVIDER') ||
+                      (queueItem.status === 'IN_PHARMACY' && selectedStatus === 'WAITING_PROVIDER')
+                    );
+                    
+                    if (isReverseTransition) {
+                      // Show a warning for reverse transitions
+                      const warningElement = document.getElementById('reverse-transition-warning');
+                      if (warningElement) {
+                        warningElement.style.display = 'block';
+                      }
+                    } else {
+                      const warningElement = document.getElementById('reverse-transition-warning');
+                      if (warningElement) {
+                        warningElement.style.display = 'none';
+                      }
+                    }
+                  }}
                 >
                   {nextStatuses.map((status) => (
                     <option key={status} value={status}>
@@ -654,29 +987,34 @@ function TransitionModal({
                     </option>
                   ))}
                 </Form.Select>
+                <Alert 
+                  id="reverse-transition-warning" 
+                  variant="warning" 
+                  className="mt-2" 
+                  style={{ display: 'none' }}
+                >
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  <strong>Reverse Transition:</strong> This will move the patient backwards in the workflow. 
+                  Please ensure this is intentional and add a note explaining the reason.
+                </Alert>
               </Form.Group>
 
-              <Form.Group>
-                <Form.Label>Actor</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder="Search staff..."
-                  value={actorQuery}
-                  disabled={isSubmitting}
-                  onChange={(e) => { setActorQuery(e.target.value); setSelectedActor(null); }}
-                />
-                <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
-                  {staffFiltered.map(s => (
-                    <div key={s.id} className={`px-2 py-1 selectable-item${selectedActor?.id===s.id? ' bg-light':''}`} style={{ cursor: 'pointer' }}
-                      onClick={() => { setSelectedActor(s); setActorQuery(s.displayName); setRoleQuery(s.roles[0]||''); setDeptQuery(s.departments[0]||''); }}>
-                      <strong>{s.displayName}</strong> <span className="text-muted small">({s.username})</span>
-                    </div>
-                  ))}
-                  {staffFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
-                </div>
-                <input type="hidden" name="actorId" value={selectedActor?.id || ''} />
-                <input type="hidden" name="actorDisplayName" value={selectedActor?.displayName || ''} />
-              </Form.Group>
+              <SearchableStaffSelect
+                value={selectedActor}
+                onChange={(staff) => {
+                  setSelectedActor(staff);
+                  if (staff) {
+                    setRoleQuery(staff.roles[0] || '');
+                    setDeptQuery(staff.departments[0] || '');
+                  }
+                }}
+                placeholder="Search staff..."
+                disabled={isSubmitting}
+                required
+                label="Actor"
+              />
+              <input type="hidden" name="actorId" value={selectedActor?.username || ''} />
+              <input type="hidden" name="actorDisplayName" value={selectedActor?.displayName || ''} />
 
               <Form.Group>
                 <Form.Label>Actor role</Form.Label>
@@ -687,14 +1025,6 @@ function TransitionModal({
                   disabled={isSubmitting || !!selectedActor}
                   onChange={(e) => setRoleQuery(e.target.value)}
                 />
-                {!selectedActor && (
-                  <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
-                    {roleFiltered.map(r => (
-                      <div key={r} className="px-2 py-1 selectable-item" style={{ cursor: 'pointer' }} onClick={() => setRoleQuery(r)}>{r}</div>
-                    ))}
-                    {roleFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
-                  </div>
-                )}
                 <input type="hidden" name="actorRole" value={roleQuery || (selectedActor?.roles[0] || '')} />
               </Form.Group>
 
@@ -707,14 +1037,6 @@ function TransitionModal({
                   disabled={isSubmitting || !!selectedActor}
                   onChange={(e) => setDeptQuery(e.target.value)}
                 />
-                {!selectedActor && (
-                  <div className="border rounded mt-1" style={{ maxHeight: 110, overflowY: 'auto' }}>
-                    {deptFiltered.map(d => (
-                      <div key={d} className="px-2 py-1 selectable-item" style={{ cursor: 'pointer' }} onClick={() => setDeptQuery(d)}>{d}</div>
-                    ))}
-                    {deptFiltered.length === 0 && <div className="px-2 py-1 text-muted small">No matches</div>}
-                  </div>
-                )}
                 <input type="hidden" name="departmentId" value={deptQuery || (selectedActor?.departments[0] || queueItem?.departmentId || '')} />
               </Form.Group>
 
@@ -1049,14 +1371,15 @@ function InsuranceDetailsSection(props: { patientId: number, queueItemId: number
             </tbody>
           </table>
          
-          <div className="mb-2">
-            <label className="fw-semibold mb-1">Other Additional Details</label>
-            <RichTextEditor theme="snow" value={additionalDetails} onChange={setAdditionalDetails} placeholder="Enter any additional notes or details..." style={{ background: 'white' }} />
-          </div>
+         
         </div>
       ) : (
         <div className="text-muted small">No insurance details on file.</div>
       )}
+       <div className="mb-2">
+            <label className="fw-semibold mb-1">Other Additional Details</label>
+            <RichTextEditor theme="snow" value={additionalDetails} onChange={setAdditionalDetails} placeholder="Enter any additional notes or details..." style={{ background: 'white' }} />
+          </div>
        <div className="d-flex justify-content-end">
             <Button size="sm" variant="success" onClick={async () => {
               if (selectedId === null) return;

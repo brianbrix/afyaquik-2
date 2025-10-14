@@ -3,7 +3,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { fetchShiftAlerts } from "../services/schedulingApi";
 import { useAuth } from "../hooks/useAuth";
 
-export function useShiftAlerts(pollInterval = 30000) {
+export function useShiftAlerts(pollInterval = 120000) { // Increased to 2 minutes
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -14,6 +14,8 @@ export function useShiftAlerts(pollInterval = 30000) {
     queryFn: () => fetchShiftAlerts(),
     enabled,
     refetchInterval: pollInterval,
+    refetchIntervalInBackground: false, // Don't poll when tab is not active
+    staleTime: 60000, // Consider data stale after 1 minute
   });
 
   // Optionally, refetch on login

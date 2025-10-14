@@ -28,6 +28,11 @@ export const AdminLayout: React.FC = () => {
           <NavLink to="notification-templates" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Notification Templates</NavLink>
           <NavLink to="forms/patient-intake" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Patient Intake Form</NavLink>
           <NavLink to="insurance" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Insurance</NavLink>
+          <NavLink to="triage-titles" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Triage Titles</NavLink>
+          <NavLink to="consultation-titles" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Consultation Titles</NavLink>
+          <NavLink to="queue-status-role-matrix" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Queue Status Role Matrix</NavLink>
+          <NavLink to="diagnostics" className={({isActive}) => `nav-link ${isActive?'active':''}`}>Diagnostics</NavLink>
+
           
         </nav>
       </aside>

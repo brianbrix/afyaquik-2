@@ -1,0 +1,1 @@
+export { ProfilePage as UserProfilePage } from './pages/ProfilePage';

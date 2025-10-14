@@ -1,20 +1,21 @@
 
 package com.afyaquik.hms.scheduling.domain;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+
 import com.afyaquik.hms.auth.domain.Department;
 import com.afyaquik.hms.auth.domain.StaffRole;
-
 import com.afyaquik.hms.auth.domain.StaffUser;
 import com.afyaquik.hms.common.domain.BaseEntity;
+
 import jakarta.persistence.Column;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 
 /**
  * Represents a single staff shift on a tenant's rota. Shifts track the owning
@@ -57,6 +58,9 @@ public class StaffShift extends BaseEntity {
 
 	@Column(name = "handover_notes", length = 512)
 	private String handoverNotes;
+
+	@Column(name = "is_recurring", nullable = false)
+	private boolean isRecurring = false;
 
 	public StaffUser getStaffUser() {
 		return staffUser;
@@ -136,5 +140,13 @@ public class StaffShift extends BaseEntity {
 
 	public void setHandoverNotes(String handoverNotes) {
 		this.handoverNotes = handoverNotes;
+	}
+
+	public boolean isRecurring() {
+		return isRecurring;
+	}
+
+	public void setRecurring(boolean isRecurring) {
+		this.isRecurring = isRecurring;
 	}
 }

@@ -64,7 +64,14 @@ public class PermissionSeeder {
                 new Permission("MANAGE_REDIRECTS", "Manage login redirects"),
                 new Permission("VIEW_DASHBOARD", "View dashboard"),
                 new Permission("VIEW_REFERENCE_DATA", "View reference data"),
-                new Permission("EDIT_REFERENCE_DATA", "Edit reference data")
+                new Permission("EDIT_REFERENCE_DATA", "Edit reference data"),
+                new Permission("VIEW_PHARMACY", "View pharmacy"),
+                new Permission("MANAGE_PHARMACY_INVENTORY", "Manage pharmacy inventory"),
+                new Permission("MANAGE_PHARMACY_MEDICATIONS", "Manage pharmacy MEDICATIONS"),
+                new Permission("VIEW_PHARMACY_INVENTORY", "View pharmacy inventory"),
+                new Permission("MANAGE_PRESCRIPTIONS", "Dispense medication"),
+                new Permission("VIEW_PRESCRIPTIONS", "View prescriptions"),
+                new Permission("VIEW_PATIENT_NOTES", "View patient notes")
             );
             for (Permission p : permissions) {
                 permissionRepository.findByCode(p.getCode()).orElseGet(() -> permissionRepository.save(p));

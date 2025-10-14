@@ -1,12 +1,26 @@
 package com.afyaquik.hms.scheduling.service;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import com.afyaquik.hms.auth.domain.Department;
+import com.afyaquik.hms.auth.domain.StaffRole;
 import com.afyaquik.hms.auth.domain.StaffUser;
 import com.afyaquik.hms.auth.repository.StaffUserRepository;
 import com.afyaquik.hms.scheduling.api.CreateStaffShiftRequest;
@@ -16,19 +30,6 @@ import com.afyaquik.hms.scheduling.domain.ShiftType;
 import com.afyaquik.hms.scheduling.domain.StaffShift;
 import com.afyaquik.hms.scheduling.dto.StaffShiftDto;
 import com.afyaquik.hms.scheduling.repository.StaffShiftRepository;
-import com.afyaquik.hms.auth.domain.StaffRole;
-import com.afyaquik.hms.auth.domain.Department;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class StaffSchedulingServiceTest {
@@ -92,9 +93,10 @@ class StaffSchedulingServiceTest {
         staffRole.getId(),
         department.getId(),
         shiftType.getId(),
-        OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-        OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
-        "Covering triage window");
+        existingShift.getStartsAt(),
+        existingShift.getEndsAt(),
+        null,
+        false);
 
         when(staffUserRepository.findById(staffUser.getId())).thenReturn(Optional.of(staffUser));
         when(shiftRepository.existsOverlappingShift(any(), anyLong(), any(), any(), any())).thenReturn(false);
@@ -127,7 +129,8 @@ class StaffSchedulingServiceTest {
         shiftType.getId(),
         existingShift.getStartsAt(),
         existingShift.getEndsAt(),
-        null);
+        null,
+        false);
 
         when(staffUserRepository.findById(staffUser.getId())).thenReturn(Optional.of(staffUser));
         when(shiftRepository.existsOverlappingShift(TENANT_ID, staffUser.getId(), existingShift.getStartsAt(), existingShift.getEndsAt(), null))
@@ -164,15 +167,16 @@ class StaffSchedulingServiceTest {
     void updateShift_requiresSwapNoteWhenRequestingSwap() {
         when(shiftRepository.findById(existingShift.getId())).thenReturn(Optional.of(existingShift));
         UpdateStaffShiftRequest request = new UpdateStaffShiftRequest(
-                null,
-                null,
-                ShiftStatus.SWAP_REQUESTED,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null);
+            existingShift.getId(),
+            existingShift.getStaffUser().getId(),
+            ShiftStatus.SWAP_REQUESTED,
+            existingShift.getRole().getId(),
+            existingShift.getDepartment().getId(),
+            existingShift.getStartsAt(),
+            existingShift.getEndsAt(),
+            null,
+            null,
+            false);
 
         assertThatThrownBy(() -> service.updateShift(TENANT_ID, existingShift.getId(), request))
                 .isInstanceOf(IllegalStateException.class)

@@ -1,8 +1,10 @@
 package com.afyaquik.hms.scheduling.api;
 
-import com.afyaquik.hms.scheduling.domain.ShiftStatus;
-import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
+
+import com.afyaquik.hms.scheduling.domain.ShiftStatus;
+
+import jakarta.validation.constraints.Size;
 
 public record UpdateStaffShiftRequest(
 	Long staffUserId,
@@ -19,6 +21,8 @@ public record UpdateStaffShiftRequest(
 	String notes,
 
 	@Size(max = 512)
-	String handoverNotes
+	String handoverNotes,
+
+	Boolean isRecurring
 ) {
 }

@@ -1,7 +1,8 @@
 package com.afyaquik.hms.scheduling.dto;
 
-import com.afyaquik.hms.scheduling.domain.ShiftStatus;
 import java.time.OffsetDateTime;
+
+import com.afyaquik.hms.scheduling.domain.ShiftStatus;
 
 /**
  * Lightweight representation of a staff shift that can be shared across the service
@@ -21,6 +22,7 @@ public record StaffShiftDto(
 	OffsetDateTime startsAt,
 	OffsetDateTime endsAt,
 	String notes,
-	String handoverNotes
+	String handoverNotes,
+	boolean isRecurring
 ) {
 }

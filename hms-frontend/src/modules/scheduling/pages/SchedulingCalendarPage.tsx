@@ -173,6 +173,16 @@ function ShiftCreateModal({ show, onHide, onSubmit, isSubmitting, error, default
             <Form.Control name="notes" as="textarea" rows={3} placeholder="Optional" />
           </Form.Group>
         </Col>
+        <Col xs={12}>
+          <Form.Group controlId="cRecurring">
+            <Form.Check
+              type="checkbox"
+              name="isRecurring"
+              label="Recurring shift (automatically creates next day's shift when completed)"
+              className="fw-semibold"
+            />
+          </Form.Group>
+        </Col>
       </Row>
     </FormModal>
   );
@@ -297,6 +307,18 @@ function ShiftEditModal({ show, onHide, onSubmit, isSubmitting, error, shift, ro
             <Form.Group controlId="eHandover">
               <Form.Label className="fw-semibold">Handover notes</Form.Label>
               <Form.Control name="handoverNotes" as="textarea" rows={2} defaultValue={shift.handoverNotes ?? ""} />
+            </Form.Group>
+          </Col>
+          <Col xs={12}>
+            <Form.Group controlId="eRecurring">
+              <Form.Check
+                type="checkbox"
+                name="isRecurring"
+                label="Recurring shift (automatically creates next day's shift when completed)"
+                defaultChecked={shift.isRecurring}
+                disabled={!canManageShifts}
+                className="fw-semibold"
+              />
             </Form.Group>
           </Col>
         </Row>
@@ -460,7 +482,8 @@ export function SchedulingCalendarPage(){
       shiftTypeId: Number(fd.get('shiftType')),
       startsAt: localDateTimeToIso(fd.get('startsAt')?.toString() || ""),
       endsAt: localDateTimeToIso(fd.get('endsAt')?.toString() || ""),
-      notes: extractNotes(fd, 'notes')
+      notes: extractNotes(fd, 'notes'),
+      isRecurring: fd.get('isRecurring') === 'on'
     };
     createShift.mutate(payload as any, { onSuccess: () => {
       if (e.currentTarget && typeof e.currentTarget.reset === 'function') {
@@ -493,7 +516,8 @@ export function SchedulingCalendarPage(){
       startsAt: localDateTimeToIso(fd.get('startsAt')?.toString() || ""),
       endsAt: localDateTimeToIso(fd.get('endsAt')?.toString() || ""),
       notes: extractNotes(fd, 'notes'),
-      handoverNotes: extractNotes(fd, 'handoverNotes')
+      handoverNotes: extractNotes(fd, 'handoverNotes'),
+      isRecurring: fd.get('isRecurring') === 'on'
     };
     const useOwnerEndpoint = !hasPermission(permissions, 'MANAGE_SHIFTS');
     updateShift.mutate({ shiftId: selected.id, payload: payload as any, useOwnerEndpoint }, { onSuccess: close });
@@ -542,6 +566,11 @@ export function SchedulingCalendarPage(){
                 <td>{s.departmentName}</td>
                 <td>
                   <div className="fw-semibold">{formatTimeRangeWithUtcDate(s)}</div>
+                  {s.isRecurring && (
+                    <div className="text-info small">
+                      <i className="bi bi-arrow-repeat me-1"></i>Recurring
+                    </div>
+                  )}
                 </td>
                 <td><Badge bg={statusVariant(s.status)}>{SHIFT_STATUS_LABELS[s.status]}</Badge></td>
                 <td className="text-end">

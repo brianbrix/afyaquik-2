@@ -1,14 +1,9 @@
 package com.afyaquik.hms.common.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.MappedSuperclass;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import java.time.OffsetDateTime;
+import jakarta.persistence.*;
+import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 @MappedSuperclass
 public abstract class BaseEntity {
@@ -21,27 +16,27 @@ public abstract class BaseEntity {
     private String tenantId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
+    private Instant updatedAt;
 
     @Column(name = "deleted", nullable = false)
     private boolean deleted = false;
 
     @Column(name = "deleted_at")
-    private OffsetDateTime deletedAt;
+    private Instant deletedAt;
 
     @PrePersist
     protected void onCreate() {
-        OffsetDateTime now = OffsetDateTime.now(ZoneId.of("Africa/Nairobi"));
+        Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = OffsetDateTime.now(ZoneId.of("Africa/Nairobi"));
+        this.updatedAt = Instant.now();
     }
 
     public Long getId() {
@@ -54,16 +49,14 @@ public abstract class BaseEntity {
     public String getTenantId() {
         return tenantId;
     }
-
     public void setTenantId(String tenantId) {
         this.tenantId = tenantId;
     }
 
-    public OffsetDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
-
-    public OffsetDateTime getUpdatedAt() {
+    public Instant getUpdatedAt() {
         return updatedAt;
     }
 
@@ -71,14 +64,19 @@ public abstract class BaseEntity {
         return deleted;
     }
 
-    public OffsetDateTime getDeletedAt() {
+    public Instant getDeletedAt() {
         return deletedAt;
     }
 
     public void softDelete() {
         if (!this.deleted) {
             this.deleted = true;
-            this.deletedAt = OffsetDateTime.now(ZoneId.of("Africa/Nairobi"));
+            this.deletedAt = Instant.now();
         }
+    }
+
+    /** Optional helper to display in Nairobi time */
+    public ZonedDateTime getCreatedAtNairobi() {
+        return createdAt.atZone(ZoneId.of("Africa/Nairobi"));
     }
 }

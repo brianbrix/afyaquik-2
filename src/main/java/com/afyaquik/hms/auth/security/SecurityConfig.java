@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -35,15 +36,18 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-        .csrf(csrf -> csrf.disable())
+        .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
             .requestMatchers(HttpMethod.GET, "/actuator/**").permitAll()
             // Allow websocket handshake + SockJS info/endpoints (authentication will be enforced at message level if needed)
             .requestMatchers("/ws/**").permitAll()
-            .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-            // Allow any authenticated user to access queue endpoints
+                .requestMatchers(HttpMethod.GET,"/api/v1/admin/triage-titles**").authenticated()
+                .requestMatchers(HttpMethod.GET,"/api/v1/admin/consultation-titles**").authenticated()
+                .requestMatchers(HttpMethod.GET,"/api/v1/admin/queue-status-role-matrix**").authenticated()
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                // Allow any authenticated user to access queue endpoints
             .requestMatchers("/api/v1/queue/**").authenticated()
             // Allow unauthenticated access to theme (branding on login page); keep features authenticated
             .requestMatchers(HttpMethod.GET, "/api/v1/config/theme").permitAll()

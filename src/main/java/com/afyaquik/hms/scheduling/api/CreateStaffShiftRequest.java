@@ -1,8 +1,9 @@
 package com.afyaquik.hms.scheduling.api;
 
+import java.time.OffsetDateTime;
+
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.time.OffsetDateTime;
 
 public record CreateStaffShiftRequest(
 	@NotNull(message = "Staff user id is required")
@@ -24,6 +25,8 @@ public record CreateStaffShiftRequest(
 	OffsetDateTime endsAt,
 
 	@Size(max = 512)
-	String notes
+	String notes,
+
+	boolean isRecurring
 ) {
 }

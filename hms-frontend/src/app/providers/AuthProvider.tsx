@@ -118,6 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(defaultState);
     persistSession(null);
     setAuthError(null);
+    
+    // Clear activeRole from localStorage on logout
+    try {
+      localStorage.removeItem('activeRole');
+    } catch (error) {
+      console.warn('Failed to clear activeRole from localStorage', error);
+    }
   }, [clearRefreshTimer, persistSession]);
 
   const scheduleRefresh = useCallback(

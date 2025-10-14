@@ -33,6 +33,7 @@ export const SHIFT_STATUS_LABELS: Record<ShiftStatus, string> = {
 		endsAt: string;
 		notes?: string | null;
 		handoverNotes?: string | null;
+		isRecurring: boolean;
 	};
 
 
@@ -55,6 +56,7 @@ export const SHIFT_STATUS_LABELS: Record<ShiftStatus, string> = {
 		startsAt: string;
 		endsAt: string;
 		notes?: string | null;
+		isRecurring: boolean;
 	};
 
 
@@ -68,6 +70,7 @@ export const SHIFT_STATUS_LABELS: Record<ShiftStatus, string> = {
 		endsAt?: string;
 		notes?: string | null;
 		handoverNotes?: string | null;
+		isRecurring?: boolean;
 	};
 
 export type ShiftSwapRequestPayload = {

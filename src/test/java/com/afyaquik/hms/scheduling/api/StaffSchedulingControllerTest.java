@@ -1,36 +1,36 @@
 package com.afyaquik.hms.scheduling.api;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+
 import static org.hamcrest.Matchers.hasSize;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.afyaquik.hms.scheduling.domain.ShiftStatus;
-import com.afyaquik.hms.scheduling.domain.ShiftType;
 import com.afyaquik.hms.scheduling.dto.StaffShiftDto;
 import com.afyaquik.hms.scheduling.service.StaffSchedulingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 @ExtendWith(MockitoExtension.class)
 class StaffSchedulingControllerTest {
@@ -69,7 +69,8 @@ class StaffSchedulingControllerTest {
 			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
 			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
 			"Covering",
-			null);
+			null,
+			false);
 
 		when(schedulingService.listShifts(eq("tenant-xyz"), any(), any(), any(), any(), any(), any(), any()))
 			.thenReturn(List.of(resp));
@@ -100,7 +101,8 @@ class StaffSchedulingControllerTest {
 			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
 			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
 			"Covering",
-			null);
+			null,
+			false);
 
 		when(schedulingService.createShift(eq("tenant-xyz"), any(CreateStaffShiftRequest.class))).thenReturn(resp);
 
@@ -127,7 +129,7 @@ class StaffSchedulingControllerTest {
 
 	@Test
 	void approveSwap_endpointInvokesService() throws Exception {
-		StaffShiftDto resp = new StaffShiftDto(
+			StaffShiftDto resp = new StaffShiftDto(
 			55L,
 			88L,
 			"Dr. Bob",
@@ -141,7 +143,8 @@ class StaffSchedulingControllerTest {
 			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
 			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
 			"Swapped",
-			"Keys ready");
+			"Keys ready",
+			false);
 
 		when(schedulingService.approveSwap(eq("tenant-xyz"), anyLong(), anyLong(), any(), any())).thenReturn(resp);
 
@@ -180,7 +183,8 @@ class StaffSchedulingControllerTest {
 			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
 			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
 			"Covering",
-			null);
+			null,
+			false);
 		when(schedulingService.updateShift(eq("tenant-xyz"), eq(33L), any(UpdateStaffShiftRequest.class))).thenReturn(resp);
 
 		String payload = "{" +

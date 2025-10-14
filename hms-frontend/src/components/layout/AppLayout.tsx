@@ -7,9 +7,16 @@ import { RoleSwitcher } from "../role/RoleSwitcher";
 import { useFeatureFlags } from "../../services/configApi";
 import { useAuth } from "../../hooks/useAuth";
 import { NotificationBell } from '../shared/NotificationBell';
+import { hasPermission, useResolvedPermissions } from "../../hooks/usePermissions";
 
 export function AppLayout() {
   const { user, logout } = useAuth();
+  const { permissions, loading: permLoading } = useResolvedPermissions();
+  const CAN_SEE_PHARMACY = hasPermission(permissions, 'VIEW_PHARMACY');
+  const CAN_MANAGE_PHARMACY_MEDICATIONS = hasPermission(permissions, 'MANAGE_PHARMACY_MEDICATIONS');
+  const CAN_MANAGE_PHARMACY_INVENTORY = hasPermission(permissions, 'MANAGE_PHARMACY_INVENTORY');
+  const CAN_MANAGE_PRESCRIPTIONS = hasPermission(permissions, 'MANAGE_PRESCRIPTIONS');
+
   const { data: flags } = useFeatureFlags();
   const isAdmin = user?.roles?.some((r: any) => (typeof r === 'string' ? (r === 'ADMIN' || r === 'ROLE_ADMIN') : (r.roleKey === 'ADMIN' || r.roleKey === 'ROLE_ADMIN')));
   const flagEnabled = (key: string) => flags?.some(f => f.flagKey === key && f.enabled);
@@ -36,6 +43,34 @@ export function AppLayout() {
                     <Nav.Link as={NavLink} to="/patients">Patients</Nav.Link>
                     <Nav.Link as={NavLink} to="/scheduling">Scheduling</Nav.Link>
                     <Nav.Link as={NavLink} to="/reports">Reports</Nav.Link>
+                    {CAN_SEE_PHARMACY && (
+                    <Dropdown>
+                      <Dropdown.Toggle as={Nav.Link} variant="link" className="text-white text-decoration-none">
+                        Pharmacy
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        {CAN_MANAGE_PHARMACY_MEDICATIONS && (
+                        <Dropdown.Item as={NavLink} to="/pharmacy/medications">Medications</Dropdown.Item>
+                        )}
+                        {CAN_MANAGE_PHARMACY_INVENTORY && (
+                        <Dropdown.Item as={NavLink} to="/pharmacy/inventory">Inventory</Dropdown.Item>
+                        )}
+                        {CAN_MANAGE_PRESCRIPTIONS && (
+                        <Dropdown.Item as={NavLink} to="/pharmacy/prescriptions">Prescriptions</Dropdown.Item>
+                        )}
+                      </Dropdown.Menu>
+                  
+                    </Dropdown>
+                    )}
+                    <Dropdown>
+                      <Dropdown.Toggle as={Nav.Link} variant="link" className="text-white text-decoration-none">
+                        Billing
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu>
+                        <Dropdown.Item as={NavLink} to="/billing/bills">Bills</Dropdown.Item>
+                        <Dropdown.Item as={NavLink} to="/billing/payments">Payments</Dropdown.Item>
+                      </Dropdown.Menu>
+                    </Dropdown>
                     {flagEnabled('admin-ui') && <Nav.Link as={NavLink} to="/admin">Admin</Nav.Link>}
                   </>
               }
@@ -49,6 +84,8 @@ export function AppLayout() {
                 </Dropdown.Toggle>
                 <Dropdown.Menu className="text-start">
                   <Dropdown.Header>{user?.tenantId ?? "Tenant"}</Dropdown.Header>
+                  <Dropdown.Divider />
+                  <Dropdown.Item as={NavLink} to="/profile">Profile</Dropdown.Item>
                   <Dropdown.Divider />
                   <Dropdown.Item onClick={logout}>Sign out</Dropdown.Item>
                 </Dropdown.Menu>

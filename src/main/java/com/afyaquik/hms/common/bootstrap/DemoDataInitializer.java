@@ -1,13 +1,39 @@
 
 package com.afyaquik.hms.common.bootstrap;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.afyaquik.hms.auth.domain.Department;
 import com.afyaquik.hms.auth.domain.StaffRole;
 import com.afyaquik.hms.auth.domain.StaffUser;
 import com.afyaquik.hms.auth.repository.DepartmentRepository;
 import com.afyaquik.hms.auth.repository.StaffRoleRepository;
 import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.configuration.service.FormDefinitionService;
+import com.afyaquik.hms.configuration.service.RoleRedirectUrlService;
+import com.afyaquik.hms.diagnostics.domain.FieldType;
+import com.afyaquik.hms.diagnostics.domain.ResultTemplate;
+import com.afyaquik.hms.diagnostics.domain.TestCatalog;
+import com.afyaquik.hms.diagnostics.domain.TestCategory;
+import com.afyaquik.hms.diagnostics.domain.TestType;
+import com.afyaquik.hms.diagnostics.repository.ResultTemplateRepository;
+import com.afyaquik.hms.diagnostics.repository.TestCatalogRepository;
+import com.afyaquik.hms.diagnostics.repository.TestCategoryRepository;
 import com.afyaquik.hms.patient.domain.Patient;
 import com.afyaquik.hms.patient.repository.PatientRepository;
 import com.afyaquik.hms.queue.api.QueueAssignmentRequest;
@@ -18,21 +44,6 @@ import com.afyaquik.hms.scheduling.domain.ShiftStatus;
 import com.afyaquik.hms.scheduling.domain.ShiftType;
 import com.afyaquik.hms.scheduling.domain.StaffShift;
 import com.afyaquik.hms.scheduling.repository.StaffShiftRepository;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-import com.afyaquik.hms.configuration.service.FormDefinitionService;
-import com.afyaquik.hms.configuration.service.RoleRedirectUrlService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Profile;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @Profile("!test")
@@ -64,6 +75,9 @@ public class DemoDataInitializer implements CommandLineRunner {
     private final QueueService queueService;
     private final FormDefinitionService formDefinitionService;
     private final RoleRedirectUrlService roleRedirectUrlService;
+    private final TestCategoryRepository testCategoryRepository;
+    private final TestCatalogRepository testCatalogRepository;
+    private final ResultTemplateRepository resultTemplateRepository;
 
     public DemoDataInitializer(
             PasswordEncoder passwordEncoder,
@@ -76,7 +90,10 @@ public class DemoDataInitializer implements CommandLineRunner {
             VisitQueueItemRepository visitQueueItemRepository,
             QueueService queueService,
             RoleRedirectUrlService roleRedirectUrlService,
-            com.afyaquik.hms.scheduling.repository.ShiftTypeRepository shiftTypeRepository) {
+            com.afyaquik.hms.scheduling.repository.ShiftTypeRepository shiftTypeRepository,
+            TestCategoryRepository testCategoryRepository,
+            TestCatalogRepository testCatalogRepository,
+            ResultTemplateRepository resultTemplateRepository) {
         this.passwordEncoder = passwordEncoder;
         this.staffRoleRepository = staffRoleRepository;
         this.staffUserRepository = staffUserRepository;
@@ -88,6 +105,9 @@ public class DemoDataInitializer implements CommandLineRunner {
         this.queueService = queueService;
         this.roleRedirectUrlService = roleRedirectUrlService;
         this.shiftTypeRepository = shiftTypeRepository;
+        this.testCategoryRepository = testCategoryRepository;
+        this.testCatalogRepository = testCatalogRepository;
+        this.resultTemplateRepository = resultTemplateRepository;
     }
 
     @Override
@@ -101,7 +121,6 @@ public class DemoDataInitializer implements CommandLineRunner {
         StaffRole adminRole = ensureRole(tenantId, "ADMIN", "Administrator");
         StaffRole doctorRole = ensureRole(tenantId, "DOCTOR", "Doctor");
         StaffRole nurseRole = ensureRole(tenantId, "NURSE", "Nurse");
-        StaffRole schedulingManagerRole = ensureRole(tenantId, "SCHEDULING_MANAGER", "Scheduling Manager");
     // Seed default role redirect URLs for all common roles
     roleRedirectUrlService.saveOrUpdate(tenantId, "ADMIN", "/admin");
     roleRedirectUrlService.saveOrUpdate(tenantId, "DOCTOR", "/provider");
@@ -145,6 +164,7 @@ public class DemoDataInitializer implements CommandLineRunner {
 
         seedDepartments(tenantId);
     seedForms(tenantId);
+        seedDiagnostics(tenantId);
 
         seedQueue(tenantId, doctor, nurse, receptionist);
 
@@ -389,5 +409,86 @@ public class DemoDataInitializer implements CommandLineRunner {
         shift.setEndsAt(endsAt);
         shift.setNotes(notes);
         staffShiftRepository.save(shift);
+    }
+
+    private void seedDiagnostics(String tenantId) {
+        if (testCategoryRepository.count() > 0) {
+            return; // already seeded diagnostics
+        }
+        log.info("Seeding diagnostics data for tenant {}", tenantId);
+
+        // Seed Test Categories
+        TestCategory labCategory = createTestCategory(tenantId, "LAB", "Laboratory", TestType.LABORATORY);
+        TestCategory radiologyCategory = createTestCategory(tenantId, "RAD", "Radiology", TestType.RADIOLOGY);
+        TestCategory cardiologyCategory = createTestCategory(tenantId, "CARD", "Cardiology", TestType.CARDIOLOGY);
+
+        // Seed Test Catalogs
+        TestCatalog cbcTest = createTestCatalog(tenantId, "CBC-001", "Complete Blood Count", "Full blood count analysis", labCategory, 1500.0, "Laboratory", "LABORATORY");
+        TestCatalog xrayTest = createTestCatalog(tenantId, "XRAY-001", "Chest X-Ray", "Chest X-ray examination", radiologyCategory, 3000.0, "Radiology", "RADIOLOGY");
+        TestCatalog ecgTest = createTestCatalog(tenantId, "ECG-001", "Electrocardiogram", "Heart rhythm analysis", cardiologyCategory, 2000.0, "Cardiology", "CARDIOLOGY");
+        TestCatalog urinalysisTest = createTestCatalog(tenantId, "URINE-001", "Urinalysis", "Urine analysis", labCategory, 800.0, "Laboratory", "LABORATORY");
+        TestCatalog mriTest = createTestCatalog(tenantId, "MRI-001", "MRI Brain", "Brain MRI scan", radiologyCategory, 15000.0, "Radiology", "RADIOLOGY");
+
+        // Seed Result Templates
+        createResultTemplate(tenantId, cbcTest, "Hemoglobin", "Hemoglobin Level", FieldType.NUMBER, "g/dL", "12-16", true);
+        createResultTemplate(tenantId, cbcTest, "White Blood Cells", "WBC Count", FieldType.NUMBER, "cells/μL", "4000-11000", true);
+        createResultTemplate(tenantId, cbcTest, "Platelets", "Platelet Count", FieldType.NUMBER, "cells/μL", "150000-450000", true);
+        
+        createResultTemplate(tenantId, xrayTest, "Findings", "X-Ray Findings", FieldType.TEXT, null, null, true);
+        createResultTemplate(tenantId, xrayTest, "Impression", "Radiologist Impression", FieldType.TEXT, null, null, true);
+        
+        createResultTemplate(tenantId, ecgTest, "Heart Rate", "Heart Rate", FieldType.NUMBER, "bpm", "60-100", true);
+        createResultTemplate(tenantId, ecgTest, "Rhythm", "Heart Rhythm", FieldType.DROPDOWN, null, "Normal,Sinus Tachycardia,Sinus Bradycardia,Atrial Fibrillation", true);
+        
+        createResultTemplate(tenantId, urinalysisTest, "Color", "Urine Color", FieldType.DROPDOWN, null, "Yellow,Amber,Red,Cloudy", true);
+        createResultTemplate(tenantId, urinalysisTest, "pH", "Urine pH", FieldType.NUMBER, null, "4.5-8.0", true);
+        createResultTemplate(tenantId, urinalysisTest, "Protein", "Protein Level", FieldType.DROPDOWN, null, "Negative,Trace,1+,2+,3+", true);
+        
+        createResultTemplate(tenantId, mriTest, "Findings", "MRI Findings", FieldType.TEXT, null, null, true);
+        createResultTemplate(tenantId, mriTest, "Impression", "Radiologist Impression", FieldType.TEXT, null, null, true);
+    }
+
+    private TestCategory createTestCategory(String tenantId, String categoryCode, String categoryName, TestType testType) {
+        TestCategory category = new TestCategory();
+        category.setTenantId(tenantId);
+        category.setCategoryCode(categoryCode);
+        category.setCategoryName(categoryName);
+        category.setTestType(testType);
+        category.setActive(true);
+        category.setSortOrder(0);
+        return testCategoryRepository.save(category);
+    }
+
+    private TestCatalog createTestCatalog(String tenantId, String testCode, String testName, String description, TestCategory category, Double cost, String department, String testType) {
+        TestCatalog catalog = new TestCatalog();
+        catalog.setTenantId(tenantId);
+        catalog.setTestCode(testCode);
+        catalog.setTestName(testName);
+        catalog.setDescription("Standard " + testName.toLowerCase() + " procedure");
+        catalog.setTestCategory(category);
+        catalog.setCost(BigDecimal.valueOf(cost));
+        catalog.setDepartment(department);
+        catalog.setDepartmentName(department);
+        catalog.setTestType(TestType.valueOf(testType));
+        catalog.setActive(true);
+        catalog.setInstructions("Follow standard preparation procedures");
+        catalog.setPreparationInstructions("Patient preparation instructions for " + testName);
+        catalog.setEstimatedDurationMinutes(30);
+        return testCatalogRepository.save(catalog);
+    }
+
+    private ResultTemplate createResultTemplate(String tenantId, TestCatalog testCatalog, String fieldName, String fieldLabel, FieldType fieldType, String units, String normalRange, boolean required) {
+        ResultTemplate template = new ResultTemplate();
+        template.setTenantId(tenantId);
+        template.setTestCatalog(testCatalog);
+        template.setFieldName(fieldName);
+        template.setFieldLabel(fieldLabel);
+        template.setFieldType(fieldType);
+        template.setUnits(units);
+        template.setNormalRange(normalRange);
+        template.setRequired(required);
+        template.setSortOrder(0);
+        template.setActive(true);
+        return resultTemplateRepository.save(template);
     }
 }

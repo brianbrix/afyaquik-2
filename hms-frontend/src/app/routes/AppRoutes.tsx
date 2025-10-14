@@ -1,3 +1,6 @@
+import { TriageTitlesAdminPage } from "../../modules/admin/pages/TriageTitlesAdminPage";
+import { ConsultationTitlesAdminPage } from "../../modules/admin/pages/ConsultationTitlesAdminPage";
+import QueueStatusRoleMatrixAdminPage from "../../modules/admin/pages/QueueStatusRoleMatrixAdminPage";
 import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { DashboardPage } from "../../modules/dashboard";
@@ -18,6 +21,10 @@ import PermissionMatrixAdminPage from "../../modules/admin/permissions/Permissio
 import { NotificationTemplatesAdminPage } from "../../modules/admin/pages/NotificationTemplatesAdminPage";
 import { AdminShiftTypesPage } from "../../modules/admin/pages/AdminShiftTypesPage";
 import { InsuranceAdminPage } from "../../modules/insurance/InsuranceAdminPage";
+import { MedicationsPage, InventoryPage, PrescriptionsPage } from "../../modules/pharmacy";
+import { UserProfilePage } from "../../modules/profile";
+import { BillsPage, PaymentsPage } from "../../modules/billing";
+import { DiagnosticsAdminPage } from "../../modules/admin/pages/DiagnosticsAdminPage";
 
 export function AppRoutes() {
   return (
@@ -30,6 +37,12 @@ export function AppRoutes() {
         <Route path="/patients" element={<PatientsPage />} />
         <Route path="/scheduling" element={<SchedulingCalendarPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/pharmacy/medications" element={<MedicationsPage />} />
+        <Route path="/pharmacy/inventory" element={<InventoryPage />} />
+        <Route path="/pharmacy/prescriptions" element={<PrescriptionsPage />} />
+        <Route path="/billing/bills" element={<BillsPage />} />
+        <Route path="/billing/payments" element={<PaymentsPage />} />
+        <Route path="/profile" element={<UserProfilePage />} />
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="users" replace />} />
           <Route path="users" element={<UserDirectory />} />
@@ -42,6 +55,10 @@ export function AppRoutes() {
           <Route path="shift-types" element={<AdminShiftTypesPage />} />
           <Route path="forms/:formKey" element={<DynamicFormPage />} />
           <Route path="insurance" element={<InsuranceAdminPage />} />
+          <Route path="triage-titles" element={<TriageTitlesAdminPage />} />
+          <Route path="consultation-titles" element={<ConsultationTitlesAdminPage />} />
+          <Route path="queue-status-role-matrix" element={<QueueStatusRoleMatrixAdminPage />} />
+          <Route path="diagnostics" element={<DiagnosticsAdminPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

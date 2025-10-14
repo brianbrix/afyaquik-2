@@ -1,22 +1,24 @@
 
 package com.afyaquik.hms.notification.service;
 
-import com.afyaquik.hms.notification.events.NotificationEventPublisher;
-import com.afyaquik.hms.notification.domain.Notification;
-import com.afyaquik.hms.notification.repository.NotificationRepository;
-import com.afyaquik.hms.notification.domain.NotificationLevel;
-import com.afyaquik.hms.notification.domain.NotificationTemplate;
-import com.afyaquik.hms.notification.dto.NotificationTemplateDto;
-import com.afyaquik.hms.notification.repository.NotificationTemplateRepository;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import com.afyaquik.hms.notification.domain.Notification;
+import com.afyaquik.hms.notification.domain.NotificationLevel;
+import com.afyaquik.hms.notification.domain.NotificationTemplate;
+import com.afyaquik.hms.notification.dto.NotificationDto;
+import com.afyaquik.hms.notification.dto.NotificationTemplateDto;
+import com.afyaquik.hms.notification.events.NotificationEventPublisher;
+import com.afyaquik.hms.notification.repository.NotificationRepository;
+import com.afyaquik.hms.notification.repository.NotificationTemplateRepository;
 
 @Service
 public class NotificationService {
@@ -139,5 +141,48 @@ public class NotificationService {
             result = result.replace(key, entry.getValue() != null ? entry.getValue().toString() : "");
         }
         return result;
+    }
+
+    // --- User notification methods ---
+    
+    /**
+     * Get all notifications for a specific user
+     */
+    public List<NotificationDto> getNotificationsForUser(String tenantId, String recipientId) {
+        List<Notification> notifications = notificationRepository.findByTenantIdAndRecipientIdOrderBySentAtDesc(tenantId, recipientId);
+        return notifications.stream()
+                .map(NotificationDto::new)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Mark a specific notification as read
+     */
+    @Transactional
+    public void markAsRead(String tenantId, String recipientId, Long notificationId) {
+        Optional<Notification> notification = notificationRepository.findById(notificationId);
+        if (notification.isPresent() && 
+            notification.get().getTenantId().equals(tenantId) && 
+            notification.get().getRecipientId().equals(recipientId)) {
+            notification.get().setRead(true);
+            notificationRepository.save(notification.get());
+        }
+    }
+    
+    /**
+     * Mark all notifications as read for a specific user
+     */
+    @Transactional
+    public void markAllAsRead(String tenantId, String recipientId) {
+        List<Notification> notifications = notificationRepository.findByTenantIdAndRecipientIdAndReadFalse(tenantId, recipientId);
+        notifications.forEach(n -> n.setRead(true));
+        notificationRepository.saveAll(notifications);
+    }
+    
+    /**
+     * Get unread notification count for a specific user
+     */
+    public int getUnreadCount(String tenantId, String recipientId) {
+        return notificationRepository.countByTenantIdAndRecipientIdAndReadFalse(tenantId, recipientId);
     }
 }

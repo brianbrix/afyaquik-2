@@ -3,6 +3,7 @@ import { useShiftAlerts } from "../../hooks/useShiftAlerts";
 import { Alert, Button, Spinner, Fade } from "react-bootstrap";
 import { SHIFT_STATUS_LABELS, type StaffShift } from "../../types/scheduling";
 import React from "react";
+import { toNairobiIsoString } from "../../utils/timezone";
 
 
 export function ShiftAlertsBanner({ onCheckIn, onCheckOut }: {
@@ -13,12 +14,21 @@ export function ShiftAlertsBanner({ onCheckIn, onCheckOut }: {
   // Only show spinner on initial load, not on background polling
   const showSpinner = isLoading && !alerts;
   const hasAlerts = !isError && alerts && alerts.length > 0;
+  
+  // Use a stable container height to prevent layout shifts
+  const containerStyle = {
+    minHeight: hasAlerts ? 'auto' : '0px',
+    transition: 'min-height 0.3s ease-in-out'
+  };
 
   return (
-    <div className="mb-3" style={{ minHeight: 0 }}>
+    <div className="mb-3" style={containerStyle}>
       {/* Always render the container, fade in/out the content */}
       {showSpinner ? (
-        <Spinner animation="border" size="sm" className="me-2" />
+        <div className="d-flex align-items-center">
+          <Spinner animation="border" size="sm" className="me-2" />
+          <span className="text-muted">Loading shift alerts...</span>
+        </div>
       ) : (
         <Fade in={hasAlerts} appear={true} mountOnEnter unmountOnExit>
           <div>
@@ -26,7 +36,7 @@ export function ShiftAlertsBanner({ onCheckIn, onCheckOut }: {
               <Alert key={shift.id} variant="warning" className="d-flex align-items-center justify-content-between mb-2">
                 <div>
                   <b>Shift Alert:</b> {SHIFT_STATUS_LABELS[shift.status]} for <b>{shift.staffDisplayName}</b> ({shift.roleName})<br />
-                  <span>From <b>{new Date(shift.startsAt).toLocaleString()}</b> to <b>{new Date(shift.endsAt).toLocaleString()}</b></span>
+                  <span>From <b>{toNairobiIsoString(shift.startsAt)}</b> to <b>{toNairobiIsoString(shift.endsAt)}</b></span>
                 </div>
                 <div>
                   {shift.status === "SCHEDULED" && (
@@ -45,10 +55,7 @@ export function ShiftAlertsBanner({ onCheckIn, onCheckOut }: {
           </div>
         </Fade>
       )}
-      {/* Optionally, show a subtle indicator if background fetching */}
-      {hasAlerts && isFetching && !isLoading && (
-        <div style={{ fontSize: 12, color: '#888', marginTop: -8, marginBottom: 4 }}>Refreshing alerts…</div>
-      )}
+      {/* Remove the background fetching indicator to prevent twitching */}
     </div>
   );
 }

@@ -308,7 +308,7 @@ public class QueueService {
                 item.getPriority(),
                 item.getCurrentAssigneeId(),
                 item.getDepartmentId(),
-                item.getCreatedAt() != null ? item.getCreatedAt().toInstant() : null,
+                item.getCreatedAt() != null ? item.getCreatedAt() : null,
                 item.getSlaDueAt(),
                 item.getAdditionalDetails(),
                 item.getInsuranceDetails() == null ? List.of() : item.getInsuranceDetails().stream().map(PatientInsuranceDetails::getId).toList()
@@ -340,7 +340,7 @@ public class QueueService {
             item.getCurrentAssigneeId(),
             assigneeUsername,
             item.getDepartmentId(),
-            item.getCreatedAt() != null ? item.getCreatedAt().toInstant() : null,
+            item.getCreatedAt() != null ? item.getCreatedAt() : null,
             item.getSlaDueAt(),
             insuranceDetailsIds,
             additionalDetails
@@ -443,7 +443,7 @@ public class QueueService {
                 entry.getActorDisplayName(),
                 entry.getNote(),
                 entry.getDepartmentId(),
-                entry.getCreatedAt() != null ? entry.getCreatedAt().toInstant() : null
+                entry.getCreatedAt() != null ? entry.getCreatedAt() : null
 );
     }
 

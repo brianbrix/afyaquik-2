@@ -5,6 +5,9 @@ import { RoleBadge } from './RoleBadge';
 import { StatusToggle } from './StatusToggle';
 import { UserFormModal } from './UserFormModal';
 import { EditUserModal } from './EditUserModal';
+import { profileApi } from '../../services/profileApi';
+import { useMutation } from '@tanstack/react-query';
+import Swal from 'sweetalert2';
 
 export const UserDirectory: React.FC = () => {
   const { data: users, isLoading, error } = useAdminUsers();
@@ -15,6 +18,60 @@ export const UserDirectory: React.FC = () => {
   const [q, setQ] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<any|undefined>();
+  const [profileStatus, setProfileStatus] = useState<Record<string, boolean>>({});
+
+  // Profile creation mutation
+  const createProfileMutation = useMutation({
+    mutationFn: (userData: { username: string; email: string; firstName: string; lastName: string }) => 
+      profileApi.createFromUser(userData),
+    onSuccess: (data, variables) => {
+      setProfileStatus(prev => ({ ...prev, [variables.username]: true }));
+      Swal.fire('Success', `Profile created for ${variables.username}`, 'success');
+    },
+    onError: (error: any) => {
+      Swal.fire('Error', `Failed to create profile: ${error.message}`, 'error');
+    }
+  });
+
+  // Check profile status for users
+  React.useEffect(() => {
+    if (users) {
+      users.forEach(user => {
+        profileApi.checkExists(user.username)
+          .then(exists => {
+            setProfileStatus(prev => ({ ...prev, [user.username]: exists }));
+          })
+          .catch(() => {
+            setProfileStatus(prev => ({ ...prev, [user.username]: false }));
+          });
+      });
+    }
+  }, [users]);
+
+  const handleEnableProfile = async (user: any) => {
+    const result = await Swal.fire({
+      title: 'Enable Profile?',
+      text: `Create a profile for ${user.username}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, create profile',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      // Extract first and last name from displayName
+      const nameParts = user.displayName.split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      createProfileMutation.mutate({
+        username: user.username,
+        email: user.email,
+        firstName,
+        lastName
+      });
+    }
+  };
 
   const filtered = useMemo(() => {
     if (!users) return [];
@@ -64,7 +121,8 @@ export const UserDirectory: React.FC = () => {
               <th>Name</th>
               <th>Roles</th>
               <th>Status</th>
-              <th style={{width:150}}>Actions</th>
+              <th>Profile</th>
+              <th style={{width:200}}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -78,14 +136,32 @@ export const UserDirectory: React.FC = () => {
                 <td>
                   <StatusToggle enabled={u.enabled} onChange={() => toggleEnabled(u)} disabled={updateUser.isPending} />
                 </td>
+                <td>
+                  {profileStatus[u.username] === undefined ? (
+                    <span className="text-muted small">Checking...</span>
+                  ) : profileStatus[u.username] ? (
+                    <span className="badge bg-success">Enabled</span>
+                  ) : (
+                    <span className="badge bg-secondary">Disabled</span>
+                  )}
+                </td>
                 <td className="d-flex gap-2">
                   <button className="btn btn-outline-secondary btn-sm" onClick={()=>setEditing(u)}>Edit</button>
+                  {!profileStatus[u.username] && (
+                    <button 
+                      className="btn btn-outline-primary btn-sm" 
+                      onClick={() => handleEnableProfile(u)}
+                      disabled={createProfileMutation.isPending}
+                    >
+                      Enable Profile
+                    </button>
+                  )}
                   <button className="btn btn-outline-danger btn-sm" onClick={()=>onDelete(u)} disabled={deleteUser.isPending}>Del</button>
                 </td>
               </tr>
             ))}
             {!filtered.length && !isLoading && (
-              <tr><td colSpan={5} className="text-center text-muted small py-4">No users match</td></tr>
+              <tr><td colSpan={6} className="text-center text-muted small py-4">No users match</td></tr>
             )}
           </tbody>
         </table>

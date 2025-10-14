@@ -2,34 +2,34 @@
 
 package com.afyaquik.hms.scheduling.service;
 
-import com.afyaquik.hms.auth.domain.StaffUser;
-import com.afyaquik.hms.auth.repository.StaffUserRepository;
-import com.afyaquik.hms.scheduling.api.CreateStaffShiftRequest;
-import com.afyaquik.hms.scheduling.api.UpdateStaffShiftRequest;
-import com.afyaquik.hms.scheduling.domain.ShiftStatus;
-import com.afyaquik.hms.scheduling.domain.StaffShift;
-import com.afyaquik.hms.scheduling.dto.StaffShiftDto;
-// Removed StaffShiftResponse import
-import com.afyaquik.hms.scheduling.repository.StaffShiftRepository;
-import com.afyaquik.hms.scheduling.repository.ShiftTypeRepository;
-import com.afyaquik.hms.auth.repository.DepartmentRepository;
-import com.afyaquik.hms.auth.repository.StaffRoleRepository;
-import jakarta.persistence.EntityNotFoundException;
-
-
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
-import org.springframework.util.StringUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.auth.repository.DepartmentRepository;
+import com.afyaquik.hms.auth.repository.StaffRoleRepository;
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.notification.service.NotificationService;
+import com.afyaquik.hms.scheduling.api.CreateStaffShiftRequest;
+import com.afyaquik.hms.scheduling.api.UpdateStaffShiftRequest;
+import com.afyaquik.hms.scheduling.domain.ShiftStatus;
+import com.afyaquik.hms.scheduling.domain.StaffShift;
+import com.afyaquik.hms.scheduling.dto.StaffShiftDto;
+import com.afyaquik.hms.scheduling.repository.ShiftTypeRepository;
+import com.afyaquik.hms.scheduling.repository.StaffShiftRepository;
+
+import jakarta.persistence.EntityNotFoundException;
 
 @Service
 @Transactional(readOnly = true)
@@ -39,7 +39,7 @@ public class StaffSchedulingService {
 
 	private static final Map<ShiftStatus, Set<ShiftStatus>> ALLOWED_STATUS_TRANSITIONS = Map.of(
 			ShiftStatus.SCHEDULED, Set.of(ShiftStatus.CHECKED_IN, ShiftStatus.CANCELLED, ShiftStatus.SWAP_REQUESTED),
-			ShiftStatus.CHECKED_IN, Set.of(ShiftStatus.IN_PROGRESS, ShiftStatus.CANCELLED, ShiftStatus.SWAP_REQUESTED),
+			ShiftStatus.CHECKED_IN, Set.of(ShiftStatus.IN_PROGRESS, ShiftStatus.CANCELLED, ShiftStatus.SWAP_REQUESTED, ShiftStatus.COMPLETED),
 			ShiftStatus.IN_PROGRESS, Set.of(ShiftStatus.COMPLETED, ShiftStatus.CANCELLED, ShiftStatus.SWAP_REQUESTED),
 			ShiftStatus.COMPLETED, Set.of(),
 			ShiftStatus.CANCELLED, Set.of(),
@@ -177,6 +177,7 @@ public class StaffSchedulingService {
 		shift.setStartsAt(request.startsAt());
 		shift.setEndsAt(request.endsAt());
 		shift.setNotes(trimToNull(request.notes()));
+		shift.setRecurring(request.isRecurring());
 
 		StaffShift saved = shiftRepository.save(shift);
 		StaffShiftDto dto = toDto(saved);
@@ -259,8 +260,17 @@ public class StaffSchedulingService {
 		if (request.handoverNotes() != null) {
 			shift.setHandoverNotes(trimToNull(request.handoverNotes()));
 		}
+		if (request.isRecurring() != null) {
+			shift.setRecurring(request.isRecurring());
+		}
 
 		StaffShift saved = shiftRepository.save(shift);
+		
+		// If this is a recurring shift that was just completed, create the next day's shift
+		if (saved.isRecurring() && request.status() == ShiftStatus.COMPLETED) {
+			createNextDayRecurringShift(tenantId, saved);
+		}
+		
 		StaffShiftDto dto = toDto(saved);
 		log.info("Shift updated tenant={} shiftId={}", tenantId, shiftId);
 		return dto;
@@ -400,7 +410,8 @@ public class StaffSchedulingService {
 				shift.getStartsAt(),
 				shift.getEndsAt(),
 				shift.getNotes(),
-				shift.getHandoverNotes());
+				shift.getHandoverNotes(),
+				shift.isRecurring());
 	}
 
 	private String trimToNull(String value) {
@@ -408,5 +419,54 @@ public class StaffSchedulingService {
 			return null;
 		}
 		return value.trim();
+	}
+
+	/**
+	 * Creates the next day's recurring shift based on the completed shift.
+	 * The new shift will have the same details but start and end times moved to the next day.
+	 */
+	@Transactional
+	private void createNextDayRecurringShift(String tenantId, StaffShift completedShift) {
+		log.info("Creating next day recurring shift for tenant={} originalShiftId={}", tenantId, completedShift.getId());
+		
+		// Calculate next day's start and end times
+		OffsetDateTime nextDayStart = completedShift.getStartsAt().plusDays(1);
+		OffsetDateTime nextDayEnd = completedShift.getEndsAt().plusDays(1);
+		
+		// Check if there's already a shift for this staff member at the same time
+		ensureNoOverlap(tenantId, completedShift.getStaffUser().getId(), nextDayStart, nextDayEnd, null);
+		
+		// Create the new recurring shift
+		StaffShift nextShift = new StaffShift();
+		nextShift.setTenantId(tenantId);
+		nextShift.setStaffUser(completedShift.getStaffUser());
+		nextShift.setRole(completedShift.getRole());
+		nextShift.setDepartment(completedShift.getDepartment());
+		nextShift.setShiftType(completedShift.getShiftType());
+		nextShift.setStatus(ShiftStatus.SCHEDULED);
+		nextShift.setStartsAt(nextDayStart);
+		nextShift.setEndsAt(nextDayEnd);
+		nextShift.setNotes(completedShift.getNotes());
+		nextShift.setRecurring(true); // Keep it as recurring
+		
+		StaffShift savedNextShift = shiftRepository.save(nextShift);
+		log.info("Created next day recurring shift tenant={} newShiftId={} for originalShiftId={}", 
+			tenantId, savedNextShift.getId(), completedShift.getId());
+		
+		// Notify staff user of the new recurring shift
+		notificationService.sendNotification(
+			"RECURRING_SHIFT_CREATED",
+			Map.of(
+				"staffName", completedShift.getStaffUser().getDisplayName(),
+				"roleName", completedShift.getRole() != null ? completedShift.getRole().getDisplayName() : null,
+				"departmentName", completedShift.getDepartment() != null ? completedShift.getDepartment().getDisplayName() : null,
+				"shiftType", completedShift.getShiftType() != null ? completedShift.getShiftType().getName() : null,
+				"startsAt", nextDayStart.toString(),
+				"endsAt", nextDayEnd.toString()
+			),
+			"New recurring shift scheduled",
+			String.format("Your next recurring shift has been automatically scheduled for %s", 
+				nextDayStart.format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm")))
+		);
 	}
 }
