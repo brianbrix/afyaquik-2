@@ -48,7 +48,7 @@ check_prerequisites() {
         exit 1
     fi
     
-    if ! command_exists docker-compose; then
+    if ! command_exists docker composer; then
         print_error "Docker Compose is not installed. Please install Docker Compose first."
         exit 1
     fi
