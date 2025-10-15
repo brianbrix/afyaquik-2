@@ -1,35 +1,110 @@
 package com.afyaquik.hms.billing.dto;
 
+import java.math.BigDecimal;
+
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Positive;
 
-/**
- * Request DTO for creating a bill item.
- */
-public record CreateBillItemRequest(
-    @Size(max = 50, message = "Item code must not exceed 50 characters")
-    String itemCode,
-
-    @NotNull(message = "Description is required")
-    @Size(max = 500, message = "Description must not exceed 500 characters")
-    String description,
-
+public class CreateBillItemRequest {
+    
+    @NotBlank(message = "Description is required")
+    private String description;
+    
     @NotNull(message = "Quantity is required")
-    java.math.BigDecimal quantity,
-
+    @Positive(message = "Quantity must be positive")
+    private BigDecimal quantity;
+    
     @NotNull(message = "Unit price is required")
-    java.math.BigDecimal unitPrice,
+    @Positive(message = "Unit price must be positive")
+    private BigDecimal unitPrice;
+    
+    private String itemCode;
+    private BigDecimal discountPercentage;
+    private BigDecimal discountAmount;
+    private BigDecimal taxRate;
+    private String serviceCategory;
+    private String notes;
 
-    java.math.BigDecimal discountPercentage,
+    // Constructors
+    public CreateBillItemRequest() {}
 
-    java.math.BigDecimal discountAmount,
+    public CreateBillItemRequest(String description, BigDecimal quantity, BigDecimal unitPrice) {
+        this.description = description;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+    }
 
-    java.math.BigDecimal taxRate,
+    // Getters and Setters
+    public String getDescription() {
+        return description;
+    }
 
-    @Size(max = 100, message = "Service category must not exceed 100 characters")
-    String serviceCategory,
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-    @Size(max = 500, message = "Notes must not exceed 500 characters")
-    String notes
-) {
+    public BigDecimal getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(BigDecimal quantity) {
+        this.quantity = quantity;
+    }
+
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
+    }
+
+    public void setUnitPrice(BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
+    }
+
+    public String getItemCode() {
+        return itemCode;
+    }
+
+    public void setItemCode(String itemCode) {
+        this.itemCode = itemCode;
+    }
+
+    public BigDecimal getDiscountPercentage() {
+        return discountPercentage;
+    }
+
+    public void setDiscountPercentage(BigDecimal discountPercentage) {
+        this.discountPercentage = discountPercentage;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
+    }
+
+    public BigDecimal getTaxRate() {
+        return taxRate;
+    }
+
+    public void setTaxRate(BigDecimal taxRate) {
+        this.taxRate = taxRate;
+    }
+
+    public String getServiceCategory() {
+        return serviceCategory;
+    }
+
+    public void setServiceCategory(String serviceCategory) {
+        this.serviceCategory = serviceCategory;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
 }

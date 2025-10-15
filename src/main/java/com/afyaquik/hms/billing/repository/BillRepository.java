@@ -1,5 +1,7 @@
 package com.afyaquik.hms.billing.repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -213,4 +215,20 @@ public interface BillRepository extends TenantAwareRepository<Bill, Long> {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return findBillsWithAmountGreaterThanByTenant(tenantId, amount);
     }
+    
+    /**
+     * Get total revenue for a tenant.
+     */
+    @Query("SELECT COALESCE(SUM(b.totalAmount), 0) FROM Bill b WHERE b.tenantId = :tenantId AND b.deleted = false")
+    BigDecimal getTotalRevenueByTenantId(@Param("tenantId") String tenantId);
+    
+    /**
+     * Get total revenue for a tenant within date range.
+     */
+    @Query("SELECT COALESCE(SUM(b.totalAmount), 0) FROM Bill b WHERE b.tenantId = :tenantId AND b.deleted = false AND b.billingDate BETWEEN :startDate AND :endDate")
+    BigDecimal getTotalRevenueByTenantIdAndDateRange(@Param("tenantId") String tenantId, @Param("startDate") java.time.LocalDate startDate, @Param("endDate") java.time.LocalDate endDate);
+    @Query("SELECT COUNT(b) FROM Bill b WHERE b.tenantId = :tenantId AND b.deleted = false")
+    long countByTenantIdAndDeletedFalse(String tenantId);
+    @Query("SELECT COUNT(b) FROM Bill b WHERE b.tenantId = :tenantId AND b.deleted = false AND b.billingDate BETWEEN :startDate AND :endDate")
+    long countByTenantIdAndBillingDateBetweenAndDeletedFalse(String tenantId, LocalDate startDate, LocalDate endDate);
 }

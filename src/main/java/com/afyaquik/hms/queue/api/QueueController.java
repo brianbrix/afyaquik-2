@@ -58,7 +58,9 @@ public class QueueController {
 
     @GetMapping
     public ApiResponse<List<QueueSummary>> list(
-            @RequestParam(defaultValue = "PENDING_CHECKIN") String status) {
+            @RequestParam(defaultValue = "PENDING_CHECKIN") String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         QueueStatus queueStatus;
         try {
@@ -66,6 +68,7 @@ public class QueueController {
         } catch (IllegalArgumentException ex) {
             throw new IllegalStateException("Unsupported status filter: " + status);
         }
+        
         // Get current user details
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         String username = auth != null ? auth.getName() : null;
@@ -73,10 +76,41 @@ public class QueueController {
         if (auth != null && auth.getAuthorities() != null) {
             isReception = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_RECEPTION") || a.getAuthority().equals("RECEPTION"));
         }
-        if (isReception) {
-            return ApiResponse.success(queueService.listByStatus(tenantId, queueStatus));
+        
+        // Parse dates if provided
+        java.time.Instant startInstant = null;
+        java.time.Instant endInstant = null;
+        
+        if (startDate != null && !startDate.trim().isEmpty()) {
+            try {
+                startInstant = java.time.LocalDate.parse(startDate).atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid start date format. Use YYYY-MM-DD");
+            }
+        }
+        
+        if (endDate != null && !endDate.trim().isEmpty()) {
+            try {
+                endInstant = java.time.LocalDate.parse(endDate).atTime(23, 59, 59).toInstant(java.time.ZoneOffset.UTC);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid end date format. Use YYYY-MM-DD");
+            }
+        }
+        
+        // Use date filtering if dates are provided
+        if (startInstant != null && endInstant != null) {
+            if (isReception) {
+                return ApiResponse.success(queueService.listByStatusAndDate(tenantId, queueStatus, startInstant, endInstant));
+            } else {
+                return ApiResponse.success(queueService.listByStatusAndAssigneeAndDate(tenantId, queueStatus, username, startInstant, endInstant));
+            }
         } else {
-            return ApiResponse.success(queueService.listByStatusAndAssignee(tenantId, queueStatus, username));
+            // Use original methods without date filtering
+            if (isReception) {
+                return ApiResponse.success(queueService.listByStatus(tenantId, queueStatus));
+            } else {
+                return ApiResponse.success(queueService.listByStatusAndAssignee(tenantId, queueStatus, username));
+            }
         }
     }
 

@@ -513,6 +513,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         queueAssigned.setLevel(NotificationLevel.INFO);
         queueAssigned.setContent("You have been assigned to a queue item for patient {{patientName}} (Ticket: {{ticketNumber}}). Status: {{status}}");
         queueAssigned.setVariables("patientName,ticketNumber,status");
+        queueAssigned.setTargetRoles("DOCTOR,NURSE,PHARMACIST,LAB_TECHNICIAN,BILLING_OFFICER"); // All clinical roles
         queueAssigned.setEnabled(true);
         notificationTemplateRepository.save(queueAssigned);
 
@@ -524,6 +525,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         queueAdvanced.setLevel(NotificationLevel.INFO);
         queueAdvanced.setContent("Queue item for patient {{patientName}} (Ticket: {{ticketNumber}}) has advanced from {{fromStatus}} to {{toStatus}}.");
         queueAdvanced.setVariables("patientName,ticketNumber,fromStatus,toStatus");
+        queueAdvanced.setTargetRoles("DOCTOR,NURSE,PHARMACIST,LAB_TECHNICIAN,BILLING_OFFICER"); // All clinical roles
         queueAdvanced.setEnabled(true);
         notificationTemplateRepository.save(queueAdvanced);
 
@@ -535,6 +537,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         lowStockAlert.setLevel(NotificationLevel.WARNING);
         lowStockAlert.setContent("Low stock alert for {{medicationName}}. Current stock: {{currentStock}}, Minimum required: {{minimumRequired}}, Shortage: {{shortage}}");
         lowStockAlert.setVariables("medicationName,currentStock,minimumRequired,shortage");
+        lowStockAlert.setTargetRoles("PHARMACIST,ADMIN"); // Only pharmacy and admin roles
         lowStockAlert.setEnabled(true);
         notificationTemplateRepository.save(lowStockAlert);
 
@@ -546,6 +549,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         inventoryExpired.setLevel(NotificationLevel.ERROR);
         inventoryExpired.setContent("Inventory batch {{batchNumber}} for {{medicationName}} has expired on {{expiryDate}}. The batch has been deactivated.");
         inventoryExpired.setVariables("medicationName,batchNumber,expiryDate");
+        inventoryExpired.setTargetRoles("PHARMACIST,ADMIN"); // Only pharmacy and admin roles
         inventoryExpired.setEnabled(true);
         notificationTemplateRepository.save(inventoryExpired);
 
@@ -557,7 +561,32 @@ public class DemoDataInitializer implements CommandLineRunner {
         inventoryExpiringWarning.setLevel(NotificationLevel.WARNING);
         inventoryExpiringWarning.setContent("Inventory batch {{batchNumber}} for {{medicationName}} is expiring in {{daysUntilExpiry}} days on {{expiryDate}}. Please take action.");
         inventoryExpiringWarning.setVariables("medicationName,batchNumber,expiryDate,daysUntilExpiry");
+        inventoryExpiringWarning.setTargetRoles("PHARMACIST,ADMIN"); // Only pharmacy and admin roles
         inventoryExpiringWarning.setEnabled(true);
         notificationTemplateRepository.save(inventoryExpiringWarning);
+
+        // Doctor-specific notification
+        NotificationTemplate doctorNotification = new NotificationTemplate();
+        doctorNotification.setTenantId(tenantId);
+        doctorNotification.setCode("DOCTOR_SPECIFIC");
+        doctorNotification.setName("Doctor Specific Notification");
+        doctorNotification.setLevel(NotificationLevel.INFO);
+        doctorNotification.setContent("This is a doctor-specific notification: {{message}}");
+        doctorNotification.setVariables("message");
+        doctorNotification.setTargetRoles("DOCTOR"); // Only doctor role
+        doctorNotification.setEnabled(true);
+        notificationTemplateRepository.save(doctorNotification);
+
+        // Nurse-specific notification
+        NotificationTemplate nurseNotification = new NotificationTemplate();
+        nurseNotification.setTenantId(tenantId);
+        nurseNotification.setCode("NURSE_SPECIFIC");
+        nurseNotification.setName("Nurse Specific Notification");
+        nurseNotification.setLevel(NotificationLevel.INFO);
+        nurseNotification.setContent("This is a nurse-specific notification: {{message}}");
+        nurseNotification.setVariables("message");
+        nurseNotification.setTargetRoles("NURSE"); // Only nurse role
+        nurseNotification.setEnabled(true);
+        notificationTemplateRepository.save(nurseNotification);
     }
 }

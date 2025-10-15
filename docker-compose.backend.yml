@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  hms-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: hms-backend
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://hms-db:5432/hms_db
+      - SPRING_DATASOURCE_USERNAME=hms_user
+      - SPRING_DATASOURCE_PASSWORD=hms_password
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_SHOW_SQL=false
+      - SERVER_PORT=8080
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info
+      - MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS=always
+    networks:
+      - hms-network
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hms-backend.rule=Host(`152.53.164.124`) && PathPrefix(`/hms/api`)"
+#      - "traefik.http.routers.hms-backend.entrypoints=websecure"
+#      - "traefik.http.routers.hms-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.hms-backend.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.hms-backend-stripprefix.stripprefix.prefixes=/hms/api"
+      - "traefik.http.routers.hms-backend.middlewares=hms-backend-stripprefix"
+    depends_on:
+      - hms-db
+      - hms-redis
+    restart: unless-stopped
+    volumes:
+      - hms-uploads:/app/uploads
+      - hms-logs:/app/logs
+
+  hms-db:
+    image: postgres:15-alpine
+    container_name: hms-db
+    environment:
+      - POSTGRES_DB=hms_db
+      - POSTGRES_USER=hms_user
+      - POSTGRES_PASSWORD=hms_password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    networks:
+      - hms-network
+    volumes:
+      - hms-postgres-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    ports:
+      - "5433:5432"  # Exposed for debugging, remove in production
+
+  hms-redis:
+    image: redis:7-alpine
+    container_name: hms-redis
+    networks:
+      - hms-network
+    volumes:
+      - hms-redis-data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  hms-minio:
+    image: minio/minio:latest
+    container_name: hms-minio
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    networks:
+      - hms-network
+    volumes:
+      - hms-minio-data:/data
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+networks:
+  hms-network:
+    driver: bridge
+  traefik_proxy:
+    external: true
+
+volumes:
+  hms-postgres-data:
+  hms-redis-data:
+  hms-minio-data:
+  hms-uploads:
+  hms-logs:

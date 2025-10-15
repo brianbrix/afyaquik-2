@@ -59,6 +59,9 @@ public class Prescription extends BaseEntity {
     @Column(name = "dispensing_notes", columnDefinition = "text")
     private String dispensingNotes;
 
+    @Column(name = "queue_item_id")
+    private Long queueItemId;
+
     // Getters and Setters
     public String getPrescriptionNumber() {
         return prescriptionNumber;
@@ -140,11 +143,23 @@ public class Prescription extends BaseEntity {
         this.dispensingNotes = dispensingNotes;
     }
 
+    public Long getQueueItemId() {
+        return queueItemId;
+    }
+
+    public void setQueueItemId(Long queueItemId) {
+        this.queueItemId = queueItemId;
+    }
+
     public enum PrescriptionStatus {
-        PENDING,
-        DISPENSED,
-        CANCELLED,
-        EXPIRED
+        DRAFT,              // Created but not yet finalized
+        PENDING,            // Finalized, waiting for dispensing
+        PARTIALLY_DISPENSED, // Some items dispensed
+        DISPENSED,          // Fully dispensed
+        CANCELLED,          // Cancelled before dispensing
+        EXPIRED,            // Expired due to time
+        REPLACED,           // Replaced by a new prescription
+        REVERSED            // Dispensing reversed
     }
 }
 

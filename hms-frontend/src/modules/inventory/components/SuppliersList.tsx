@@ -1,6 +1,6 @@
 import React from 'react';
 import { Table, Button, Badge, Spinner, Alert } from 'react-bootstrap';
-import { type Supplier } from '../../../services/inventoryApi';
+import { type Supplier, supplierApi } from '../../../services/inventoryApi';
 import Swal from 'sweetalert2';
 
 interface SuppliersListProps {
@@ -29,7 +29,7 @@ const SuppliersList: React.FC<SuppliersListProps> = ({
 
     if (result.isConfirmed) {
       try {
-        // TODO: Implement delete API call
+        await supplierApi.delete(supplier.id);
         Swal.fire('Deleted!', 'Supplier has been deleted.', 'success');
         onRefresh();
       } catch (error) {

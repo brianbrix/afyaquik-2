@@ -22,6 +22,10 @@ export function PrescriptionForm({ prescription, onSubmit, onCancel, isLoading }
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Check if prescription can be edited
+  const canEdit = !prescription || 
+    (prescription.status !== 'DISPENSED' && prescription.status !== 'PARTIALLY_DISPENSED');
 
   const { data: medications = [] } = useQuery({
     queryKey: ['medications', 'active'],
@@ -147,6 +151,13 @@ export function PrescriptionForm({ prescription, onSubmit, onCancel, isLoading }
 
   return (
     <Form onSubmit={handleSubmit}>
+      {!canEdit && prescription && (
+        <Alert variant="warning" className="mb-3">
+          <i className="bi bi-exclamation-triangle me-2"></i>
+          <strong>Read-Only Mode:</strong> This prescription has been dispensed and cannot be edited. 
+          Use the "Replace" functionality to create a new prescription if changes are needed.
+        </Alert>
+      )}
       <Row>
         <Col md={6}>
           <Form.Group className="mb-3">
@@ -157,6 +168,7 @@ export function PrescriptionForm({ prescription, onSubmit, onCancel, isLoading }
               onChange={(e) => handleChange('prescriptionNumber', e.target.value)}
               isInvalid={!!errors.prescriptionNumber}
               placeholder="e.g., RX2024001"
+              disabled={!canEdit}
             />
             <Form.Control.Feedback type="invalid">
               {errors.prescriptionNumber}
@@ -354,7 +366,7 @@ export function PrescriptionForm({ prescription, onSubmit, onCancel, isLoading }
         <Button variant="secondary" onClick={onCancel} disabled={isLoading}>
           Cancel
         </Button>
-        <Button variant="primary" type="submit" disabled={isLoading}>
+        <Button variant="primary" type="submit" disabled={isLoading || !canEdit}>
           {isLoading ? 'Saving...' : (prescription ? 'Update' : 'Create')}
         </Button>
       </div>

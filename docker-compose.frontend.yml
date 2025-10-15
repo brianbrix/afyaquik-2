@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  hms-frontend:
+    build:
+      context: ./hms-frontend
+      dockerfile: Dockerfile.frontend
+    container_name: hms-frontend
+    environment:
+      - NODE_ENV=production
+      - VITE_API_BASE_URL=http://152.53.164.124:8080/hms/api
+      - VITE_APP_TITLE=AfyaQuik HMS
+    networks:
+      - hms-network
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hms-frontend.rule=Host(`152.53.164.124`) && PathPrefix(`/hms`)"
+#      - "traefik.http.routers.hms-frontend.entrypoints=websecure"
+#      - "traefik.http.routers.hms-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.hms-frontend.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.hms-frontend-stripprefix.stripprefix.prefixes=/hms"
+      - "traefik.http.routers.hms-frontend.middlewares=hms-frontend-stripprefix"
+    restart: unless-stopped
+
+networks:
+  hms-network:
+    driver: bridge
+  traefik_proxy:
+    external: true

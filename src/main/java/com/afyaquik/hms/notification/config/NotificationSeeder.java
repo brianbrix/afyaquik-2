@@ -25,6 +25,7 @@ public class NotificationSeeder {
                 queueAssigned.setLevel(NotificationLevel.INFO);
                 queueAssigned.setContent("You have been assigned to a queue item for patient {{patientName}} (ID: {{patientId}}).");
                 queueAssigned.setVariables("patientName,patientId");
+                queueAssigned.setTargetRoles("DOCTOR,NURSE,PHARMACIST,LAB_TECHNICIAN,BILLING_OFFICER"); // All clinical roles
                 queueAssigned.setEnabled(true);
                 templateRepo.save(queueAssigned);
 
@@ -35,6 +36,7 @@ public class NotificationSeeder {
                 queueAdvanced.setLevel(NotificationLevel.INFO);
                 queueAdvanced.setContent("Queue item for patient {{patientName}} has advanced to status {{status}}.");
                 queueAdvanced.setVariables("patientName,status");
+                queueAdvanced.setTargetRoles("DOCTOR,NURSE,PHARMACIST,LAB_TECHNICIAN,BILLING_OFFICER"); // All clinical roles
                 queueAdvanced.setEnabled(true);
                 templateRepo.save(queueAdvanced);
             }

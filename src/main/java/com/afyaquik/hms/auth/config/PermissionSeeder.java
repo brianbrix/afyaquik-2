@@ -2,6 +2,8 @@ package com.afyaquik.hms.auth.config;
 
 import com.afyaquik.hms.auth.domain.Permission;
 import com.afyaquik.hms.auth.repository.PermissionRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -85,9 +87,14 @@ public class PermissionSeeder {
                 new Permission("MANAGE_TEAM", "Manage team members and requests"),
                 new Permission("VIEW_TEAM", "View team information"),
                 new Permission("APPROVE_TIME_OFF", "Approve time-off requests"),
-                new Permission("APPROVE_SHIFT_SWAPS", "Approve shift swap requests")
+                new Permission("APPROVE_SHIFT_SWAPS", "Approve shift swap requests"),
+                new Permission("VIEW_ANALYTICS", "View analytics"),
+                new Permission("VIEW_AUDIT_LOGS", "View audit logs"),
+                new Permission("VIEW_ADMIN_SETTINGS", "View admin settings"),
+                new Permission("MANAGE_ADMIN_SETTINGS", "Manage admin settings")
             );
             for (Permission p : permissions) {
+                p.setTenantId("clinic-a");
                 permissionRepository.findByCode(p.getCode()).orElseGet(() -> permissionRepository.save(p));
             }
         };

@@ -1,34 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Button, Row, Col } from 'react-bootstrap';
-import { UserProfile } from '../../../types/profile';
+import { UserProfile } from '../../../services/authApi';
 
 interface PreferencesSectionProps {
-  userProfile: UserProfile;
-  onSave: (data: Partial<UserProfile>) => Promise<void>;
+  profile: UserProfile;
+  onUpdate: (data: Partial<UserProfile>) => Promise<void>;
+  isUpdating?: boolean;
 }
 
-export function PreferencesSection({ userProfile, onSave }: PreferencesSectionProps) {
-  const [preferredLanguage, setPreferredLanguage] = useState(userProfile.preferredLanguage || '');
-  const [timezone, setTimezone] = useState(userProfile.timezone || '');
-  const [emailNotifications, setEmailNotifications] = useState(userProfile.emailNotifications ?? true);
-  const [smsNotifications, setSmsNotifications] = useState(userProfile.smsNotifications ?? false);
-  const [pushNotifications, setPushNotifications] = useState(userProfile.pushNotifications ?? false);
+export function PreferencesSection({ profile, onUpdate, isUpdating = false }: PreferencesSectionProps) {
+  // Safety check for undefined profile
+  if (!profile) {
+    return (
+      <Card className="shadow-sm mb-4">
+        <Card.Body>
+          <Card.Title className="mb-3">Preferences</Card.Title>
+          <div className="text-center py-4">
+            <p className="text-muted">Loading profile information...</p>
+          </div>
+        </Card.Body>
+      </Card>
+    );
+  }
+  const [preferredLanguage, setPreferredLanguage] = useState(profile.preferredLanguage || '');
+  const [timezone, setTimezone] = useState(profile.timezone || '');
+  const [emailNotifications, setEmailNotifications] = useState(profile.emailNotifications ?? true);
+  const [smsNotifications, setSmsNotifications] = useState(profile.smsNotifications ?? false);
+  const [pushNotifications, setPushNotifications] = useState(profile.pushNotifications ?? false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setPreferredLanguage(userProfile.preferredLanguage || '');
-    setTimezone(userProfile.timezone || '');
-    setEmailNotifications(userProfile.emailNotifications ?? true);
-    setSmsNotifications(userProfile.smsNotifications ?? false);
-    setPushNotifications(userProfile.pushNotifications ?? false);
-  }, [userProfile]);
+    setPreferredLanguage(profile.preferredLanguage || '');
+    setTimezone(profile.timezone || '');
+    setEmailNotifications(profile.emailNotifications ?? true);
+    setSmsNotifications(profile.smsNotifications ?? false);
+    setPushNotifications(profile.pushNotifications ?? false);
+  }, [profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await onSave({
+      await onUpdate({
         preferredLanguage,
         timezone,
         emailNotifications,
@@ -53,7 +67,7 @@ export function PreferencesSection({ userProfile, onSave }: PreferencesSectionPr
                 <Form.Select
                   value={preferredLanguage}
                   onChange={(e) => setPreferredLanguage(e.target.value)}
-                  disabled={!isEditing || isSaving}
+                  disabled={!isEditing || isSaving || isUpdating}
                 >
                   <option value="">Select language</option>
                   <option value="en">English</option>
@@ -69,7 +83,7 @@ export function PreferencesSection({ userProfile, onSave }: PreferencesSectionPr
                 <Form.Select
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  disabled={!isEditing || isSaving}
+                  disabled={!isEditing || isSaving || isUpdating}
                 >
                   <option value="">Select timezone</option>
                   <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
@@ -94,7 +108,7 @@ export function PreferencesSection({ userProfile, onSave }: PreferencesSectionPr
                       label="Email Notifications"
                       checked={emailNotifications}
                       onChange={(e) => setEmailNotifications(e.target.checked)}
-                      disabled={!isEditing || isSaving}
+                      disabled={!isEditing || isSaving || isUpdating}
                     />
                   </Form.Group>
                 </Col>
@@ -105,7 +119,7 @@ export function PreferencesSection({ userProfile, onSave }: PreferencesSectionPr
                       label="SMS Notifications"
                       checked={smsNotifications}
                       onChange={(e) => setSmsNotifications(e.target.checked)}
-                      disabled={!isEditing || isSaving}
+                      disabled={!isEditing || isSaving || isUpdating}
                     />
                   </Form.Group>
                 </Col>
@@ -116,7 +130,7 @@ export function PreferencesSection({ userProfile, onSave }: PreferencesSectionPr
                       label="Push Notifications"
                       checked={pushNotifications}
                       onChange={(e) => setPushNotifications(e.target.checked)}
-                      disabled={!isEditing || isSaving}
+                      disabled={!isEditing || isSaving || isUpdating}
                     />
                   </Form.Group>
                 </Col>

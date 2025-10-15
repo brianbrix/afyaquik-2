@@ -29,6 +29,7 @@ public record BillDto(
     String notes,
     List<BillItemDto> items,
     List<PaymentDto> payments,
+    List<DiscountDto> discounts,
     Instant createdAt,
     Instant updatedAt
 ) {

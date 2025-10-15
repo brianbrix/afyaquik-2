@@ -1,5 +1,6 @@
 package com.afyaquik.hms.admin.entity;
 
+import com.afyaquik.hms.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Objects;
@@ -8,10 +9,7 @@ import java.util.Objects;
 @Table(name = "queue_status_role_visibility", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"role_key", "queue_status"})
 })
-public class QueueStatusRoleVisibility implements Serializable {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class QueueStatusRoleVisibility extends BaseEntity implements Serializable {
 
     @Column(name = "role_key", nullable = false, length = 64)
     private String roleKey;
@@ -25,7 +23,6 @@ public class QueueStatusRoleVisibility implements Serializable {
         this.queueStatus = queueStatus;
     }
 
-    public Long getId() { return id; }
     public String getRoleKey() { return roleKey; }
     public void setRoleKey(String roleKey) { this.roleKey = roleKey; }
     public String getQueueStatus() { return queueStatus; }

@@ -16,19 +16,19 @@ import SockJS from 'sockjs-client';
 const queueListKey = (status: QueueStatus) => ["queue", status];
 const queueTimelineKey = (id: number) => ["queue", "timeline", id];
 
-export function useQueueList(status: QueueStatus) {
+export function useQueueList(status: QueueStatus, startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: queueListKey(status),
-    queryFn: () => fetchQueueByStatus(status)
+    queryKey: [...queueListKey(status), startDate, endDate],
+    queryFn: () => fetchQueueByStatus(status, startDate, endDate)
   });
 }
 
-export function useQueueListByRole(allowedStatuses: QueueStatus[]) {
+export function useQueueListByRole(allowedStatuses: QueueStatus[], startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: ["queue", "role-based", allowedStatuses],
+    queryKey: ["queue", "role-based", allowedStatuses, startDate, endDate],
     queryFn: async () => {
       // Fetch queue items for all allowed statuses
-      const promises = allowedStatuses.map(status => fetchQueueByStatus(status));
+      const promises = allowedStatuses.map(status => fetchQueueByStatus(status, startDate, endDate));
       const results = await Promise.all(promises);
       // Flatten and return all items
       return results.flat();
@@ -151,7 +151,11 @@ export function useAssignQueueItem(status: QueueStatus) {
   return useMutation<QueueItem, Error, { queueItemId: number; payload: QueueAssignmentPayload }>({
     mutationFn: ({ queueItemId, payload }) => assignQueueItem(queueItemId, payload),
     onSuccess: async (_data) => {
-      await queryClient.invalidateQueries({ queryKey: queueListKey(status) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queueListKey(status) }),
+        // Also invalidate role-based queries to ensure UI updates immediately
+        queryClient.invalidateQueries({ queryKey: ["queue", "role-based"] })
+      ]);
     }
   });
 }
@@ -160,10 +164,37 @@ export function useTransitionQueueItem(status: QueueStatus) {
   const queryClient = useQueryClient();
   return useMutation<QueueItem, Error, { queueItemId: number; payload: QueueTransitionPayload }>({
     mutationFn: ({ queueItemId, payload }) => transitionQueueItem(queueItemId, payload),
+    onMutate: async ({ queueItemId, payload }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ["queue", "role-based"] });
+      
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData(["queue", "role-based"]);
+      
+      // Optimistically update the cache
+      queryClient.setQueryData(["queue", "role-based"], (old: any) => {
+        if (!old) return old;
+        return old.map((item: any) => 
+          item.id === queueItemId 
+            ? { ...item, status: payload.targetStatus }
+            : item
+        );
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context && typeof context === 'object' && 'previousData' in context) {
+        queryClient.setQueryData(["queue", "role-based"], (context as any).previousData);
+      }
+    },
     onSuccess: async (_data, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queueListKey(status) }),
-        queryClient.invalidateQueries({ queryKey: queueTimelineKey(variables.queueItemId) })
+        queryClient.invalidateQueries({ queryKey: queueTimelineKey(variables.queueItemId) }),
+        // Also invalidate role-based queries to ensure UI updates immediately
+        queryClient.invalidateQueries({ queryKey: ["queue", "role-based"] })
       ]);
     }
   });
@@ -173,7 +204,13 @@ export function useAdvanceAssignQueueItem(status: QueueStatus) {
   const qc = useQueryClient();
   return useMutation<QueueItem, Error, { queueItemId: number; payload: QueueAdvanceAssignPayload }>({
     mutationFn: ({ queueItemId, payload }) => advanceAssignQueueItem(queueItemId, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queueListKey(status) })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: queueListKey(status) }),
+        // Also invalidate role-based queries to ensure UI updates immediately
+        qc.invalidateQueries({ queryKey: ["queue", "role-based"] })
+      ]);
+    }
   });
 }
 

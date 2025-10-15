@@ -22,7 +22,7 @@ public class DiscountController {
     private DiscountService discountService;
 
     @PostMapping
-    @PreAuthorize("hasPermission('MANAGE_BILLING')")
+    @PreAuthorize("hasPermission(null,'MANAGE_BILLING')")
     public ResponseEntity<ApiResponse<DiscountDto>> createDiscount(
             @PathVariable Long billId,
             @Valid @RequestBody CreateDiscountRequest request,
@@ -33,14 +33,14 @@ public class DiscountController {
     }
 
     @GetMapping
-    @PreAuthorize("hasPermission('VIEW_BILLING')")
+    @PreAuthorize("hasPermission(null,'VIEW_BILLING')")
     public ResponseEntity<ApiResponse<List<DiscountDto>>> getDiscountsByBillId(@PathVariable Long billId) {
         List<DiscountDto> discounts = discountService.getDiscountsByBillId(billId);
         return ResponseEntity.ok(ApiResponse.success(discounts));
     }
 
     @DeleteMapping("/{discountId}")
-    @PreAuthorize("hasPermission('MANAGE_BILLING')")
+    @PreAuthorize("hasPermission(null,'MANAGE_BILLING')")
     public ResponseEntity<ApiResponse<Void>> deleteDiscount(@PathVariable Long discountId) {
         discountService.deleteDiscount(discountId);
         return ResponseEntity.ok(ApiResponse.success(null));

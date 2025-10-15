@@ -218,6 +218,8 @@ export function QueueBoardPage() {
   const CAN_VIEW_NOTES = hasPermission(permissions, 'VIEW_PATIENT_NOTES');
   const [selectedStatus, setSelectedStatus] = useState<QueueStatus>("PENDING_CHECKIN");
   const [searchValue, setSearchValue] = useState("");
+  const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to today
+  const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to today
   const [activeItem, setActiveItem] = useState<QueueSummary | null>(null);
   const [modalType, setModalType] = useState<"assign" | "transition" | "timeline" | "advanceAssign" | null>(null);
   const [staleWarning, setStaleWarning] = useState<string | null>(null);
@@ -272,8 +274,8 @@ export function QueueBoardPage() {
     return [];
   }, [activeRole, statusMatrix]);
 
-  // Use role-based queue fetching
-  const queueQuery = useQueueListByRole(allowedStatuses);
+  // Use role-based queue fetching with date filtering
+  const queueQuery = useQueueListByRole(allowedStatuses, startDate, endDate);
   useQueueStream(selectedStatus);
   const assignMutation = useAssignQueueItem(selectedStatus);
   const transitionMutation = useTransitionQueueItem(selectedStatus);
@@ -343,6 +345,12 @@ export function QueueBoardPage() {
             (form as HTMLFormElement).reset();
           }
           handleCloseModal();
+          // Force a refetch to ensure UI is updated immediately
+          queueQuery.refetch();
+        },
+        onError: () => {
+          // Refetch on error to ensure UI is in sync
+          queueQuery.refetch();
         }
       }
     );
@@ -469,6 +477,12 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
             (event.currentTarget as HTMLFormElement).reset();
           }
           handleCloseModal();
+          // Force a refetch to ensure UI is updated immediately
+          queueQuery.refetch();
+        },
+        onError: () => {
+          // Refetch on error to ensure UI is in sync
+          queueQuery.refetch();
         }
       }
     );
@@ -497,10 +511,38 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                 ))}
               </Form.Select>
             </Col>
-            <Col md={5} sm={12}>
+            <Col md={4} sm={12}>
               <FilterBar placeholder="Search ticket, name, or reason..." value={searchValue} onChange={setSearchValue} />
             </Col>
-            <Col md={3} sm={12} className="d-flex justify-content-end">
+            <Col md={2} sm={6}>
+              <Form.Control
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                title="Start Date"
+              />
+            </Col>
+            <Col md={2} sm={6}>
+              <Form.Control
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                title="End Date"
+              />
+            </Col>
+            <Col md={2} sm={12} className="d-flex justify-content-end gap-2">
+              <Button 
+                variant="outline-primary" 
+                size="sm"
+                onClick={() => {
+                  const today = new Date().toISOString().split('T')[0];
+                  setStartDate(today);
+                  setEndDate(today);
+                }}
+                title="Set to today"
+              >
+                Today
+              </Button>
               <Button variant="outline-secondary" onClick={() => queueQuery.refetch()}>
                 Refresh
               </Button>
@@ -784,14 +826,9 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                     queueItemId={item.id}
                                     patientId={item.patientId}
                                     onSubmit={async (items) => {
-                                      // TODO: Implement pharmacy actions API
-                                      console.log('Pharmacy actions submitted:', items);
-                                      Swal.fire({ 
-                                        icon: 'success', 
-                                        title: 'Pharmacy actions submitted', 
-                                        timer: 1200, 
-                                        showConfirmButton: false 
-                                      });
+                                      // Pharmacy actions are handled internally by PharmacyActionsSection
+                                      // This includes prescription management, dispensing, and stock operations
+                                      console.log('Pharmacy actions completed:', items);
                                     }}
                                   />
                                 )}
@@ -839,6 +876,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                   <BillingActionsSection
                                     queueItemId={item.id}
                                     patientId={item.patientId}
+                                    patientName={item.patientName}
                                   />
                                 )}
                               </div>
@@ -911,6 +949,12 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                 (e.currentTarget as HTMLFormElement).reset();
               }
               handleCloseModal();
+              // Force a refetch to ensure UI is updated immediately
+              queueQuery.refetch();
+            },
+            onError: () => {
+              // Refetch on error to ensure UI is in sync
+              queueQuery.refetch();
             }
           });
         }}

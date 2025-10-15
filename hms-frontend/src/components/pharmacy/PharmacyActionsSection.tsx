@@ -25,13 +25,12 @@ interface PrescriptionItem {
   quantity: number;
   prescribedQuantity: number; // Original prescribed quantity
   dispensedQuantity: number; // How much has been dispensed
-  status: 'PENDING' | 'PARTIALLY_DISPENSED' | 'FULLY_DISPENSED' | 'CANCELLED';
+  status: 'PENDING' | 'PARTIALLY_DISPENSED' | 'FULLY_DISPENSED' | 'CANCELLED' | 'REPLACED';
   prescribedAt: string;
   dispensedAt?: string;
   prescriptionNumber?: string;
   unitPrice?: number;
 }
-
 
 interface PharmacyActionsSectionProps {
   initialItems?: PharmacyItem[];
@@ -43,7 +42,6 @@ interface PharmacyActionsSectionProps {
 }
 
 const PHARMACY_TITLES = [
-  { title: 'Prescribe Medication', category: 'prescription' },
   { title: 'Medication Dispensed', category: 'medication' },
   { title: 'Prescription Filled', category: 'prescription' },
   { title: 'Inventory Check', category: 'inventory' },
@@ -83,13 +81,10 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
   const [submitting, setSubmitting] = useState(false);
   
   // Prescription state
-  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [prescriptions, setPrescriptions] = useState<PrescriptionItem[]>([]);
-  const [currentPrescription, setCurrentPrescription] = useState<Partial<PrescriptionItem>>({});
   const [selectedPrescriptions, setSelectedPrescriptions] = useState<number[]>([]);
   const [showDispenseModal, setShowDispenseModal] = useState(false);
   const [dispenseQuantities, setDispenseQuantities] = useState<Record<number, number>>({});
-  const [stockLevels, setStockLevels] = useState<Record<number, number>>({});
   
   // Fetch medications for prescription
   const { data: medications = [], isLoading: medicationsLoading } = useQuery({
@@ -104,37 +99,43 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
     enabled: !!queueItemId,
   });
 
+  // Transform existing prescriptions to the format expected by the component
+  React.useEffect(() => {
+    if (existingPrescriptions && existingPrescriptions.length > 0) {
+      const transformedPrescriptions: PrescriptionItem[] = existingPrescriptions.map((prescription: any) => 
+        prescription.items.map((item: any) => ({
+          id: prescription.id,
+          medicationId: item.medicationId,
+          medicationName: item.medicationName || 'Unknown Medication',
+          dosage: item.dosageInstructions || '',
+          frequency: item.frequency || '',
+          duration: `${item.durationDays || 0} days`,
+          instructions: item.notes || '',
+          quantity: item.quantityPrescribed,
+          prescribedQuantity: item.quantityPrescribed,
+          dispensedQuantity: item.quantityDispensed || 0,
+          status: (prescription.status === 'DISPENSED' ? 'FULLY_DISPENSED' : 
+                  prescription.status === 'PARTIALLY_DISPENSED' ? 'PARTIALLY_DISPENSED' : 
+                  prescription.status === 'REPLACED' ? 'REPLACED' : 'PENDING') as 'PENDING' | 'PARTIALLY_DISPENSED' | 'FULLY_DISPENSED' | 'CANCELLED' | 'REPLACED',
+          prescribedAt: prescription.prescriptionDate,
+          dispensedAt: prescription.dispensedAt,
+          prescriptionNumber: prescription.prescriptionNumber,
+          unitPrice: item.unitPrice
+        }))
+      ).flat();
+      setPrescriptions(transformedPrescriptions);
+    } else {
+      setPrescriptions([]);
+    }
+  }, [existingPrescriptions]);
+
   // Sync items state with initialItems prop
   React.useEffect(() => {
     setItems(initialItems);
   }, [initialItems]);
 
-  // Fetch stock level for selected medication
-  const fetchStockLevel = async (medicationId: number) => {
-    try {
-      const stockLevel = await inventoryApi.getStockLevel(medicationId);
-      setStockLevels(prev => ({ ...prev, [medicationId]: stockLevel }));
-    } catch (error) {
-      console.warn('Could not fetch stock level for medication:', medicationId);
-      setStockLevels(prev => ({ ...prev, [medicationId]: 0 }));
-    }
-  };
-
-  // Fetch stock level when medication is selected
-  React.useEffect(() => {
-    if (currentPrescription.medicationId) {
-      fetchStockLevel(currentPrescription.medicationId);
-    }
-  }, [currentPrescription.medicationId]);
-
   const handleAddItem = (title: string, category: PharmacyItem['category'] = 'medication', isCustom = false) => {
     if (!title.trim()) return;
-    
-    // Special handling for prescription
-    if (title === 'Prescribe Medication') {
-      setShowPrescriptionModal(true);
-      return;
-    }
     
     const newItem: PharmacyItem = {
       id: Date.now() + Math.random(),
@@ -161,155 +162,6 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
     onChange?.(updated);
   };
 
-  // Prescription handlers
-  const handleAddPrescription = async () => {
-    // Check if this is an edit operation
-    if (currentPrescription.id && currentPrescription.id > 0) {
-      await handleUpdatePrescription(currentPrescription.id, currentPrescription);
-      return;
-    }
-    if (!currentPrescription.medicationId || !currentPrescription.dosage || !currentPrescription.frequency) {
-      Swal.fire('Error', 'Please fill in all required fields', 'error');
-      return;
-    }
-    
-    if (!patientId) {
-      Swal.fire('Error', 'Patient ID is required for prescription', 'error');
-      return;
-    }
-    
-    try {
-      setSubmitting(true);
-      
-      const selectedMedication = medications.find((m: Medication) => m.id === currentPrescription.medicationId);
-      const quantity = currentPrescription.quantity || 1;
-      
-      // Check stock availability before creating prescription
-      try {
-        const stockAvailable = await inventoryApi.checkStockAvailability(currentPrescription.medicationId!, quantity);
-        if (!stockAvailable) {
-          const stockLevel = await inventoryApi.getStockLevel(currentPrescription.medicationId!);
-          Swal.fire({
-            icon: 'warning',
-            title: 'Insufficient Stock',
-            text: `Only ${stockLevel} units available in stock. Required: ${quantity}`,
-            confirmButtonText: 'OK'
-          });
-          return;
-        }
-      } catch (error) {
-        console.warn('Could not check stock availability:', error);
-        // Continue with prescription creation even if stock check fails
-      }
-      
-      // Create prescription request for queue item
-      const prescriptionRequest = {
-        patientId: patientId,
-        prescribedById: user?.id || 1, // Use current user ID
-        notes: currentPrescription.instructions || '',
-        items: [{
-          medicationId: currentPrescription.medicationId!,
-          quantityPrescribed: quantity,
-          dosageInstructions: currentPrescription.dosage!,
-          frequency: currentPrescription.frequency!,
-          durationDays: currentPrescription.duration ? parseInt(currentPrescription.duration) : undefined,
-          unitPrice: selectedMedication?.unitPrice || 0,
-          notes: currentPrescription.instructions || ''
-        }]
-      };
-      
-      // Save to backend using queue prescription API
-      const savedPrescription = await queuePrescriptionApi.createForQueueItem(queueItemId!, prescriptionRequest);
-      
-      // Add to local state for display
-      const newPrescription: PrescriptionItem = {
-        id: savedPrescription.id,
-        medicationId: currentPrescription.medicationId!,
-        medicationName: selectedMedication?.name || '',
-        dosage: currentPrescription.dosage!,
-        frequency: currentPrescription.frequency!,
-        duration: currentPrescription.duration || '',
-        instructions: currentPrescription.instructions || '',
-        quantity,
-        prescribedQuantity: quantity,
-        dispensedQuantity: 0,
-        status: 'PENDING',
-        prescribedAt: new Date().toISOString()
-      };
-      
-      setPrescriptions(prev => [...prev, newPrescription]);
-      setCurrentPrescription({});
-      setShowPrescriptionModal(false);
-      
-      // Refetch prescriptions to get updated data
-      refetchPrescriptions();
-      
-      Swal.fire('Success', 'Prescription created successfully', 'success');
-    } catch (error) {
-      console.error('Failed to create prescription:', error);
-      Swal.fire('Error', 'Failed to create prescription', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleRemovePrescription = (id: number) => {
-    setPrescriptions(prev => prev.filter(p => p.id !== id));
-  };
-
-  const handleUpdatePrescription = async (id: number, updates: Partial<PrescriptionItem>) => {
-    try {
-      setSubmitting(true);
-      
-      // Find the prescription to update
-      const prescription = prescriptions.find(p => p.id === id);
-      if (!prescription) {
-        Swal.fire('Error', 'Prescription not found', 'error');
-        return;
-      }
-      
-      // Create update request
-      const updateRequest = {
-        prescriptionNumber: prescription.prescriptionNumber || `RX-${Date.now()}`,
-        patientId: patientId!,
-        prescribedById: user?.id || 1, // Use current user ID
-        prescriptionDate: prescription.prescribedAt,
-        notes: updates.instructions || prescription.instructions || '',
-        items: [{
-          medicationId: updates.medicationId || prescription.medicationId,
-          quantityPrescribed: updates.quantity || prescription.quantity,
-          dosageInstructions: updates.dosage || prescription.dosage,
-          frequency: updates.frequency || prescription.frequency,
-          durationDays: updates.duration ? parseInt(updates.duration) : undefined,
-          unitPrice: prescription.unitPrice || 0,
-          notes: updates.instructions || prescription.instructions || ''
-        }]
-      };
-      
-      // Update prescription in backend
-      const updatedPrescription = await prescriptionApi.update(id, updateRequest);
-      
-      // Update local state
-      setPrescriptions(prev => prev.map(p => 
-        p.id === id ? { ...p, ...updates } : p
-      ));
-      
-      // Clear form and close modal
-      setCurrentPrescription({});
-      setShowPrescriptionModal(false);
-      
-      // Refetch prescriptions to get updated data
-      refetchPrescriptions();
-      
-      Swal.fire('Success', 'Prescription updated successfully', 'success');
-    } catch (error) {
-      console.error('Failed to update prescription:', error);
-      Swal.fire('Error', 'Failed to update prescription', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleSelectPrescription = (id: number, selected: boolean) => {
     setSelectedPrescriptions(prev => 
       selected 
@@ -322,25 +174,17 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
     setSelectedPrescriptions(selected ? prescriptions.map(p => p.id) : []);
   };
 
-  const handleBulkDispense = () => {
-    if (selectedPrescriptions.length === 0) {
-      Swal.fire('Error', 'Please select prescriptions to dispense', 'error');
-      return;
-    }
-    setShowDispenseModal(true);
-  };
-
-  const handleDispenseRemaining = async (prescriptionId: number, remainingQuantity: number) => {
+  const handleDispenseRemaining = async (prescriptionId: number, remaining: number) => {
     try {
       setSubmitting(true);
       
-      // Dispense the remaining quantity directly
-      await prescriptionApi.dispense(prescriptionId, user?.id || 1, 'Dispensed remaining quantity from pharmacy actions');
+      // Dispense the remaining quantity
+      await prescriptionApi.dispense(prescriptionId, user?.id || 1, `Dispensed remaining ${remaining} units`);
       
       // Update local state
       setPrescriptions(prev => prev.map(p => {
         if (p.id === prescriptionId) {
-          const newDispensedQty = (p.dispensedQuantity || 0) + remainingQuantity;
+          const newDispensedQty = (p.dispensedQuantity || 0) + remaining;
           const totalPrescribed = p.prescribedQuantity || p.quantity;
           const status = newDispensedQty >= totalPrescribed ? 'FULLY_DISPENSED' : 'PARTIALLY_DISPENSED';
           
@@ -354,10 +198,24 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
         return p;
       }));
 
-      Swal.fire('Success', 'Remaining quantity dispensed successfully', 'success');
-    } catch (error) {
-      console.error('Failed to dispense remaining quantity:', error);
-      Swal.fire('Error', 'Failed to dispense remaining quantity', 'error');
+      // Refetch prescriptions to get updated data
+      refetchPrescriptions();
+      
+      Swal.fire('Success', 'Medication dispensed successfully', 'success');
+    } catch (error: any) {
+      console.error('Failed to dispense medication:', error);
+      
+      // Extract error message from backend response
+      let errorMessage = 'Failed to dispense medication';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Swal.fire('Error', errorMessage, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -394,10 +252,25 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
       setSelectedPrescriptions([]);
       setDispenseQuantities({});
       setShowDispenseModal(false);
+      
+      // Refetch prescriptions to get updated data
+      refetchPrescriptions();
+      
       Swal.fire('Success', 'Medications dispensed successfully', 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to dispense medications:', error);
-      Swal.fire('Error', 'Failed to dispense medications', 'error');
+      
+      // Extract error message from backend response
+      let errorMessage = 'Failed to dispense medications';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Swal.fire('Error', errorMessage, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -409,6 +282,7 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
       case 'PARTIALLY_DISPENSED': return 'info';
       case 'FULLY_DISPENSED': return 'success';
       case 'CANCELLED': return 'danger';
+      case 'REPLACED': return 'dark';
       default: return 'secondary';
     }
   };
@@ -438,388 +312,263 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
         )}
       </div>
 
-      <Card className="mb-3">
-        <Card.Header className="py-2">
-          <small className="text-muted">Add Pharmacy Action</small>
-        </Card.Header>
-        <Card.Body className="py-3">
-          <Row className="mb-3">
-            <Col md={6}>
-              <Form.Label className="small">Select from common actions:</Form.Label>
-              <Form.Select onChange={e => {
-                const selected = PHARMACY_TITLES.find(t => t.title === e.target.value);
-                if (selected) {
-                  handleAddItem(selected.title, selected.category as PharmacyItem['category']);
-                }
-              }} defaultValue="">
-                <option value="">Choose a pharmacy action...</option>
-                {PHARMACY_TITLES.map(t => (
-                  <option key={t.title} value={t.title}>{t.title}</option>
-                ))}
-              </Form.Select>
-            </Col>
-            <Col md={6}>
-              <Form.Label className="small">Or create custom action:</Form.Label>
-              <InputGroup>
-                <Form.Control
-                  type="text"
-                  placeholder="Custom action title..."
-                  value={customTitle}
-                  onChange={e => setCustomTitle(e.target.value)}
-                />
-                <Form.Select 
-                  value={selectedCategory} 
-                  onChange={e => setSelectedCategory(e.target.value as PharmacyItem['category'])}
-                  style={{ maxWidth: '120px' }}
-                >
-                  <option value="medication">Medication</option>
-                  <option value="prescription">Prescription</option>
-                  <option value="inventory">Inventory</option>
-                  <option value="other">Other</option>
-                </Form.Select>
-                <Button 
-                  variant="outline-primary" 
-                  onClick={() => handleAddItem(customTitle, selectedCategory, true)} 
-                  disabled={!customTitle.trim()}
-                >
-                  Add
-                </Button>
-              </InputGroup>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
-
-      {items.length === 0 && (
-        <div className="text-muted small mb-2 text-center py-3">
-          <i className="bi bi-capsule-pill me-2"></i>
-          No pharmacy actions added yet. Add actions to track pharmacy-related activities.
-        </div>
-      )}
-
-      {items.map((item, idx) => (
-        <Card key={item.id} className="mb-3">
-          <Card.Header className="py-2 d-flex justify-content-between align-items-center">
-            <div className="d-flex align-items-center gap-2">
-              <Badge bg={CATEGORY_COLORS[item.category]} className="small">
-                {item.category}
-              </Badge>
-              <span className="fw-semibold">{item.title}</span>
-              {item.isCustom && <Badge bg="outline-secondary" className="small">Custom</Badge>}
-            </div>
-            <Button 
-              size="sm" 
-              variant="outline-danger" 
-              onClick={() => handleRemoveItem(item.id)}
-            >
-              <i className="bi bi-trash"></i>
-            </Button>
-          </Card.Header>
-          <Card.Body className="py-3">
-            <RichTextEditor
-              theme="snow"
-              value={item.details}
-              onChange={val => handleDetailsChange(item.id, val)}
-              placeholder="Enter details for this pharmacy action..."
-              style={{ background: 'white' }}
-            />
-          </Card.Body>
-        </Card>
-      ))}
-
       {/* Prescriptions Section */}
-      <Card className="mb-3">
-        <Card.Header className="py-2">
-          <div className="d-flex justify-content-between align-items-center">
-            <span className="fw-semibold">Medicine Prescriptions</span>
-            <div className="d-flex gap-2">
-              <Button 
-                size="sm" 
-                variant="outline-primary"
-                onClick={() => setShowPrescriptionModal(true)}
-              >
-                <i className="bi bi-plus me-1"></i>
-                Add Prescription
-              </Button>
-              {selectedPrescriptions.length > 0 && (
+      {queueItemId && (
+        <Card className="mb-3">
+          <Card.Header className="d-flex justify-content-between align-items-center">
+            <h6 className="mb-0">Prescriptions</h6>
+            {prescriptions.length > 0 && (
+              <div className="d-flex gap-2">
                 <Button 
                   size="sm" 
-                  variant="success"
-                  onClick={handleBulkDispense}
+                  variant="outline-primary"
+                  onClick={() => setShowDispenseModal(true)}
+                  disabled={selectedPrescriptions.length === 0}
                 >
                   <i className="bi bi-check-square me-1"></i>
                   Dispense Selected ({selectedPrescriptions.length})
                 </Button>
-              )}
-            </div>
-          </div>
-        </Card.Header>
-        <Card.Body className="py-3">
-          {prescriptions.length === 0 ? (
-            <div className="text-center py-4 text-muted">
-              <i className="bi bi-capsule-pill display-6 d-block mb-2"></i>
-              No prescriptions yet. Add a prescription to get started.
-            </div>
-          ) : (
-            <Table responsive size="sm" hover>
-              <thead>
-                <tr>
-                  <th>
-                    <Form.Check
-                      type="checkbox"
-                      checked={selectedPrescriptions.length === prescriptions.length && prescriptions.length > 0}
-                      onChange={(e) => handleSelectAllPrescriptions(e.target.checked)}
-                    />
-                  </th>
-                  <th>Medication</th>
-                  <th>Dosage</th>
-                  <th>Frequency</th>
-                  <th>Duration</th>
-                  <th>Prescribed</th>
-                  <th>Dispensed</th>
-                  <th>Remaining</th>
-                  <th>Status</th>
-                  <th>Instructions</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {prescriptions.map(prescription => {
-                  const remaining = (prescription.prescribedQuantity || prescription.quantity) - (prescription.dispensedQuantity || 0);
-                  return (
-                    <tr key={prescription.id}>
-                      <td>
-                        <Form.Check
-                          type="checkbox"
-                          checked={selectedPrescriptions.includes(prescription.id)}
-                          onChange={(e) => handleSelectPrescription(prescription.id, e.target.checked)}
-                        />
-                      </td>
-                      <td>
-                        <div>
-                          <div className="fw-semibold">{prescription.medicationName}</div>
-                          <small className="text-muted">ID: {prescription.medicationId}</small>
-                        </div>
-                      </td>
-                      <td>{prescription.dosage}</td>
-                      <td>{prescription.frequency}</td>
-                      <td>{prescription.duration}</td>
-                      <td>{prescription.prescribedQuantity || prescription.quantity}</td>
-                      <td>{prescription.dispensedQuantity || 0}</td>
-                      <td>
-                        <span className={remaining > 0 ? 'text-warning' : 'text-success'}>
-                          {remaining}
-                        </span>
-                      </td>
-                      <td>
-                        <Badge bg={getStatusColor(prescription.status)}>
-                          {prescription.status.replace('_', ' ')}
-                        </Badge>
-                      </td>
-                      <td>
-                        <div className="small text-muted" style={{ maxWidth: '150px' }}>
-                          {prescription.instructions}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="d-flex gap-1">
-                          <Button 
-                            size="sm" 
-                            variant="outline-primary"
-                            onClick={() => {
-                              setCurrentPrescription(prescription);
-                              setShowPrescriptionModal(true);
-                            }}
-                            title="Edit prescription"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </Button>
-                          {remaining > 0 && (
-                            <Button 
-                              size="sm" 
-                              variant="outline-success"
-                              onClick={() => handleDispenseRemaining(prescription.id, remaining)}
-                              title="Dispense remaining"
-                              disabled={submitting}
-                            >
-                              <i className="bi bi-check-square"></i>
-                            </Button>
-                          )}
-                          <Button 
-                            size="sm" 
-                            variant="outline-danger"
-                            onClick={() => handleRemovePrescription(prescription.id)}
-                            title="Remove prescription"
-                          >
-                            <i className="bi bi-trash"></i>
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </Table>
-          )}
-        </Card.Body>
-      </Card>
+              </div>
+            )}
+          </Card.Header>
+          <Card.Body>
+            {prescriptionsLoading ? (
+              <div className="text-center py-3">
+                <div className="spinner-border spinner-border-sm" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+                <div className="mt-2 text-muted small">Loading prescriptions...</div>
+              </div>
+            ) : prescriptions.length === 0 ? (
+              <div className="text-muted text-center py-3">
+                <i className="bi bi-clipboard-x fs-4"></i>
+                <div className="mt-2">No prescriptions found for this patient</div>
+                <small>Prescriptions are created in the consultation section</small>
+              </div>
+            ) : (
+              <Table responsive size="sm">
+                <thead>
+                  <tr>
+                    <th>
+                      <Form.Check
+                        type="checkbox"
+                        checked={selectedPrescriptions.length === prescriptions.length && prescriptions.length > 0}
+                        onChange={(e) => handleSelectAllPrescriptions(e.target.checked)}
+                      />
+                    </th>
+                    <th>Medication</th>
+                    <th>Dosage</th>
+                    <th>Frequency</th>
+                    <th>Duration</th>
+                    <th>Prescribed</th>
+                    <th>Dispensed</th>
+                    <th>Remaining</th>
+                    <th>Status</th>
+                    <th>Instructions</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {prescriptions.map(prescription => {
+                    const remaining = (prescription.prescribedQuantity || prescription.quantity) - (prescription.dispensedQuantity || 0);
+                    return (
+                      <tr key={prescription.id} className={prescription.status === 'REPLACED' ? 'table-secondary' : ''}>
+                        <td>
+                          <Form.Check
+                            type="checkbox"
+                            checked={selectedPrescriptions.includes(prescription.id)}
+                            onChange={(e) => handleSelectPrescription(prescription.id, e.target.checked)}
+                            disabled={prescription.status === 'REPLACED'}
+                          />
+                        </td>
+                        <td>
+                          <div>
+                            <div className="fw-semibold">{prescription.medicationName}</div>
+                            <small className="text-muted">ID: {prescription.medicationId}</small>
+                          </div>
+                        </td>
+                        <td>{prescription.dosage}</td>
+                        <td>{prescription.frequency}</td>
+                        <td>{prescription.duration}</td>
+                        <td>{prescription.prescribedQuantity || prescription.quantity}</td>
+                        <td>{prescription.dispensedQuantity || 0}</td>
+                        <td>
+                          <span className={remaining > 0 ? 'text-warning' : 'text-success'}>
+                            {remaining}
+                          </span>
+                        </td>
+                        <td>
+                          <Badge bg={getStatusColor(prescription.status)}>
+                            {prescription.status.replace('_', ' ')}
+                          </Badge>
+                        </td>
+                        <td>
+                          <div className="small text-muted" style={{ maxWidth: '150px' }}>
+                            {prescription.instructions}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="d-flex gap-1">
+                            {remaining > 0 && prescription.status !== 'REPLACED' && (
+                              <Button 
+                                size="sm" 
+                                variant="outline-success"
+                                onClick={() => handleDispenseRemaining(prescription.id, remaining)}
+                                title="Dispense remaining"
+                                disabled={submitting}
+                              >
+                                <i className="bi bi-check-square"></i>
+                              </Button>
+                            )}
+                            {prescription.status === 'REPLACED' && (
+                              <span className="text-muted small">
+                                <i className="bi bi-info-circle me-1"></i>
+                                Replaced
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            )}
+          </Card.Body>
+        </Card>
+      )}
 
-      <div className="d-flex justify-content-end mt-3">
+      {/* Pharmacy Actions */}
+      <div className="d-flex flex-wrap gap-2 mb-3">
+        {PHARMACY_TITLES.map((title) => (
+          <Button
+            key={title.title}
+            variant="outline-primary"
+            size="sm"
+            onClick={() => handleAddItem(title.title, title.category as PharmacyItem['category'])}
+            disabled={submitting || loading}
+          >
+            <i className={`bi bi-${title.category === 'medication' ? 'capsule' : 
+                          title.category === 'prescription' ? 'file-medical' : 
+                          title.category === 'inventory' ? 'box' : 'clipboard'}`}></i>
+            {title.title}
+          </Button>
+        ))}
+      </div>
+
+      {/* Custom Action */}
+      <div className="mb-3">
+        <InputGroup>
+          <Form.Control
+            type="text"
+            placeholder="Add custom action..."
+            value={customTitle}
+            onChange={(e) => setCustomTitle(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleAddItem(customTitle, selectedCategory, true);
+              }
+            }}
+            disabled={submitting || loading}
+          />
+          <Form.Select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value as PharmacyItem['category'])}
+            disabled={submitting || loading}
+            style={{ maxWidth: '150px' }}
+          >
+            <option value="medication">Medication</option>
+            <option value="prescription">Prescription</option>
+            <option value="inventory">Inventory</option>
+            <option value="other">Other</option>
+          </Form.Select>
+          <Button 
+            variant="outline-secondary" 
+            onClick={() => handleAddItem(customTitle, selectedCategory, true)}
+            disabled={!customTitle.trim() || submitting || loading}
+          >
+            Add
+          </Button>
+        </InputGroup>
+      </div>
+
+      {/* Items List */}
+      {items.length > 0 && (
+        <div className="mb-3">
+          {items.map((item) => (
+            <Card key={item.id} className="mb-2">
+              <Card.Body>
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <div className="d-flex align-items-center gap-2">
+                    <Badge bg={CATEGORY_COLORS[item.category]}>
+                      {item.category}
+                    </Badge>
+                    <span className="fw-semibold">{item.title}</span>
+                    {item.isCustom && (
+                      <Badge bg="secondary" className="small">Custom</Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={() => handleRemoveItem(item.id)}
+                    disabled={submitting || loading}
+                  >
+                    <i className="bi bi-trash"></i>
+                  </Button>
+                </div>
+                <RichTextEditor
+                  value={item.details}
+                  onChange={(value) => handleDetailsChange(item.id, value)}
+                  placeholder="Add details..."
+                  theme="snow"
+                  style={{ background: 'white' }}
+                />
+              </Card.Body>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <div className="d-flex justify-content-end">
         <Button
-          variant="primary"
+          variant="success"
           onClick={async () => {
-            if (!onSubmit) return;
             setSubmitting(true);
-            await onSubmit(items);
-            setSubmitting(false);
+            try {
+              // Pharmacy actions are handled internally (prescriptions, dispensing, etc.)
+              // The action items are just for tracking what was done
+              if (items.length > 0) {
+                Swal.fire({
+                  title: 'Pharmacy Actions Completed',
+                  text: `${items.length} pharmacy action(s) have been recorded. All prescriptions and dispensing operations have been processed.`,
+                  icon: 'success',
+                  confirmButtonText: 'OK'
+                });
+                
+                // Clear the action items after successful submission
+                setItems([]);
+                onChange?.([]);
+              } else {
+                Swal.fire({
+                  title: 'No Actions to Submit',
+                  text: 'Please add some pharmacy actions before submitting.',
+                  icon: 'info',
+                  confirmButtonText: 'OK'
+                });
+              }
+              
+              // Call the parent onSubmit if provided
+              await onSubmit?.(items);
+            } finally {
+              setSubmitting(false);
+            }
           }}
           disabled={submitting || loading}
         >
           {submitting || loading ? 'Submitting...' : 'Submit Pharmacy Actions'}
         </Button>
       </div>
-
-      {/* Prescription Modal */}
-      <Modal show={showPrescriptionModal} onHide={() => setShowPrescriptionModal(false)} size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>Prescribe Medication</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Row className="mb-3">
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label>Medication *</Form.Label>
-                  <Form.Select
-                    value={currentPrescription.medicationId || ''}
-                    onChange={(e) => setCurrentPrescription(prev => ({ 
-                      ...prev, 
-                      medicationId: parseInt(e.target.value) 
-                    }))}
-                    disabled={medicationsLoading}
-                  >
-                    <option value="">Select medication...</option>
-                    {medications.map((med: Medication) => (
-                      <option key={med.id} value={med.id}>
-                        {med.name} ({med.strength}) - {med.dosageForm}
-                      </option>
-                    ))}
-                  </Form.Select>
-                  {currentPrescription.medicationId && (
-                    <div className="mt-2">
-                      <small className={`fw-semibold ${
-                        (stockLevels[currentPrescription.medicationId] || 0) < 10 
-                          ? 'text-danger' 
-                          : (stockLevels[currentPrescription.medicationId] || 0) < 50 
-                            ? 'text-warning' 
-                            : 'text-success'
-                      }`}>
-                        <i className="bi bi-box me-1"></i>
-                        Stock: {stockLevels[currentPrescription.medicationId] || 0} units
-                        {(stockLevels[currentPrescription.medicationId] || 0) < 10 && (
-                          <span className="ms-2">
-                            <i className="bi bi-exclamation-triangle me-1"></i>
-                            Low Stock
-                          </span>
-                        )}
-                      </small>
-                    </div>
-                  )}
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Dosage *</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="e.g., 500mg"
-                    value={currentPrescription.dosage || ''}
-                    onChange={(e) => setCurrentPrescription(prev => ({ 
-                      ...prev, 
-                      dosage: e.target.value 
-                    }))}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Frequency *</Form.Label>
-                  <Form.Select
-                    value={currentPrescription.frequency || ''}
-                    onChange={(e) => setCurrentPrescription(prev => ({ 
-                      ...prev, 
-                      frequency: e.target.value 
-                    }))}
-                  >
-                    <option value="">Select frequency...</option>
-                    <option value="Once daily">Once daily</option>
-                    <option value="Twice daily">Twice daily</option>
-                    <option value="Three times daily">Three times daily</option>
-                    <option value="Four times daily">Four times daily</option>
-                    <option value="Every 6 hours">Every 6 hours</option>
-                    <option value="Every 8 hours">Every 8 hours</option>
-                    <option value="Every 12 hours">Every 12 hours</option>
-                    <option value="As needed">As needed</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-            </Row>
-            
-            <Row className="mb-3">
-              <Col md={4}>
-                <Form.Group>
-                  <Form.Label>Duration</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="e.g., 7 days"
-                    value={currentPrescription.duration || ''}
-                    onChange={(e) => setCurrentPrescription(prev => ({ 
-                      ...prev, 
-                      duration: e.target.value 
-                    }))}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group>
-                  <Form.Label>Quantity</Form.Label>
-                  <Form.Control
-                    type="number"
-                    min="1"
-                    value={currentPrescription.quantity || 1}
-                    onChange={(e) => setCurrentPrescription(prev => ({ 
-                      ...prev, 
-                      quantity: parseInt(e.target.value) 
-                    }))}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group>
-                  <Form.Label>Instructions</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="e.g., Take with food"
-                    value={currentPrescription.instructions || ''}
-                    onChange={(e) => setCurrentPrescription(prev => ({ 
-                      ...prev, 
-                      instructions: e.target.value 
-                    }))}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowPrescriptionModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleAddPrescription}>
-            Add Prescription
-          </Button>
-        </Modal.Footer>
-      </Modal>
 
       {/* Dispense Modal */}
       <Modal show={showDispenseModal} onHide={() => setShowDispenseModal(false)} size="lg">
@@ -843,13 +592,10 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
               </tr>
             </thead>
             <tbody>
-              {selectedPrescriptions.map(prescriptionId => {
-                const prescription = prescriptions.find(p => p.id === prescriptionId);
-                if (!prescription) return null;
-                
+              {prescriptions.filter(p => selectedPrescriptions.includes(p.id)).map(prescription => {
                 const remaining = (prescription.prescribedQuantity || prescription.quantity) - (prescription.dispensedQuantity || 0);
                 return (
-                  <tr key={prescriptionId}>
+                  <tr key={prescription.id}>
                     <td>
                       <div>
                         <div className="fw-semibold">{prescription.medicationName}</div>
@@ -868,10 +614,10 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
                         type="number"
                         min="0"
                         max={remaining}
-                        value={dispenseQuantities[prescriptionId] || 0}
+                        value={dispenseQuantities[prescription.id] || 0}
                         onChange={(e) => setDispenseQuantities(prev => ({
                           ...prev,
-                          [prescriptionId]: parseInt(e.target.value) || 0
+                          [prescription.id]: parseInt(e.target.value) || 0
                         }))}
                         style={{ width: '80px' }}
                       />

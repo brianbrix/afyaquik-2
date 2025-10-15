@@ -114,6 +114,18 @@ export const AdminLayout: React.FC = () => {
                 <i className="bi bi-credit-card me-2"></i>
                 Payment Methods
               </NavLink>
+              <NavLink to="billing-items" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-list-ul me-2"></i>
+                Billing Items
+              </NavLink>
+              <NavLink to="billing-item-categories" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-tags me-2"></i>
+                Billing Categories
+              </NavLink>
+              <NavLink to="currencies" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-currency-exchange me-2"></i>
+                Currencies
+              </NavLink>
               <NavLink to="insurance" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
                 <i className="bi bi-shield-check me-2"></i>
                 Insurance
@@ -131,6 +143,24 @@ export const AdminLayout: React.FC = () => {
               <NavLink to="inventory" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
                 <i className="bi bi-boxes me-2"></i>
                 Inventory Items
+              </NavLink>
+            </div>
+          </div>
+
+          {/* Analytics & Reports Section */}
+          <div className="mb-4">
+            <h6 className="text-uppercase text-muted small fw-bold mb-3">
+              <i className="bi bi-graph-up me-2"></i>
+              Analytics & Reports
+            </h6>
+            <div className="d-flex flex-column gap-1">
+              <NavLink to="analytics" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-speedometer2 me-2"></i>
+                System Analytics
+              </NavLink>
+              <NavLink to="audit-logs" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-journal-text me-2"></i>
+                Audit Logs
               </NavLink>
             </div>
           </div>

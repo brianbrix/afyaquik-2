@@ -25,6 +25,9 @@ public class NotificationTemplate extends BaseEntity {
     @Column(name = "variables", length = 255)
     private String variables; // comma-separated variable names
 
+    @Column(name = "target_roles", length = 255)
+    private String targetRoles; // comma-separated role names that should receive this notification
+
     @Column(name = "enabled", nullable = false)
     private boolean enabled = true;
 
@@ -39,6 +42,8 @@ public class NotificationTemplate extends BaseEntity {
     public void setContent(String content) { this.content = content; }
     public String getVariables() { return variables; }
     public void setVariables(String variables) { this.variables = variables; }
+    public String getTargetRoles() { return targetRoles; }
+    public void setTargetRoles(String targetRoles) { this.targetRoles = targetRoles; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 }

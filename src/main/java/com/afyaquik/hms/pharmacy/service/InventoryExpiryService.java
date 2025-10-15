@@ -1,5 +1,6 @@
 package com.afyaquik.hms.pharmacy.service;
 
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.pharmacy.domain.Inventory;
 import com.afyaquik.hms.pharmacy.repository.InventoryRepository;
 import com.afyaquik.hms.pharmacy.service.StockManagementService;
@@ -24,6 +25,9 @@ public class InventoryExpiryService {
 
     @Autowired
     private NotificationService notificationService;
+    
+    @Autowired
+    private com.afyaquik.hms.notification.service.UserPermissionService userPermissionService;
 
     @Autowired
     private StockManagementService stockManagementService;
@@ -55,7 +59,8 @@ public class InventoryExpiryService {
     @Scheduled(cron = "0 0 9 * * ?") // Run daily at 9 AM
     public void checkExpiringInventory() {
         LocalDate expiryThreshold = LocalDate.now().plusDays(30);
-        List<Inventory> expiringBatches = inventoryRepository.findExpiringByTenantId("default", expiryThreshold); // TODO: Get current tenant
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        List<Inventory> expiringBatches = inventoryRepository.findExpiringByTenantId(tenantId, expiryThreshold);
         
         for (Inventory inventory : expiringBatches) {
             sendInventoryExpiryWarningNotification(inventory);
@@ -80,13 +85,22 @@ public class InventoryExpiryService {
         variables.put("expiryDate", inventory.getExpiryDate());
         
         // Send notification to users with MANAGE_MEDICATION_INVENTORY permission
-        // For now, we'll send to a generic admin user - this should be enhanced to find users with the permission
-        notificationService.sendNotification(
-            "INVENTORY_EXPIRED", 
-            variables, 
-            "admin", // TODO: Find users with MANAGE_MEDICATION_INVENTORY permission
-            "IN_APP"
-        );
+        List<String> usersWithPermission = userPermissionService.findUsersWithPermission("MANAGE_MEDICATION_INVENTORY");
+        
+        if (usersWithPermission.isEmpty()) {
+            // Fallback to admin if no users found
+            usersWithPermission = List.of("admin");
+        }
+        
+        // Send notification to all users with the permission
+        for (String username : usersWithPermission) {
+            notificationService.sendNotification(
+                "INVENTORY_EXPIRED", 
+                variables, 
+                username,
+                "IN_APP"
+            );
+        }
     }
 
     /**
@@ -100,12 +114,21 @@ public class InventoryExpiryService {
         variables.put("daysUntilExpiry", java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), inventory.getExpiryDate()));
         
         // Send notification to users with MANAGE_MEDICATION_INVENTORY permission
-        // For now, we'll send to a generic admin user - this should be enhanced to find users with the permission
-        notificationService.sendNotification(
-            "INVENTORY_EXPIRING_WARNING", 
-            variables, 
-            "admin", // TODO: Find users with MANAGE_MEDICATION_INVENTORY permission
-            "IN_APP"
-        );
+        List<String> usersWithPermission = userPermissionService.findUsersWithPermission("MANAGE_MEDICATION_INVENTORY");
+        
+        if (usersWithPermission.isEmpty()) {
+            // Fallback to admin if no users found
+            usersWithPermission = List.of("admin");
+        }
+        
+        // Send notification to all users with the permission
+        for (String username : usersWithPermission) {
+            notificationService.sendNotification(
+                "INVENTORY_EXPIRING_WARNING", 
+                variables, 
+                username,
+                "IN_APP"
+            );
+        }
     }
 }

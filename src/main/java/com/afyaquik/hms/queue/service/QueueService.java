@@ -2,7 +2,7 @@
 package com.afyaquik.hms.queue.service;
 
 import com.afyaquik.hms.patient.domain.Patient;
-import com.afyaquik.hms.patient.model.PatientInsuranceDetails;
+import com.afyaquik.hms.patient.domain.PatientInsuranceDetails;
 import com.afyaquik.hms.patient.repository.PatientRepository;
 import com.afyaquik.hms.patient.repository.PatientInsuranceDetailsRepository;
 import com.afyaquik.hms.queue.api.QueueAssignmentRequest;
@@ -36,7 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.afyaquik.hms.auth.repository.StaffUserRepository;
 import com.afyaquik.hms.auth.domain.StaffUser;
-import com.afyaquik.hms.notification.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.slf4j.Logger;
@@ -147,6 +146,15 @@ public class QueueService {
                 .toList();
     }
 
+    public List<QueueSummary> listByStatusAndDate(String tenantId, QueueStatus status, java.time.Instant startDate, java.time.Instant endDate) {
+        log.debug("Listing queue by status and date tenant={} status={} startDate={} endDate={}", tenantId, status, startDate, endDate);
+        return queueRepository
+                .findByTenantIdAndCurrentStatusAndCreatedAtBetweenOrderByCreatedAtAsc(tenantId, status, startDate, endDate)
+                .stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
     public List<QueueSummary> listByStatusAndAssignee(String tenantId, QueueStatus status, String assigneeId) {
         log.debug("Listing queue by status and assignee tenant={} status={} assigneeId={}", tenantId, status, assigneeId);
         if (assigneeId == null || assigneeId.isBlank()) {
@@ -154,6 +162,18 @@ public class QueueService {
         }
         return queueRepository
                 .findByTenantIdAndCurrentStatusAndCurrentAssigneeIdOrderByCreatedAtAsc(tenantId, status, assigneeId)
+                .stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
+    public List<QueueSummary> listByStatusAndAssigneeAndDate(String tenantId, QueueStatus status, String assigneeId, java.time.Instant startDate, java.time.Instant endDate) {
+        log.debug("Listing queue by status, assignee and date tenant={} status={} assigneeId={} startDate={} endDate={}", tenantId, status, assigneeId, startDate, endDate);
+        if (assigneeId == null || assigneeId.isBlank()) {
+            return List.of();
+        }
+        return queueRepository
+                .findByTenantIdAndCurrentStatusAndCurrentAssigneeIdAndCreatedAtBetweenOrderByCreatedAtAsc(tenantId, status, assigneeId, startDate, endDate)
                 .stream()
                 .map(this::toSummary)
                 .toList();
@@ -181,7 +201,7 @@ public class QueueService {
         if (request.getInsuranceDetailsIds() != null) {
             java.util.Set<Long> ids = request.getInsuranceDetailsIds();
             if (!ids.isEmpty()) {
-                java.util.Set<com.afyaquik.hms.patient.model.PatientInsuranceDetails> details =
+                java.util.Set<PatientInsuranceDetails> details =
                     new java.util.HashSet<>(
                         insuranceDetailsRepository.findAllById(ids)
                     );
@@ -501,7 +521,7 @@ public class QueueService {
             variables.put("patientName", queueItem.getPatient().getFirstName() + " " + queueItem.getPatient().getLastName());
             variables.put("ticketNumber", queueItem.getTicketNumber());
             variables.put("fromStatus", fromStatus.toString());
-            variables.put("toStatus", toStatus.toString());
+            variables.put("status", toStatus.toString());
             
             // Send notification to the current assignee if there is one
             if (queueItem.getCurrentAssigneeId() != null && !queueItem.getCurrentAssigneeId().trim().isEmpty()) {

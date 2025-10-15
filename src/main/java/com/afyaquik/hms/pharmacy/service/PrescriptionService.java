@@ -23,6 +23,7 @@ import com.afyaquik.hms.pharmacy.dto.PrescriptionRequest;
 import com.afyaquik.hms.pharmacy.repository.MedicationRepository;
 import com.afyaquik.hms.pharmacy.repository.PrescriptionItemRepository;
 import com.afyaquik.hms.pharmacy.repository.PrescriptionRepository;
+import com.afyaquik.hms.pharmacy.service.PrescriptionAuditService;
 
 @Service
 @Transactional
@@ -35,6 +36,7 @@ public class PrescriptionService {
     private final StaffUserRepository staffUserRepository;
     private final PrescriptionBillingService prescriptionBillingService;
     private final StockManagementService stockManagementService;
+    private final PrescriptionAuditService prescriptionAuditService;
 
     public PrescriptionService(PrescriptionRepository prescriptionRepository,
                               PrescriptionItemRepository prescriptionItemRepository,
@@ -42,7 +44,8 @@ public class PrescriptionService {
                               PatientRepository patientRepository,
                               StaffUserRepository staffUserRepository,
                               PrescriptionBillingService prescriptionBillingService,
-                              StockManagementService stockManagementService) {
+                              StockManagementService stockManagementService,
+                              PrescriptionAuditService prescriptionAuditService) {
         this.prescriptionRepository = prescriptionRepository;
         this.prescriptionItemRepository = prescriptionItemRepository;
         this.medicationRepository = medicationRepository;
@@ -50,6 +53,7 @@ public class PrescriptionService {
         this.staffUserRepository = staffUserRepository;
         this.prescriptionBillingService = prescriptionBillingService;
         this.stockManagementService = stockManagementService;
+        this.prescriptionAuditService = prescriptionAuditService;
     }
 
     public PrescriptionDto create(String tenantId, PrescriptionRequest request) {
@@ -120,6 +124,14 @@ public class PrescriptionService {
         savedPrescription.setTotalAmount(totalAmount);
         prescriptionRepository.save(savedPrescription);
 
+        // Create audit trail entry
+        prescriptionAuditService.createAuditEntry(savedPrescription, 
+            com.afyaquik.hms.pharmacy.domain.PrescriptionAudit.ActionType.CREATED,
+            null, 
+            savedPrescription.getStatus(),
+            "Prescription created",
+            "New prescription created with " + request.getItems().size() + " items");
+
         return mapEntityToDto(savedPrescription);
     }
 
@@ -132,6 +144,15 @@ public class PrescriptionService {
         if (!prescription.getTenantId().equals(tenantId) || prescription.isDeleted()) {
             throw new IllegalStateException("Prescription not found");
         }
+
+        // Check if prescription can be edited
+        if (prescription.getStatus() == Prescription.PrescriptionStatus.DISPENSED || 
+            prescription.getStatus() == Prescription.PrescriptionStatus.PARTIALLY_DISPENSED) {
+            throw new IllegalStateException("Cannot edit prescription that has been dispensed. Use replace functionality instead.");
+        }
+
+        // Store previous status for audit
+        Prescription.PrescriptionStatus previousStatus = prescription.getStatus();
 
         // Update prescription details
         prescription.setNotes(request.getNotes());
@@ -170,6 +191,14 @@ public class PrescriptionService {
         // Update prescription total amount
         prescription.setTotalAmount(totalAmount);
         prescriptionRepository.save(prescription);
+
+        // Create audit trail entry
+        prescriptionAuditService.createAuditEntry(prescription, 
+            com.afyaquik.hms.pharmacy.domain.PrescriptionAudit.ActionType.UPDATED,
+            previousStatus, 
+            prescription.getStatus(),
+            "Prescription updated",
+            "Prescription updated with " + request.getItems().size() + " items");
 
         return mapEntityToDto(prescription);
     }
@@ -296,6 +325,14 @@ public class PrescriptionService {
 
         Prescription saved = prescriptionRepository.save(prescription);
         
+        // Create audit trail entry
+        prescriptionAuditService.createAuditEntry(saved, 
+            com.afyaquik.hms.pharmacy.domain.PrescriptionAudit.ActionType.DISPENSED,
+            Prescription.PrescriptionStatus.PENDING, 
+            saved.getStatus(),
+            "Prescription dispensed",
+            "Prescription fully dispensed by user " + dispensedByUser.getDisplayName());
+        
         // Add prescription items to bill
         try {
             // Get queue item ID from prescription
@@ -400,6 +437,59 @@ public class PrescriptionService {
         dto.setCreatedAt(item.getCreatedAt());
         dto.setUpdatedAt(item.getUpdatedAt());
         return dto;
+    }
+
+    @Transactional
+    public PrescriptionDto replace(String tenantId, Long id, Long replacementId, Long replacedBy, String notes) {
+        // Find the prescription to be replaced
+        Prescription prescription = prescriptionRepository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("Prescription not found"));
+
+        if (!prescription.getTenantId().equals(tenantId) || prescription.isDeleted()) {
+            throw new IllegalStateException("Prescription not found");
+        }
+
+        // Find the replacement prescription
+        Prescription replacement = prescriptionRepository.findById(replacementId)
+                .orElseThrow(() -> new IllegalStateException("Replacement prescription not found"));
+
+        if (!replacement.getTenantId().equals(tenantId) || replacement.isDeleted()) {
+            throw new IllegalStateException("Replacement prescription not found");
+        }
+
+        // Check if prescription can be replaced
+        if (prescription.getStatus() == Prescription.PrescriptionStatus.REPLACED) {
+            throw new IllegalStateException("Prescription has already been replaced");
+        }
+
+        // Store original status for audit
+        Prescription.PrescriptionStatus originalStatus = prescription.getStatus();
+
+        // Update the original prescription status
+        prescription.setStatus(Prescription.PrescriptionStatus.REPLACED);
+        prescription.setNotes(prescription.getNotes() + (notes != null ? "\nReplaced by: " + replacement.getPrescriptionNumber() + ". Notes: " + notes : ""));
+        prescriptionRepository.save(prescription);
+
+        // If the prescription was dispensed, mark billing items as VOIDED
+        if (originalStatus == Prescription.PrescriptionStatus.DISPENSED || 
+            originalStatus == Prescription.PrescriptionStatus.PARTIALLY_DISPENSED) {
+            try {
+                prescriptionBillingService.reversePrescriptionBilling(id);
+            } catch (Exception e) {
+                // Log error but don't fail the replacement operation
+                System.err.println("Failed to mark billing items as VOIDED for replaced prescription " + prescription.getPrescriptionNumber() + ": " + e.getMessage());
+            }
+        }
+
+        // Create audit trail entry for replacement
+        prescriptionAuditService.createAuditEntry(prescription, 
+            com.afyaquik.hms.pharmacy.domain.PrescriptionAudit.ActionType.REPLACED,
+            originalStatus, 
+            Prescription.PrescriptionStatus.REPLACED,
+            "Prescription replaced" + (originalStatus == Prescription.PrescriptionStatus.DISPENSED || originalStatus == Prescription.PrescriptionStatus.PARTIALLY_DISPENSED ? " - billing items marked as VOIDED" : ""),
+            "Prescription replaced by " + replacement.getPrescriptionNumber() + (notes != null ? ". Notes: " + notes : ""));
+
+        return mapEntityToDto(prescription);
     }
 }
 

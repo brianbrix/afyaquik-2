@@ -26,6 +26,11 @@ import { UserProfilePage } from "../../modules/profile";
 import { BillsPage, PaymentsPage } from "../../modules/billing";
 import { DiagnosticsAdminPage } from "../../modules/admin/pages/DiagnosticsAdminPage";
 import { PaymentMethodsAdminPage } from "../../modules/admin/pages/PaymentMethodsAdminPage";
+import { BillingItemsAdminPage } from "../../modules/admin/pages/BillingItemsAdminPage";
+import { BillingItemCategoriesAdminPage } from "../../modules/admin/pages/BillingItemCategoriesAdminPage";
+import { CurrencyManagementPage } from "../../modules/admin/pages/CurrencyManagementPage";
+import { AnalyticsPage } from "../../modules/admin/pages/AnalyticsPage";
+import { AuditLogsPage } from "../../modules/admin/pages/AuditLogsPage";
 import { TeamManagementPage } from "../../modules/team/pages/TeamManagementPage";
 import { TimeOffRequestPage } from "../../modules/timeoff/pages/TimeOffRequestPage";
 import InventoryPage from "../../modules/inventory/pages/InventoryPage";
@@ -67,6 +72,11 @@ export function AppRoutes() {
           <Route path="queue-status-role-matrix" element={<QueueStatusRoleMatrixAdminPage />} />
           <Route path="diagnostics" element={<DiagnosticsAdminPage />} />
           <Route path="payment-methods" element={<PaymentMethodsAdminPage />} />
+          <Route path="billing-items" element={<BillingItemsAdminPage />} />
+          <Route path="billing-item-categories" element={<BillingItemCategoriesAdminPage />} />
+          <Route path="currencies" element={<CurrencyManagementPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="audit-logs" element={<AuditLogsPage />} />
           <Route path="inventory" element={<InventoryPage />} />
         </Route>
       </Route>

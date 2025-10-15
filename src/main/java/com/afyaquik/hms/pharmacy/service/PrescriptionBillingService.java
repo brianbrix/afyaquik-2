@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,7 @@ import com.afyaquik.hms.pharmacy.repository.PrescriptionRepository;
 @Service
 @Transactional
 public class PrescriptionBillingService {
+    private static final Logger log = LoggerFactory.getLogger(PrescriptionBillingService.class);
 
     @Autowired
     private BillRepository billRepository;
@@ -61,9 +64,11 @@ public class PrescriptionBillingService {
 
             if (!itemExists) {
                 BillItem billItem = new BillItem();
+                billItem.setTenantId(tenantId); // Set tenant ID explicitly
                 billItem.setItemCode("MED-" + prescriptionItem.getMedication().getMedicationCode());
                 billItem.setDescription(prescriptionItem.getMedication().getName() + " (" + prescriptionItem.getDosageInstructions() + ")");
                 billItem.setQuantity(BigDecimal.valueOf(prescriptionItem.getQuantityPrescribed()));
+                log.info("Unit price: {}", prescriptionItem.getUnitPrice());
                 billItem.setUnitPrice(prescriptionItem.getUnitPrice());
                 billItem.setServiceCategory("PHARMACY");
                 billItem.setNotes("Prescription: " + prescription.getPrescriptionNumber() + 
@@ -107,6 +112,62 @@ public class PrescriptionBillingService {
         bill.setNotes("Bill created automatically for prescription dispensing");
 
         return billRepository.save(bill);
+    }
+
+    /**
+     * Reverse billing for a replaced prescription.
+     * Marks prescription items as VOIDED instead of removing them from the bill.
+     */
+    public void reversePrescriptionBilling(Long prescriptionId) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        
+        // Get the prescription
+        Prescription prescription = prescriptionRepository.findById(prescriptionId)
+            .orElseThrow(() -> new RuntimeException("Prescription not found"));
+        
+        if (!prescription.getTenantId().equals(tenantId)) {
+            throw new RuntimeException("Access denied to prescription in another tenant");
+        }
+
+        // Find bill for this queue item
+        if (prescription.getQueueItemId() != null) {
+            List<Bill> bills = billRepository.findByTenantIdAndQueueItemIdOrderByCreatedAtDesc(tenantId, prescription.getQueueItemId());
+            
+            if (!bills.isEmpty()) {
+                Bill bill = bills.get(0); // Get the most recent bill
+                
+                // Get prescription items
+                List<PrescriptionItem> prescriptionItems = prescriptionItemRepository.findByTenantIdAndPrescriptionId(tenantId, prescriptionId);
+                
+                // Mark prescription items as VOIDED instead of removing them
+                for (PrescriptionItem prescriptionItem : prescriptionItems) {
+                    // Find the corresponding bill item and mark it as VOIDED
+                    bill.getItems().stream()
+                        .filter(item -> 
+                            item.getDescription().contains(prescriptionItem.getMedication().getName()) 
+                            && item.getNotes() != null 
+                            && item.getNotes().contains("Prescription: " + prescription.getPrescriptionNumber())
+                        )
+                        .forEach(item -> {
+                            // Mark as VOIDED by updating the description and notes
+                            item.setDescription("VOIDED: " + item.getDescription());
+                            item.setNotes(item.getNotes() + " | VOIDED - Prescription replaced on " + java.time.LocalDateTime.now().toString());
+                            
+                            // Set quantity to negative to act like a discount
+                            item.setQuantity(item.getQuantity().negate());
+                            
+                            // Recalculate line total (will be negative)
+                            item.calculateLineTotal();
+                        });
+                }
+                
+                // Update bill totals
+                bill.recalculateAmounts();
+                
+                // Save the updated bill
+                billRepository.save(bill);
+            }
+        }
     }
 
     /**

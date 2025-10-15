@@ -18,20 +18,16 @@ public class FormDefinitionService {
 
     public Optional<FormDefinition> getLatest(String tenantId, String formKey) {
         log.debug("Get latest form definition tenant={} formKey={}", tenantId, formKey);
-        return repo.findTopByTenantIdAndFormKeyOrderByVersionDesc(tenantId, formKey);
+        return repo.findTopByTenantIdAndFormKeyOrderByCreatedAtDesc(tenantId, formKey);
     }
 
     public FormDefinition saveNewVersion(String tenantId, String formKey, String schemaJson) {
         log.info("Save new form version tenant={} formKey={}", tenantId, formKey);
-        int nextVersion = repo.findTopByTenantIdAndFormKeyOrderByVersionDesc(tenantId, formKey)
-                .map(FormDefinition::getVersion)
-                .map(v -> v + 1)
-                .orElse(1);
         FormDefinition def = new FormDefinition();
         def.setTenantId(tenantId);
         def.setFormKey(formKey);
         def.setSchemaJson(schemaJson);
-        def.setVersion(nextVersion);
+        // Version will be automatically set by BaseEntity (starts at 1, increments on updates)
         FormDefinition saved = repo.save(def);
         log.debug("Form definition saved id={} version={}", saved.getId(), saved.getVersion());
         return saved;

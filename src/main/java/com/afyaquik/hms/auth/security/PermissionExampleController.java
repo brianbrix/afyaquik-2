@@ -20,7 +20,7 @@ public class PermissionExampleController {
      * (User > Group > Role hierarchy).
      */
     @GetMapping("/billing-management")
-    @PreAuthorize("hasPermission('MANAGE_BILLING')")
+    @PreAuthorize("hasPermission(null,'MANAGE_BILLING')")
     public String billingManagement() {
         return "You have MANAGE_BILLING permission!";
     }
@@ -29,7 +29,7 @@ public class PermissionExampleController {
      * Example endpoint that requires VIEW_BILLING permission.
      */
     @GetMapping("/billing-view")
-    @PreAuthorize("hasPermission('VIEW_BILLING')")
+    @PreAuthorize("hasPermission(null,'VIEW_BILLING')")
     public String billingView() {
         return "You have VIEW_BILLING permission!";
     }
@@ -38,7 +38,7 @@ public class PermissionExampleController {
      * Example endpoint that requires multiple permissions (both must be granted).
      */
     @GetMapping("/billing-full-access")
-    @PreAuthorize("hasPermission('MANAGE_BILLING') and hasPermission('VIEW_BILLING')")
+    @PreAuthorize("hasPermission(null,'MANAGE_BILLING') and hasPermission('VIEW_BILLING')")
     public String billingFullAccess() {
         return "You have both MANAGE_BILLING and VIEW_BILLING permissions!";
     }
@@ -47,7 +47,7 @@ public class PermissionExampleController {
      * Example endpoint that requires either permission (at least one must be granted).
      */
     @GetMapping("/billing-any-access")
-    @PreAuthorize("hasPermission('MANAGE_BILLING') or hasPermission('VIEW_BILLING')")
+    @PreAuthorize("hasPermission(null,'MANAGE_BILLING') or hasPermission('VIEW_BILLING')")
     public String billingAnyAccess() {
         return "You have at least one billing permission!";
     }

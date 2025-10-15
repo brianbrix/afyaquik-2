@@ -3,6 +3,7 @@ package com.afyaquik.hms.auth.repository;
 import com.afyaquik.hms.auth.domain.StaffUser;
 import com.afyaquik.hms.common.repository.TenantAwareRepository;
 import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -54,4 +55,7 @@ public interface StaffUserRepository extends TenantAwareRepository<StaffUser, Lo
     // Dashboard methods
     long countByTenantIdAndDeletedFalse(String tenantId);
     long countForCurrentTenant();
+    
+    // Analytics methods
+    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
 }

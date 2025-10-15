@@ -42,12 +42,11 @@ export function PaymentsPage() {
     }
   ];
 
-  const { data: payments = mockPayments, isLoading, error } = useQuery({
+  const { data: payments = [], isLoading, error } = useQuery({
     queryKey: ['payments', methodFilter],
     queryFn: async () => {
       try {
-        // TODO: Implement getPayments API endpoint
-        return mockPayments;
+        return await billingApi.getPayments({ method: methodFilter });
       } catch (error) {
         console.error('Error fetching payments:', error);
         return [];
@@ -85,7 +84,7 @@ export function PaymentsPage() {
     return new Date(dateString).toLocaleString();
   };
 
-  const handleAddPayment = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddPayment = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
@@ -98,9 +97,17 @@ export function PaymentsPage() {
       processedBy: formData.get('processedBy') as string
     };
 
-    // TODO: Implement payment creation
-    console.log('Adding payment:', paymentData);
-    setShowAddPaymentModal(false);
+    const billId = parseInt(formData.get('billId') as string);
+
+    try {
+      await billingApi.addPayment(billId, paymentData);
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      Swal.fire('Success!', 'Payment added successfully.', 'success');
+      setShowAddPaymentModal(false);
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      Swal.fire('Error!', 'Failed to add payment.', 'error');
+    }
     
     Swal.fire({
       icon: 'success',

@@ -3,7 +3,9 @@ import { Button, Card, Col, Form, InputGroup, Row, Table, Badge, Modal, Alert, T
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { prescriptionApi, Prescription, PrescriptionRequest } from '../../../services/pharmacyApi';
 import { PrescriptionForm } from '../components/PrescriptionForm';
+import { PrescriptionAuditTrail } from '../../../components/pharmacy/PrescriptionAuditTrail';
 import { useAuth } from '../../../hooks/useAuth';
+import Swal from 'sweetalert2';
 // Icons are used via CSS classes: bi-search, bi-plus, bi-pencil-square, bi-trash, bi-check-circle, bi-x-circle, bi-eye
 
 export function PrescriptionsPage() {
@@ -17,6 +19,8 @@ export function PrescriptionsPage() {
   const [prescriptionToDispense, setPrescriptionToDispense] = useState<Prescription | null>(null);
   const [dispenseNotes, setDispenseNotes] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
+  const [selectedPrescriptionForAudit, setSelectedPrescriptionForAudit] = useState<Prescription | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -63,13 +67,28 @@ export function PrescriptionsPage() {
   });
 
   const dispenseMutation = useMutation({
-    mutationFn: ({ id, dispensedBy, notes }: { id: number; dispensedBy: number; notes?: string }) => 
+    mutationFn: ({ id, dispensedBy, notes }: { id: number; dispensedBy: number; notes?: string }) =>
       prescriptionApi.dispense(id, dispensedBy, notes),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
       setShowDispenseModal(false);
       setPrescriptionToDispense(null);
       setDispenseNotes('');
+    },
+    onError: (error: any) => {
+      console.error('Failed to dispense prescription:', error);
+      
+      // Extract error message from backend response
+      let errorMessage = 'Failed to dispense prescription';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Swal.fire('Error', errorMessage, 'error');
     }
   });
 
@@ -77,6 +96,21 @@ export function PrescriptionsPage() {
     mutationFn: (id: number) => prescriptionApi.cancel(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
+    },
+    onError: (error: any) => {
+      console.error('Failed to cancel prescription:', error);
+      
+      // Extract error message from backend response
+      let errorMessage = 'Failed to cancel prescription';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Swal.fire('Error', errorMessage, 'error');
     }
   });
 
@@ -86,6 +120,21 @@ export function PrescriptionsPage() {
       queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
       setShowDeleteModal(false);
       setPrescriptionToDelete(null);
+    },
+    onError: (error: any) => {
+      console.error('Failed to delete prescription:', error);
+      
+      // Extract error message from backend response
+      let errorMessage = 'Failed to delete prescription';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Swal.fire('Error', errorMessage, 'error');
     }
   });
 
@@ -210,6 +259,10 @@ export function PrescriptionsPage() {
                 onDelete={handleDelete}
                 onDispense={handleDispense}
                 onCancel={handleCancel}
+                onViewAuditTrail={(prescription) => {
+                  setSelectedPrescriptionForAudit(prescription);
+                  setShowAuditTrail(true);
+                }}
                 getStatusBadge={getStatusBadge}
               />
             </Tab>
@@ -221,6 +274,10 @@ export function PrescriptionsPage() {
                 onDelete={handleDelete}
                 onDispense={handleDispense}
                 onCancel={handleCancel}
+                onViewAuditTrail={(prescription) => {
+                  setSelectedPrescriptionForAudit(prescription);
+                  setShowAuditTrail(true);
+                }}
                 getStatusBadge={getStatusBadge}
               />
             </Tab>
@@ -232,6 +289,10 @@ export function PrescriptionsPage() {
                 onDelete={handleDelete}
                 onDispense={handleDispense}
                 onCancel={handleCancel}
+                onViewAuditTrail={(prescription) => {
+                  setSelectedPrescriptionForAudit(prescription);
+                  setShowAuditTrail(true);
+                }}
                 getStatusBadge={getStatusBadge}
               />
             </Tab>
@@ -243,6 +304,10 @@ export function PrescriptionsPage() {
                 onDelete={handleDelete}
                 onDispense={handleDispense}
                 onCancel={handleCancel}
+                onViewAuditTrail={(prescription) => {
+                  setSelectedPrescriptionForAudit(prescription);
+                  setShowAuditTrail(true);
+                }}
                 getStatusBadge={getStatusBadge}
               />
             </Tab>
@@ -334,6 +399,19 @@ export function PrescriptionsPage() {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Audit Trail Modal */}
+      {selectedPrescriptionForAudit && (
+        <PrescriptionAuditTrail
+          show={showAuditTrail}
+          onHide={() => {
+            setShowAuditTrail(false);
+            setSelectedPrescriptionForAudit(null);
+          }}
+          prescriptionId={selectedPrescriptionForAudit.id}
+          prescriptionNumber={selectedPrescriptionForAudit.prescriptionNumber}
+        />
+      )}
     </div>
   );
 }
@@ -345,6 +423,7 @@ interface PrescriptionTableProps {
   onDelete: (prescription: Prescription) => void;
   onDispense: (prescription: Prescription) => void;
   onCancel: (prescription: Prescription) => void;
+  onViewAuditTrail: (prescription: Prescription) => void;
   getStatusBadge: (status: string) => React.ReactNode;
 }
 
@@ -355,6 +434,7 @@ function PrescriptionTable({
   onDelete, 
   onDispense, 
   onCancel, 
+  onViewAuditTrail,
   getStatusBadge 
 }: PrescriptionTableProps) {
   if (isLoading) {
@@ -378,6 +458,7 @@ function PrescriptionTable({
           <th>Date</th>
           <th>Total Amount</th>
           <th>Status</th>
+          <th>Version</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -391,6 +472,9 @@ function PrescriptionTable({
             <td>{new Date(prescription.prescriptionDate).toLocaleDateString()}</td>
             <td>{prescription.totalAmount ? `$${prescription.totalAmount.toFixed(2)}` : '-'}</td>
             <td>{getStatusBadge(prescription.status)}</td>
+            <td>
+              <Badge bg="secondary">v{prescription.version}</Badge>
+            </td>
             <td>
               <div className="d-flex gap-1">
                 {prescription.status === 'PENDING' && (
@@ -415,8 +499,20 @@ function PrescriptionTable({
                   variant="outline-primary"
                   size="sm"
                   onClick={() => onEdit(prescription)}
+                  disabled={prescription.status === 'DISPENSED' || prescription.status === 'PARTIALLY_DISPENSED'}
+                  title={prescription.status === 'DISPENSED' || prescription.status === 'PARTIALLY_DISPENSED' 
+                    ? 'Cannot edit dispensed prescription' 
+                    : 'View/Edit prescription'}
                 >
                   <i className="bi bi-eye"></i>
+                </Button>
+                <Button
+                  variant="outline-info"
+                  size="sm"
+                  onClick={() => onViewAuditTrail(prescription)}
+                  title="View audit trail"
+                >
+                  <i className="bi bi-clock-history"></i>
                 </Button>
                 <Button
                   variant="outline-danger"

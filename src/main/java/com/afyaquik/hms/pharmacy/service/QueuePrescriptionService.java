@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.afyaquik.hms.auth.domain.StaffUser;
 import com.afyaquik.hms.auth.repository.StaffUserRepository;
 import com.afyaquik.hms.patient.repository.PatientRepository;
 import com.afyaquik.hms.pharmacy.api.QueuePrescriptionController.CreateQueuePrescriptionRequest;
@@ -99,6 +100,7 @@ public class QueuePrescriptionService {
         prescription.setPrescriptionDate(LocalDateTime.now());
         prescription.setStatus(Prescription.PrescriptionStatus.PENDING);
         prescription.setNotes(request.getNotes());
+        prescription.setQueueItemId(queueItemId); // Set the queue item ID
 
         Prescription savedPrescription = prescriptionRepository.save(prescription);
 
@@ -147,9 +149,24 @@ public class QueuePrescriptionService {
         dto.setNotes(prescription.getNotes());
         dto.setTotalAmount(prescription.getTotalAmount());
         dto.setDispensedBy(prescription.getDispensedBy());
-        dto.setDispensedByName(prescription.getDispensedBy() != null ? "Dispensed User" : null); // TODO: Get actual dispensed by name
+        // Get actual dispensed by name from user service
+        String dispensedByName = null;
+        if (prescription.getDispensedBy() != null) {
+            try {
+                StaffUser dispensedByUser = staffUserRepository.findById(prescription.getDispensedBy())
+                    .orElse(null);
+                if (dispensedByUser != null) {
+                    dispensedByName = dispensedByUser.getDisplayName();
+                }
+            } catch (Exception e) {
+                // If user lookup fails, use a default name
+                dispensedByName = "User " + prescription.getDispensedBy();
+            }
+        }
+        dto.setDispensedByName(dispensedByName);
         dto.setDispensedAt(prescription.getDispensedAt());
         dto.setDispensingNotes(prescription.getDispensingNotes());
+        dto.setQueueItemId(prescription.getQueueItemId());
         dto.setCreatedAt(prescription.getCreatedAt());
         dto.setUpdatedAt(prescription.getUpdatedAt());
         

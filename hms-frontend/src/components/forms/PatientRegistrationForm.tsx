@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Form, Row, Col, Card, Button, Alert } from 'react-bootstrap';
 import { DynamicForm, DynamicField } from './DynamicForm';
 
@@ -8,9 +8,10 @@ interface PatientRegistrationFormProps {
   loading?: boolean;
   error?: string | null;
   initialData?: any;
+  isModal?: boolean; // New prop to indicate if used in modal
 }
 
-export function PatientRegistrationForm({ onCancel, onSubmit, loading = false, error, initialData }: PatientRegistrationFormProps) {
+export const PatientRegistrationForm = forwardRef<any, PatientRegistrationFormProps>(({ onCancel, onSubmit, loading = false, error, initialData, isModal = false }, ref) => {
   const [formData, setFormData] = useState<any>(initialData || {});
   const [activeSection, setActiveSection] = useState('basic');
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -50,6 +51,24 @@ export function PatientRegistrationForm({ onCancel, onSubmit, loading = false, e
       onSubmit(formData);
     }
   };
+
+  // Expose form data to parent component when used in modal
+  useImperativeHandle(ref, () => ({
+    getFormData: () => formData,
+    validateForm: () => {
+      const requiredFields = ['firstName', 'lastName'];
+      const missingFields = requiredFields.filter(field => !formData[field]);
+      return {
+        isValid: missingFields.length === 0,
+        missingFields,
+        errors: missingFields.map(field => {
+          const fieldLabel = field === 'firstName' ? 'First name' : 
+                           field === 'lastName' ? 'Last name' : field;
+          return `${fieldLabel} is required`;
+        })
+      };
+    }
+  }), [formData]);
 
   const sections = [
     { id: 'basic', title: 'Basic Information', icon: 'bi-person' },
@@ -133,8 +152,11 @@ export function PatientRegistrationForm({ onCancel, onSubmit, loading = false, e
 
 
 
+  const FormWrapper = isModal ? 'div' : 'form';
+  const formProps = isModal ? {} : { onSubmit: handleSubmit };
+
   return (
-    <form onSubmit={handleSubmit} className="patient-registration-form">
+    <FormWrapper {...formProps} className="patient-registration-form">
       <style>{`
         @keyframes fadeInUp {
           from {
@@ -362,7 +384,8 @@ export function PatientRegistrationForm({ onCancel, onSubmit, loading = false, e
                     <i className="bi bi-arrow-right ms-2"></i>
                   </Button>
                 ) : (
-                  <div className="d-flex gap-3">
+                  isModal ? (
+                    // In modal mode, only show Cancel button
                     <Button 
                       variant="outline-secondary" 
                       size="lg"
@@ -383,48 +406,72 @@ export function PatientRegistrationForm({ onCancel, onSubmit, loading = false, e
                     >
                       Cancel
                     </Button>
-                    <Button 
-                      variant="success" 
-                      size="lg"
-                      type="submit" 
-                      disabled={loading}
-                      style={{
-                        transition: 'all 0.3s ease-in-out',
-                        transform: 'translateY(0)',
-                        boxShadow: '0 2px 4px rgba(25, 135, 84, 0.3)',
-                        background: 'linear-gradient(135deg, #198754 0%, #20c997 100%)',
-                        border: 'none'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!loading) {
+                  ) : (
+                    // In standalone mode, show both Cancel and Register buttons
+                    <div className="d-flex gap-3">
+                      <Button 
+                        variant="outline-secondary" 
+                        size="lg"
+                        onClick={onCancel}
+                        style={{
+                          transition: 'all 0.3s ease-in-out',
+                          transform: 'translateY(0)',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                        onMouseEnter={(e) => {
                           e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(25, 135, 84, 0.4)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(25, 135, 84, 0.3)';
-                      }}
-                    >
-                      {loading ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                          Registering...
-                        </>
-                      ) : (
-                        <>
-                          <i className="bi bi-check-circle me-2"></i>
-                          Register Patient
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                          e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        variant="success" 
+                        size="lg"
+                        type="submit"
+                        disabled={loading}
+                        style={{
+                          transition: 'all 0.3s ease-in-out',
+                          transform: 'translateY(0)',
+                          boxShadow: '0 2px 4px rgba(25, 135, 84, 0.3)',
+                          background: 'linear-gradient(135deg, #198754 0%, #20c997 100%)',
+                          border: 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!loading) {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(25, 135, 84, 0.4)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 2px 4px rgba(25, 135, 84, 0.3)';
+                        }}
+                      >
+                        {loading ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Registering...
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-check-circle me-2"></i>
+                            Register Patient
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )
                 )}
               </div>
             </div>
           </Col>
         </Row>
       </div>
-    </form>
+    </FormWrapper>
   );
-}
+});

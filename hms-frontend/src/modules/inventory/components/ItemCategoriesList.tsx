@@ -1,6 +1,6 @@
 import React from 'react';
 import { Table, Button, Badge, Spinner, Alert } from 'react-bootstrap';
-import { type ItemCategory } from '../../../services/inventoryApi';
+import { type ItemCategory, itemCategoryApi } from '../../../services/inventoryApi';
 import Swal from 'sweetalert2';
 
 interface ItemCategoriesListProps {
@@ -29,7 +29,7 @@ const ItemCategoriesList: React.FC<ItemCategoriesListProps> = ({
 
     if (result.isConfirmed) {
       try {
-        // TODO: Implement delete API call
+        await itemCategoryApi.delete(category.id);
         Swal.fire('Deleted!', 'Category has been deleted.', 'success');
         onRefresh();
       } catch (error) {

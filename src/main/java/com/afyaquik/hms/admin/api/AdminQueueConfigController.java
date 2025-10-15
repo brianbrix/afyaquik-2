@@ -1,6 +1,8 @@
 package com.afyaquik.hms.admin.api;
 
 import com.afyaquik.hms.admin.service.QueueStatusRoleMatrixService;
+import com.afyaquik.hms.common.web.ApiResponse;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.*;
@@ -32,12 +34,12 @@ public class AdminQueueConfigController {
 
 	// POST /admin/queue-status-role-matrix
 	@PostMapping("/queue-status-role-matrix")
-	public ResponseEntity<?> setMatrix(@RequestBody Map<String, List<String>> matrix) {
+	public ResponseEntity<ApiResponse<Void>> setMatrix(@RequestBody Map<String, List<String>> matrix) {
 		try {
 			matrixService.setMatrix(matrix);
-			return ResponseEntity.ok().build();
-		} catch (DataIntegrityViolationException ex) {
-			return ResponseEntity.badRequest().body("Duplicate role/status entry: " + ex.getMostSpecificCause().getMessage());
+			return ResponseEntity.ok(ApiResponse.success(null));
+		} catch (Exception ex) {
+			return ResponseEntity.badRequest().body(ApiResponse.error("Error setting role/status entry: " + ex.getMessage()));
 		}
 	}
 }

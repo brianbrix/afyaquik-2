@@ -2,7 +2,6 @@ package com.afyaquik.hms.notification.controller;
 
 import com.afyaquik.hms.notification.domain.NotificationTemplate;
 import com.afyaquik.hms.notification.dto.NotificationTemplateDto;
-import com.afyaquik.hms.notification.dto.NotificationTemplateDto;
 import com.afyaquik.hms.notification.service.NotificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

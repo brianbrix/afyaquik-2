@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.notification.domain.Notification;
 import com.afyaquik.hms.notification.domain.NotificationLevel;
 import com.afyaquik.hms.notification.domain.NotificationTemplate;
@@ -25,13 +26,14 @@ public class NotificationService {
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
     private final NotificationTemplateRepository templateRepository;
     private final NotificationRepository notificationRepository;
-
     private final NotificationEventPublisher notificationEventPublisher;
+    private final EmailService emailService;
 
-    public NotificationService(NotificationTemplateRepository templateRepository, NotificationRepository notificationRepository, NotificationEventPublisher notificationEventPublisher) {
+    public NotificationService(NotificationTemplateRepository templateRepository, NotificationRepository notificationRepository, NotificationEventPublisher notificationEventPublisher, EmailService emailService) {
         this.templateRepository = templateRepository;
         this.notificationRepository = notificationRepository;
         this.notificationEventPublisher = notificationEventPublisher;
+        this.emailService = emailService;
     }
 
     // --- DTO conversion ---
@@ -43,6 +45,7 @@ public class NotificationService {
         dto.setLevel(t.getLevel());
         dto.setContent(t.getContent());
         dto.setVariables(t.getVariables());
+        dto.setTargetRoles(t.getTargetRoles());
         dto.setEnabled(t.isEnabled());
         return dto;
     }
@@ -55,6 +58,7 @@ public class NotificationService {
         t.setLevel(dto.getLevel());
         t.setContent(dto.getContent());
         t.setVariables(dto.getVariables());
+        t.setTargetRoles(dto.getTargetRoles());
         t.setEnabled(dto.isEnabled());
         return t;
     }
@@ -74,7 +78,7 @@ public class NotificationService {
 
     public NotificationTemplateDto create(NotificationTemplateDto dto) {
         NotificationTemplate entity = fromDto(dto);
-        entity.setId(null);
+        entity.setTenantId(TenantHeaderInterceptor.getCurrentTenant());
         return toDto(templateRepository.save(entity));
     }
 
@@ -122,10 +126,15 @@ public class NotificationService {
         notificationRepository.save(notification);
         // Publish over websocket
         notificationEventPublisher.publish(notification);
-        // Log for debugging
+        // Send notification via appropriate channel
         switch (channel.toUpperCase()) {
-            case "IN_APP" -> log.info("[IN-APP][{}][{}] {}", level, recipientId, rendered);
-            case "EMAIL" -> log.info("[EMAIL][{}][{}] {}", level, recipientId, rendered); // TODO: integrate email
+            case "IN_APP" -> {
+                log.info("[IN-APP][{}][{}] {}", level, recipientId, rendered);
+            }
+            case "EMAIL" -> {
+                log.info("[EMAIL][{}][{}] {}", level, recipientId, rendered);
+                sendEmailNotification(recipientId, template.getName(), rendered, level.name());
+            }
             default -> log.info("[{}][{}][{}] {}", channel, level, recipientId, rendered);
         }
     }
@@ -151,6 +160,20 @@ public class NotificationService {
     public List<NotificationDto> getNotificationsForUser(String tenantId, String recipientId) {
         List<Notification> notifications = notificationRepository.findByTenantIdAndRecipientIdOrderBySentAtDesc(tenantId, recipientId);
         return notifications.stream()
+                .map(NotificationDto::new)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get notifications for a specific user filtered by active role
+     * Only returns notifications that are targeted to the user's active role
+     */
+    public List<NotificationDto> getNotificationsForUserByRole(String tenantId, String recipientId, String activeRole) {
+        List<Notification> allNotifications = notificationRepository.findByTenantIdAndRecipientIdOrderBySentAtDesc(tenantId, recipientId);
+        
+        // Filter notifications based on role targeting
+        return allNotifications.stream()
+                .filter(notification -> isNotificationRelevantForRole(notification, activeRole))
                 .map(NotificationDto::new)
                 .collect(Collectors.toList());
     }
@@ -184,5 +207,98 @@ public class NotificationService {
      */
     public int getUnreadCount(String tenantId, String recipientId) {
         return notificationRepository.countByTenantIdAndRecipientIdAndReadFalse(tenantId, recipientId);
+    }
+    
+    /**
+     * Send email notification
+     */
+    private void sendEmailNotification(String recipientId, String subject, String content, String level) {
+        try {
+            // Check if email is configured
+            if (!emailService.isEmailConfigured()) {
+                log.warn("Email not configured, skipping email notification to: {}", recipientId);
+                return;
+            }
+            
+            // Validate email format (basic validation)
+            if (!isValidEmail(recipientId)) {
+                log.warn("Invalid email format: {}", recipientId);
+                return;
+            }
+            
+            // Send the email
+            emailService.sendNotificationEmail(recipientId, subject, content, level);
+            log.info("Email notification sent successfully to: {}", recipientId);
+            
+        } catch (Exception e) {
+            log.error("Failed to send email notification to: {}", recipientId, e);
+            // Don't throw exception to avoid breaking the notification flow
+        }
+    }
+    
+    /**
+     * Basic email validation
+     */
+    private boolean isValidEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return false;
+        }
+        return email.contains("@") && email.contains(".");
+    }
+    
+    /**
+     * Check if a notification is relevant for the given role
+     */
+    private boolean isNotificationRelevantForRole(Notification notification, String activeRole) {
+        // If no active role, show all notifications
+        if (activeRole == null || activeRole.trim().isEmpty()) {
+            log.debug("No active role provided, showing notification: {}", notification.getTemplateCode());
+            return true;
+        }
+        
+        // Get the template for this notification
+        Optional<NotificationTemplate> template = templateRepository.findByCode(notification.getTemplateCode());
+        if (template.isEmpty()) {
+            // If template not found, show the notification (fallback)
+            log.debug("Template not found for notification: {}, showing notification", notification.getTemplateCode());
+            return true;
+        }
+        
+        NotificationTemplate templateEntity = template.get();
+        String targetRoles = templateEntity.getTargetRoles();
+        
+        // If no target roles specified, show to all roles
+        if (targetRoles == null || targetRoles.trim().isEmpty()) {
+            log.debug("No target roles specified for template: {}, showing notification", notification.getTemplateCode());
+            return true;
+        }
+        
+        // Check if the active role is in the target roles
+        String[] roles = targetRoles.split(",");
+        for (String role : roles) {
+            if (role.trim().equalsIgnoreCase(activeRole.trim())) {
+                log.debug("Active role '{}' matches target role '{}' for notification: {}", activeRole, role.trim(), notification.getTemplateCode());
+                return true;
+            }
+        }
+        
+        log.debug("Active role '{}' not in target roles '{}' for notification: {}", activeRole, targetRoles, notification.getTemplateCode());
+        return false;
+    }
+    
+    /**
+     * Send notification to all users with specific roles
+     */
+    @Transactional
+    public void sendNotificationToRoles(String templateCode, Map<String, Object> variables, String[] targetRoles, String channel) {
+        // This would require integration with user service to get users by roles
+        // For now, we'll log the intention
+        log.info("Sending notification '{}' to roles: {}", templateCode, String.join(", ", targetRoles));
+        
+        // TODO: Implement integration with user service to get users by roles
+        // This would involve:
+        // 1. Getting all users with the specified roles
+        // 2. Sending notification to each user
+        // 3. This requires integration with the user/role management system
     }
 }

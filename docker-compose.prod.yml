@@ -1,0 +1,158 @@
+version: '3.8'
+
+services:
+  hms-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: hms-backend
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-production}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://hms-db:5432/${POSTGRES_DB:-hms_db}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-hms_user}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-hms_password}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_SHOW_SQL=false
+      - SERVER_PORT=8080
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info
+      - MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS=always
+      - JWT_SECRET=${JWT_SECRET:-default-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-default-encryption-key-change-in-production}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@${DOMAIN}}
+    networks:
+      - hms-network
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hms-backend.rule=Host(`152.53.164.124`) && PathPrefix(`/hms/api`)"
+      - "traefik.http.routers.hms-backend.entrypoints=websecure"
+      - "traefik.http.routers.hms-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.hms-backend.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.hms-backend-stripprefix.stripprefix.prefixes=/hms/api"
+      - "traefik.http.routers.hms-backend.middlewares=hms-backend-stripprefix"
+    depends_on:
+      - hms-db
+      - hms-redis
+    restart: unless-stopped
+    volumes:
+      - hms-uploads:/app/uploads
+      - hms-logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  hms-frontend:
+    build:
+      context: ./hms-frontend
+      dockerfile: Dockerfile.frontend
+    container_name: hms-frontend
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - VITE_API_BASE_URL=http://152.53.164.124:8080/hms/api
+      - VITE_APP_TITLE=AfyaQuik HMS
+    networks:
+      - hms-network
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hms-frontend.rule=Host(`152.53.164.124`) && PathPrefix(`/hms`)"
+      - "traefik.http.routers.hms-frontend.entrypoints=websecure"
+      - "traefik.http.routers.hms-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.hms-frontend.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.hms-frontend-stripprefix.stripprefix.prefixes=/hms"
+      - "traefik.http.routers.hms-frontend.middlewares=hms-frontend-stripprefix"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  hms-db:
+    image: postgres:15-alpine
+    container_name: hms-db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-hms_db}
+      - POSTGRES_USER=${POSTGRES_USER:-hms_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-hms_password}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    networks:
+      - hms-network
+    volumes:
+      - hms-postgres-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+
+  hms-redis:
+    image: redis:7-alpine
+    container_name: hms-redis
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    networks:
+      - hms-network
+    volumes:
+      - hms-redis-data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+
+  hms-minio:
+    image: minio/minio:latest
+    container_name: hms-minio
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin123}
+    networks:
+      - hms-network
+    volumes:
+      - hms-minio-data:/data
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.3'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+networks:
+  hms-network:
+    driver: bridge
+  traefik_proxy:
+    external: true
+
+volumes:
+  hms-postgres-data:
+  hms-redis-data:
+  hms-minio-data:
+  hms-uploads:
+  hms-logs:

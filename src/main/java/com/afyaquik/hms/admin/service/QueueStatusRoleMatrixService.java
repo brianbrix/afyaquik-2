@@ -3,6 +3,8 @@ package com.afyaquik.hms.admin.service;
 
 import com.afyaquik.hms.admin.entity.QueueStatusRoleVisibility;
 import com.afyaquik.hms.admin.repository.QueueStatusRoleVisibilityRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
@@ -35,7 +37,9 @@ public class QueueStatusRoleMatrixService {
             Set<String> uniqueStatuses = new HashSet<>(statuses); // Deduplicate
             List<QueueStatusRoleVisibility> entities = new ArrayList<>();
             for (String status : uniqueStatuses) {
-                entities.add(new QueueStatusRoleVisibility(role, status));
+                QueueStatusRoleVisibility entity = new QueueStatusRoleVisibility(role, status);
+                entity.setTenantId(TenantHeaderInterceptor.getCurrentTenant());
+                entities.add(entity);
             }
             repository.saveAll(entities);
         }

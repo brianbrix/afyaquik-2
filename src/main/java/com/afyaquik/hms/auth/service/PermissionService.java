@@ -362,5 +362,19 @@ public class PermissionService {
             assignment.getState().name()
         );
     }
+    
+    /**
+     * Check if a user has a specific permission
+     */
+    public boolean hasPermission(String username, String permissionCode) {
+        try {
+            Map<String, String> resolvedPermissions = getResolvedPermissions(username);
+            String permissionValue = resolvedPermissions.get(permissionCode);
+            return "ALLOWED".equals(permissionValue);
+        } catch (Exception e) {
+            log.error("Error checking permission '{}' for user '{}': {}", permissionCode, username, e.getMessage());
+            return false;
+        }
+    }
    
 }

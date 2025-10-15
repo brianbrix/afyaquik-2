@@ -20,8 +20,7 @@ export function BillsPage() {
     queryKey: ['bills', statusFilter],
     queryFn: async () => {
       try {
-        // TODO: Implement getAllBills API endpoint
-        return [];
+        return await billingApi.getAllBills({ status: statusFilter });
       } catch (error) {
         console.error('Error fetching bills:', error);
         return [];
@@ -60,13 +59,32 @@ export function BillsPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const handleCreateBill = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateBill = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    // TODO: Implement bill creation
-    console.log('Creating bill with data:', Object.fromEntries(formData.entries()));
-    setShowCreateModal(false);
+    try {
+      const billData = {
+        patientId: parseInt(formData.get('patientId') as string),
+        patientName: formData.get('patientName') as string,
+        items: [{
+          description: formData.get('description') as string,
+          quantity: parseInt(formData.get('quantity') as string),
+          unitPrice: parseFloat(formData.get('unitPrice') as string),
+          category: formData.get('category') as string,
+          notes: formData.get('notes') as string
+        }],
+        notes: formData.get('notes') as string
+      };
+      
+      await billingApi.createBill(billData);
+      queryClient.invalidateQueries({ queryKey: ['bills'] });
+      Swal.fire('Success!', 'Bill created successfully.', 'success');
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Error creating bill:', error);
+      Swal.fire('Error!', 'Failed to create bill.', 'error');
+    }
   };
 
   const handleStatusUpdate = async (billId: number, newStatus: BillStatus) => {

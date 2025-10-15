@@ -29,6 +29,9 @@ public class StockManagementService {
 
     @Autowired
     private NotificationService notificationService;
+    
+    @Autowired
+    private com.afyaquik.hms.notification.service.UserPermissionService userPermissionService;
 
     private static final Random RANDOM = new Random();
 
@@ -364,13 +367,22 @@ public class StockManagementService {
             variables.put("shortage", aggregateMinimum - totalStock);
             
             // Send notification to users with MANAGE_MEDICATION_INVENTORY permission
-            // For now, we'll send to a generic admin user - this should be enhanced to find users with the permission
-            notificationService.sendNotification(
-                "LOW_STOCK_ALERT", 
-                variables, 
-                "admin", // TODO: Find users with MANAGE_MEDICATION_INVENTORY permission
-                "IN_APP"
-            );
+            List<String> usersWithPermission = userPermissionService.findUsersWithPermission("MANAGE_MEDICATION_INVENTORY");
+            
+            if (usersWithPermission.isEmpty()) {
+                // Fallback to admin if no users found
+                usersWithPermission = List.of("admin");
+            }
+            
+            // Send notification to all users with the permission
+            for (String username : usersWithPermission) {
+                notificationService.sendNotification(
+                    "LOW_STOCK_ALERT", 
+                    variables, 
+                    username,
+                    "IN_APP"
+                );
+            }
         }
     }
 }

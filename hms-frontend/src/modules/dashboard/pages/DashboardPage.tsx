@@ -80,7 +80,7 @@ export function DashboardPage() {
   return (
     <div className="d-flex flex-column gap-3">
       <PageHeader
-        title={`Welcome back, ${user?.firstName || 'User'}`}
+        title={`Welcome back, ${user?.displayName || user?.firstName || user?.username || 'User'}`}
         subtitle={`Role: ${activeRole} • Real-time analytics and personalized insights`}
       />
 

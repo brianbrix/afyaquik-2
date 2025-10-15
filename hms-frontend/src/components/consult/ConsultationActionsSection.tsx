@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { fetchConsultationTitles, ConsultationTitleDto } from '../../services/consultationTitlesApi';
 import { testCatalogApi, diagnosticOrderApi } from '../../services/diagnosticsApi';
+import { medicationApi, queuePrescriptionApi, prescriptionApi, type Medication } from '../../services/pharmacyApi';
 import RichTextEditor from '../shared/RichTextEditor';
 import { Button, Form, Row, Col, InputGroup, Modal, Card, Badge, Table, Alert } from 'react-bootstrap';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 
 export interface ConsultationItem {
@@ -49,6 +51,14 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
   const [editClinicalNotes, setEditClinicalNotes] = useState('');
   const [editInstructions, setEditInstructions] = useState('');
   const [editUrgency, setEditUrgency] = useState<'ROUTINE' | 'STAT' | 'EMERGENCY'>('ROUTINE');
+  
+  // Prescription state
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [currentPrescription, setCurrentPrescription] = useState<Partial<any>>({});
+  const [stockLevels, setStockLevels] = useState<Record<number, number>>({});
+  
+  const { user } = useAuth();
 
   useEffect(() => {
     setItems(initialItems);
@@ -72,6 +82,19 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
   const { data: existingOrders = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery({
     queryKey: ['diagnostic-orders', queueItemId],
     queryFn: () => diagnosticOrderApi.getByQueueItem(queueItemId!),
+    enabled: !!queueItemId,
+  });
+
+  // Fetch medications for prescription
+  const { data: medications = [], isLoading: medicationsLoading } = useQuery({
+    queryKey: ['medications'],
+    queryFn: () => medicationApi.getAll(),
+  });
+
+  // Fetch existing prescriptions for this queue item
+  const { data: existingPrescriptions = [], isLoading: prescriptionsLoading, refetch: refetchPrescriptions } = useQuery({
+    queryKey: ['queue-prescriptions', queueItemId],
+    queryFn: () => queuePrescriptionApi.getByQueueItem(queueItemId!),
     enabled: !!queueItemId,
   });
 
@@ -224,6 +247,261 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
     }
   };
 
+  // Prescription functions
+  const handleAddPrescription = () => {
+    setCurrentPrescription({
+      medicationId: undefined,
+      dosage: '',
+      frequency: '',
+      duration: '',
+      instructions: '',
+      quantity: 1
+    });
+    setShowPrescriptionModal(true);
+  };
+
+  const handleSavePrescription = async () => {
+    if (!currentPrescription.medicationId || !patientId || !user?.id) {
+      Swal.fire('Error', 'Please fill in all required fields', 'error');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      const prescriptionRequest = {
+        patientId: patientId,
+        prescribedById: user.id,
+        notes: currentPrescription.instructions || '',
+        items: [{
+          medicationId: currentPrescription.medicationId,
+          quantityPrescribed: currentPrescription.quantity || 1,
+          dosageInstructions: currentPrescription.dosage || '',
+          frequency: currentPrescription.frequency || '',
+          durationDays: currentPrescription.duration ? parseInt(currentPrescription.duration) : undefined,
+          unitPrice: undefined, // Will be set by backend from medication price
+          notes: currentPrescription.instructions || ''
+        }]
+      };
+
+      await queuePrescriptionApi.createForQueueItem(queueItemId!, prescriptionRequest);
+      await refetchPrescriptions();
+      setShowPrescriptionModal(false);
+      setCurrentPrescription({});
+      Swal.fire('Success', 'Prescription created successfully', 'success');
+    } catch (error: any) {
+      console.error('Failed to create prescription:', error);
+      
+      // Extract error message from backend response
+      let errorMessage = 'Failed to create prescription';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Swal.fire('Error', errorMessage, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditPrescription = (prescription: any) => {
+    setCurrentPrescription(prescription);
+    setShowPrescriptionModal(true);
+  };
+
+  const handleUpdatePrescription = async () => {
+    if (!currentPrescription.id || !currentPrescription.medicationId) {
+      Swal.fire('Error', 'Please fill in all required fields', 'error');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      const updateRequest = {
+        prescriptionNumber: currentPrescription.prescriptionNumber || `RX-${Date.now()}`,
+        patientId: patientId!,
+        prescribedById: user?.id || 1,
+        prescriptionDate: currentPrescription.prescribedAt,
+        notes: currentPrescription.instructions || '',
+        items: [{
+          medicationId: currentPrescription.medicationId,
+          quantityPrescribed: currentPrescription.quantity || 1,
+          dosageInstructions: currentPrescription.dosage || '',
+          frequency: currentPrescription.frequency || '',
+          durationDays: currentPrescription.duration ? parseInt(currentPrescription.duration) : undefined,
+          unitPrice: currentPrescription.unitPrice || undefined,
+          notes: currentPrescription.instructions || ''
+        }]
+      };
+
+      await prescriptionApi.update(currentPrescription.id, updateRequest);
+      await refetchPrescriptions();
+      setShowPrescriptionModal(false);
+      setCurrentPrescription({});
+      Swal.fire('Success', 'Prescription updated successfully', 'success');
+    } catch (error: any) {
+      console.error('Failed to update prescription:', error);
+      
+      // Extract error message from backend response
+      let errorMessage = 'Failed to update prescription';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Swal.fire('Error', errorMessage, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemovePrescription = async (prescriptionId: number) => {
+    const result = await Swal.fire({
+      title: 'Remove Prescription?',
+      text: 'Are you sure you want to remove this prescription?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Remove',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#d33',
+    });
+
+    if (result.isConfirmed) {
+      try {
+        setSubmitting(true);
+        await prescriptionApi.delete(prescriptionId);
+        await refetchPrescriptions();
+        Swal.fire('Success', 'Prescription removed successfully', 'success');
+      } catch (error: any) {
+        console.error('Failed to remove prescription:', error);
+        
+        // Extract error message from backend response
+        let errorMessage = 'Failed to remove prescription';
+        if (error?.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+          errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+        
+        Swal.fire('Error', errorMessage, 'error');
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  };
+
+  const handleReplacePrescription = async (prescription: any) => {
+    const isDispensed = prescription.status === 'DISPENSED' || prescription.status === 'PARTIALLY_DISPENSED';
+    
+    const result = await Swal.fire({
+      title: 'Replace Prescription',
+      html: `
+        <div>
+          <p>Are you sure you want to replace prescription <strong>${prescription.prescriptionNumber}</strong>?</p>
+          ${isDispensed ? `
+            <div class="alert alert-warning">
+              <strong>Warning:</strong> This prescription has been dispensed. 
+              Replacing it will:
+              <ul class="mb-0 mt-2">
+                <li>Create a new prescription</li>
+                <li>Mark the current one as replaced</li>
+                <li><strong>Mark billing items as VOIDED (acts like a discount)</strong></li>
+                <li>Bill items will remain visible but with negative amounts</li>
+              </ul>
+            </div>
+          ` : `
+            <p>This will create a new prescription and mark the current one as replaced.</p>
+          `}
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: isDispensed ? 'Yes, replace and reverse billing!' : 'Yes, replace it!',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#d33',
+    });
+
+    if (result.isConfirmed) {
+      try {
+        setSubmitting(true);
+        
+        // Create a new prescription with the same details
+        // Extract the first item from the prescription items array
+        const originalItem = prescription.items && prescription.items.length > 0 ? prescription.items[0] : null;
+        
+        if (!originalItem) {
+          throw new Error('No prescription items found to replace');
+        }
+
+        const replacementRequest = {
+          patientId: patientId!,
+          prescribedById: user?.id || 1,
+          notes: `Replacement for prescription ${prescription.prescriptionNumber}. Original: ${originalItem.dosageInstructions || 'No instructions'}`,
+          items: [{
+            medicationId: originalItem.medicationId,
+            quantityPrescribed: originalItem.quantityPrescribed,
+            dosageInstructions: originalItem.dosageInstructions,
+            frequency: originalItem.frequency,
+            durationDays: originalItem.durationDays,
+            unitPrice: originalItem.unitPrice || undefined,
+            notes: originalItem.notes
+          }]
+        };
+
+        // Create the replacement prescription
+        console.log('Creating replacement prescription...', replacementRequest);
+        const replacementPrescription = await queuePrescriptionApi.createForQueueItem(queueItemId!, replacementRequest);
+        console.log('Replacement prescription created:', replacementPrescription);
+        
+        // Mark the original prescription as replaced (this will handle billing reversal if dispensed)
+        if (!user?.id) {
+          throw new Error('User ID not available. Please refresh the page and try again.');
+        }
+        console.log('Marking original prescription as replaced...', prescription.id, replacementPrescription.id);
+        await prescriptionApi.replace(prescription.id, replacementPrescription.id, user.id, 
+          isDispensed ? 'Prescription replaced by doctor - billing reversed' : 'Prescription replaced by doctor');
+        console.log('Original prescription marked as replaced');
+        
+        // Refetch prescriptions to get updated data
+        await refetchPrescriptions();
+        
+        Swal.fire({
+          title: 'Success', 
+          text: isDispensed 
+            ? 'Prescription replaced successfully. Billing items have been marked as VOIDED and will act like discounts.' 
+            : 'Prescription replaced successfully',
+          icon: 'success'
+        });
+      } catch (error: any) {
+        console.error('Failed to replace prescription:', error);
+        
+        // Extract error message from backend response
+        let errorMessage = 'Failed to replace prescription';
+        if (error?.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+          errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+        
+        Swal.fire('Error', errorMessage, 'error');
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  };
+
   return (
     <div className="mb-2">
       <div className="fw-semibold mb-2">Consultation Actions</div>
@@ -362,6 +640,98 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
         ) : (
           <div className="text-muted small mb-3">
             No diagnostic orders created yet
+          </div>
+        )}
+      </div>
+
+      {/* Prescriptions Section */}
+      <div className="mb-3">
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <h6 className="mb-0">Prescriptions</h6>
+          <Button 
+            variant="outline-primary" 
+            size="sm"
+            onClick={handleAddPrescription}
+            disabled={submitting}
+          >
+            <i className="bi bi-plus-circle me-1"></i>
+            Add Prescription
+          </Button>
+        </div>
+        
+        {existingPrescriptions.length > 0 ? (
+          <Table responsive size="sm" hover>
+            <thead>
+              <tr>
+                <th>Prescription #</th>
+                <th>Medication</th>
+                <th>Dosage</th>
+                <th>Frequency</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {existingPrescriptions.map((prescription) => (
+                <tr key={prescription.id}>
+                  <td>
+                    <div className="fw-semibold">{prescription.prescriptionNumber}</div>
+                    <small className="text-muted">
+                      {new Date(prescription.prescriptionDate).toLocaleDateString()}
+                    </small>
+                  </td>
+                  <td>
+                    {prescription.items?.map((item: any) => item.medicationName).join(', ')}
+                  </td>
+                  <td>{prescription.items?.[0]?.dosageInstructions}</td>
+                  <td>{prescription.items?.[0]?.frequency}</td>
+                  <td>
+                    {prescription.items?.[0]?.durationDays ? `${prescription.items[0].durationDays} days` : '—'}
+                  </td>
+                  <td>
+                    <Badge bg={prescription.status === 'PENDING' ? 'warning' : 'success'}>
+                      {prescription.status}
+                    </Badge>
+                  </td>
+                  <td>
+                    <div className="d-flex gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline-primary"
+                        onClick={() => handleEditPrescription(prescription)}
+                        disabled={submitting || prescription.status === 'DISPENSED' || prescription.status === 'PARTIALLY_DISPENSED'}
+                        title={prescription.status === 'DISPENSED' || prescription.status === 'PARTIALLY_DISPENSED' ? 'Cannot edit dispensed prescription' : 'Edit prescription'}
+                      >
+                        <i className="bi bi-pencil"></i>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline-warning"
+                        onClick={() => handleReplacePrescription(prescription)}
+                        disabled={submitting}
+                        title="Replace prescription"
+                      >
+                        <i className="bi bi-arrow-repeat"></i>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline-danger"
+                        onClick={() => handleRemovePrescription(prescription.id)}
+                        disabled={submitting || prescription.status === 'DISPENSED' || prescription.status === 'PARTIALLY_DISPENSED'}
+                        title={prescription.status === 'DISPENSED' || prescription.status === 'PARTIALLY_DISPENSED' ? 'Cannot delete dispensed prescription' : 'Delete prescription'}
+                      >
+                        <i className="bi bi-trash"></i>
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : (
+          <div className="text-muted small mb-3">
+            No prescriptions created yet
           </div>
         )}
       </div>
@@ -545,6 +915,130 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
           </Button>
           <Button variant="primary" onClick={handleUpdateOrder}>
             Update Order
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Prescription Modal */}
+      <Modal show={showPrescriptionModal} onHide={() => setShowPrescriptionModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {currentPrescription.id ? 'Edit Prescription' : 'Add Prescription'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Medication *</Form.Label>
+                  <Form.Select
+                    value={currentPrescription.medicationId || ''}
+                    onChange={(e) => setCurrentPrescription(prev => ({ 
+                      ...prev, 
+                      medicationId: e.target.value ? Number(e.target.value) : undefined 
+                    }))}
+                  >
+                    <option value="">Select medication</option>
+                    {medications.map(med => (
+                      <option key={med.id} value={med.id}>
+                        {med.name} ({med.medicationCode || med.id})
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Quantity *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    min="1"
+                    value={currentPrescription.quantity || ''}
+                    onChange={(e) => setCurrentPrescription(prev => ({ 
+                      ...prev, 
+                      quantity: Number(e.target.value) 
+                    }))}
+                    placeholder="1"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Dosage</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={currentPrescription.dosage || ''}
+                    onChange={(e) => setCurrentPrescription(prev => ({ 
+                      ...prev, 
+                      dosage: e.target.value 
+                    }))}
+                    placeholder="e.g., 500mg"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Frequency</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={currentPrescription.frequency || ''}
+                    onChange={(e) => setCurrentPrescription(prev => ({ 
+                      ...prev, 
+                      frequency: e.target.value 
+                    }))}
+                    placeholder="e.g., Twice daily"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Duration (days)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    min="1"
+                    value={currentPrescription.duration || ''}
+                    onChange={(e) => setCurrentPrescription(prev => ({ 
+                      ...prev, 
+                      duration: e.target.value 
+                    }))}
+                    placeholder="7"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Instructions</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                value={currentPrescription.instructions || ''}
+                onChange={(e) => setCurrentPrescription(prev => ({ 
+                  ...prev, 
+                  instructions: e.target.value 
+                }))}
+                placeholder="Enter prescription instructions..."
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowPrescriptionModal(false)}>
+            Cancel
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={currentPrescription.id ? handleUpdatePrescription : handleSavePrescription}
+            disabled={submitting || !currentPrescription.medicationId}
+          >
+            {submitting ? 'Saving...' : (currentPrescription.id ? 'Update Prescription' : 'Create Prescription')}
           </Button>
         </Modal.Footer>
       </Modal>

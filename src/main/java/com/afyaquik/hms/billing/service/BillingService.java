@@ -8,12 +8,15 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.afyaquik.hms.billing.domain.Bill;
 import com.afyaquik.hms.billing.domain.BillItem;
 import com.afyaquik.hms.billing.domain.BillStatus;
+import com.afyaquik.hms.billing.domain.Discount;
 import com.afyaquik.hms.billing.domain.Payment;
 import com.afyaquik.hms.billing.domain.PaymentMethod;
 import com.afyaquik.hms.billing.domain.PaymentStatus;
@@ -21,6 +24,7 @@ import com.afyaquik.hms.billing.dto.BillDto;
 import com.afyaquik.hms.billing.dto.BillItemDto;
 import com.afyaquik.hms.billing.dto.CreateBillItemRequest;
 import com.afyaquik.hms.billing.dto.CreateBillRequest;
+import com.afyaquik.hms.billing.dto.DiscountDto;
 import com.afyaquik.hms.billing.dto.CreatePaymentRequest;
 import com.afyaquik.hms.billing.dto.PaymentDto;
 import com.afyaquik.hms.billing.dto.PaymentMethodDto;
@@ -66,20 +70,27 @@ public class BillingService {
         bill.setDueDate(request.dueDate());
         bill.setPaymentTerms(request.paymentTerms());
         bill.setNotes(request.notes());
+        
+        // Set created by user (inherited from BaseEntity)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            bill.setCreatedBy(auth.getName());
+        }
 
         // Add bill items
         if (request.items() != null) {
             for (CreateBillItemRequest itemRequest : request.items()) {
                 BillItem item = new BillItem();
-                item.setItemCode(itemRequest.itemCode());
-                item.setDescription(itemRequest.description());
-                item.setQuantity(itemRequest.quantity());
-                item.setUnitPrice(itemRequest.unitPrice());
-                item.setDiscountPercentage(itemRequest.discountPercentage() != null ? itemRequest.discountPercentage() : BigDecimal.ZERO);
-                item.setDiscountAmount(itemRequest.discountAmount() != null ? itemRequest.discountAmount() : BigDecimal.ZERO);
-                item.setTaxRate(itemRequest.taxRate() != null ? itemRequest.taxRate() : BigDecimal.ZERO);
-                item.setServiceCategory(itemRequest.serviceCategory());
-                item.setNotes(itemRequest.notes());
+                item.setItemCode(itemRequest.getItemCode());
+                item.setTenantId(tenantId);
+                item.setDescription(itemRequest.getDescription());
+                item.setQuantity(itemRequest.getQuantity());
+                item.setUnitPrice(itemRequest.getUnitPrice());
+                item.setDiscountPercentage(itemRequest.getDiscountPercentage() != null ? itemRequest.getDiscountPercentage() : BigDecimal.ZERO);
+                item.setDiscountAmount(itemRequest.getDiscountAmount() != null ? itemRequest.getDiscountAmount() : BigDecimal.ZERO);
+                item.setTaxRate(itemRequest.getTaxRate() != null ? itemRequest.getTaxRate() : BigDecimal.ZERO);
+                item.setServiceCategory(itemRequest.getServiceCategory());
+                item.setNotes(itemRequest.getNotes());
                 item.calculateLineTotal();
                 bill.addItem(item);
             }
@@ -149,12 +160,17 @@ public class BillingService {
         Payment payment = new Payment();
         payment.setPaymentNumber(generatePaymentNumber());
         payment.setAmount(request.amount());
+        payment.setTenantId(tenantId);
         payment.setPaymentMethod(paymentMethod);
         payment.setPaymentDate(request.paymentDate());
         payment.setReferenceNumber(request.referenceNumber());
         payment.setNotes(request.notes());
         payment.setProcessedBy(request.processedBy());
         payment.setStatus(PaymentStatus.COMPLETED);
+        
+        // Debug logging
+        log.info("Creating payment with paymentMethodId: {}, paymentMethod: {}", 
+                paymentMethod.getId(), paymentMethod.getName());
 
         bill.addPayment(payment);
 
@@ -227,6 +243,7 @@ public class BillingService {
             bill.getNotes(),
             bill.getItems().stream().map(this::toItemDto).collect(Collectors.toList()),
             bill.getPayments().stream().map(this::toPaymentDto).collect(Collectors.toList()),
+            bill.getDiscounts().stream().map(this::toDiscountDto).collect(Collectors.toList()),
             bill.getCreatedAt(),
             bill.getUpdatedAt()
         );
@@ -285,5 +302,78 @@ public class BillingService {
         dto.setProcessingFeePercentage(paymentMethod.getProcessingFeePercentage());
         dto.setSortOrder(paymentMethod.getSortOrder());
         return dto;
+    }
+
+    /**
+     * Convert Discount entity to DTO.
+     */
+    private DiscountDto toDiscountDto(Discount discount) {
+        DiscountDto dto = new DiscountDto();
+        dto.setId(discount.getId());
+        dto.setBillId(discount.getBill().getId());
+        dto.setDescription(discount.getDescription());
+        dto.setType(discount.getType());
+        dto.setDiscountValue(discount.getDiscountValue());
+        dto.setDiscountAmount(discount.getDiscountAmount());
+        dto.setAppliedBy(discount.getAppliedBy());
+        dto.setAppliedAt(discount.getAppliedAt());
+        return dto;
+    }
+
+    /**
+     * Delete a bill if it's not paid and created by the current user.
+     */
+    @Transactional
+    public void deleteBill(String tenantId, Long billId) {
+        Bill bill = billRepository.findById(billId)
+            .orElseThrow(() -> new RuntimeException("Bill not found"));
+        
+        if (!bill.getTenantId().equals(tenantId)) {
+            throw new RuntimeException("Bill not found");
+        }
+        
+        if (bill.getStatus() == BillStatus.PAID) {
+            throw new RuntimeException("Cannot delete a paid bill");
+        }
+        
+        // Check if current user created the bill
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getName() == null) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        if (bill.getCreatedBy() == null || !bill.getCreatedBy().equals(auth.getName())) {
+            throw new RuntimeException("Only the user who created the bill can delete it");
+        }
+        
+        billRepository.delete(bill);
+        log.info("Deleted bill {} for patient {} by user {}", bill.getBillNumber(), bill.getPatientId(), auth.getName());
+    }
+
+    /**
+     * Cancel a bill if it's not paid.
+     */
+    @Transactional
+    public BillDto cancelBill(String tenantId, Long billId) {
+        Bill bill = billRepository.findById(billId)
+            .orElseThrow(() -> new RuntimeException("Bill not found"));
+        
+        if (!bill.getTenantId().equals(tenantId)) {
+            throw new RuntimeException("Bill not found");
+        }
+        
+        if (bill.getStatus() == BillStatus.PAID) {
+            throw new RuntimeException("Cannot cancel a paid bill");
+        }
+        
+        if (bill.getStatus() == BillStatus.CANCELLED) {
+            throw new RuntimeException("Bill is already cancelled");
+        }
+        
+        bill.setStatus(BillStatus.CANCELLED);
+        Bill savedBill = billRepository.save(bill);
+        log.info("Cancelled bill {} for patient {}", bill.getBillNumber(), bill.getPatientId());
+        
+        return toDto(savedBill);
     }
 }

@@ -43,6 +43,9 @@ public abstract class BaseEntity {
     @Column(name = "updated_by", length = 255)
     private String updatedBy;
 
+    @Column(name = "version", nullable = false)
+    private Long version = 1L;
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
@@ -56,6 +59,7 @@ public abstract class BaseEntity {
     protected void onUpdate() {
         this.updatedAt = Instant.now();
         this.updatedBy = getCurrentUser();
+        this.version = this.version + 1;
     }
 
     public Long getId() {
@@ -109,6 +113,14 @@ public abstract class BaseEntity {
 
     public void setUpdatedBy(String updatedBy) {
         this.updatedBy = updatedBy;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     /** Optional helper to display in Nairobi time */

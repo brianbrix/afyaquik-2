@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useRoleContext } from '../../hooks/useRoleContext';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { Badge, Dropdown, Spinner } from 'react-bootstrap';
@@ -43,6 +44,7 @@ const markAllNotificationsAsRead = async (): Promise<void> => {
 
 export const NotificationBell: React.FC = () => {
   const { user } = useAuth();
+  const { activeRole } = useRoleContext();
   const queryClient = useQueryClient();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -52,7 +54,7 @@ export const NotificationBell: React.FC = () => {
 
   // Fetch notifications from API
   const { data: apiNotifications = [], isLoading, error } = useQuery({
-    queryKey: ['notifications', user?.id],
+    queryKey: ['notifications', user?.id, activeRole],
     queryFn: fetchNotifications,
     enabled: !!user?.id,
     refetchInterval: 30000, // Refetch every 30 seconds
@@ -83,8 +85,8 @@ export const NotificationBell: React.FC = () => {
           const notif: Notification = JSON.parse(msg.body);
           setNotifications((prev) => [notif, ...prev]);
           setUnreadCount((prev) => prev + 1);
-          // Invalidate and refetch notifications
-          queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+          // Invalidate and refetch notifications with active role
+          queryClient.invalidateQueries({ queryKey: ['notifications', user?.id, activeRole] });
         } catch (error) {
           console.error('Error parsing notification:', error);
         }
@@ -101,7 +103,7 @@ export const NotificationBell: React.FC = () => {
     return () => {
       client.deactivate();
     };
-  }, [tenantId, recipientId, user?.id, queryClient]);
+  }, [tenantId, recipientId, user?.id, activeRole, queryClient]);
 
   // Mutation for marking all notifications as read
   const markAllReadMutation = useMutation({
@@ -109,7 +111,7 @@ export const NotificationBell: React.FC = () => {
     onSuccess: () => {
       setNotifications((prev) => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id, activeRole] });
     },
     onError: (error) => {
       console.error('Failed to mark all notifications as read:', error);
@@ -160,7 +162,12 @@ export const NotificationBell: React.FC = () => {
       </Dropdown.Toggle>
       <Dropdown.Menu style={{minWidth:320, maxHeight:400, overflowY:'auto'}}>
         <Dropdown.Header className="d-flex justify-content-between align-items-center">
-          <span>Notifications</span>
+          <div>
+            <span>Notifications</span>
+            {activeRole && (
+              <small className="text-muted d-block">Role: {activeRole}</small>
+            )}
+          </div>
           {isLoading && <Spinner animation="border" size="sm" />}
         </Dropdown.Header>
         

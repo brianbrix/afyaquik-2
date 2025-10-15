@@ -73,6 +73,10 @@ export const profileApi = {
   updateCurrent: (profile: Partial<UserProfile>) =>
     apiClient.put<ApiEnvelope<UserProfile>>('/profile/me', profile).then(res => res.data.data),
 
+  // Update profile (alias for updateCurrent)
+  updateProfile: (profile: Partial<UserProfile>) =>
+    apiClient.put<ApiEnvelope<UserProfile>>('/profile/me', profile).then(res => res.data.data),
+
   // Update profile by ID (admin)
   update: (id: number, profile: Partial<UserProfile>) =>
     apiClient.put<ApiEnvelope<UserProfile>>(`/profile/${id}`, profile).then(res => res.data.data),

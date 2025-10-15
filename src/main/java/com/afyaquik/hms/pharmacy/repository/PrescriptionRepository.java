@@ -81,5 +81,9 @@ public interface PrescriptionRepository extends TenantAwareRepository<Prescripti
 
     @Query("SELECT p FROM Prescription p WHERE p.tenantId = :tenantId AND p.dispensedAt BETWEEN :startDate AND :endDate AND p.deleted = false")
     List<Prescription> findByTenantIdAndDispensedAtBetween(@Param("tenantId") String tenantId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    
+    // Analytics methods
+    long countByTenantIdAndDeletedFalse(String tenantId);
+    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
 }
 

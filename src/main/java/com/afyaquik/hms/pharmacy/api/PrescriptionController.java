@@ -123,6 +123,17 @@ public class PrescriptionController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @PostMapping("/{id}/replace")
+    public ResponseEntity<ApiResponse<PrescriptionDto>> replace(
+            @PathVariable Long id,
+            @RequestParam("replacementId") Long replacementId,
+            @RequestParam("replacedBy") Long replacedBy,
+            @RequestParam(value = "notes", required = false) String notes) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        PrescriptionDto response = prescriptionService.replace(tenantId, id, replacementId, replacedBy, notes);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();

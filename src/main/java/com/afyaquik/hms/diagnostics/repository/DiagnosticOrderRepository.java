@@ -1,5 +1,6 @@
 package com.afyaquik.hms.diagnostics.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -90,4 +91,8 @@ public interface DiagnosticOrderRepository extends TenantAwareRepository<Diagnos
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return countByTenantIdAndStatus(tenantId, status);
     }
+    
+    // Analytics methods
+    long countByTenantIdAndDeletedFalse(String tenantId);
+    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
 }

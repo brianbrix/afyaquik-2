@@ -9,6 +9,7 @@ public class NotificationTemplateDto {
     private NotificationLevel level;
     private String content;
     private String variables;
+    private String targetRoles;
     private boolean enabled;
 
     public Long getId() { return id; }
@@ -23,6 +24,8 @@ public class NotificationTemplateDto {
     public void setContent(String content) { this.content = content; }
     public String getVariables() { return variables; }
     public void setVariables(String variables) { this.variables = variables; }
+    public String getTargetRoles() { return targetRoles; }
+    public void setTargetRoles(String targetRoles) { this.targetRoles = targetRoles; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 }

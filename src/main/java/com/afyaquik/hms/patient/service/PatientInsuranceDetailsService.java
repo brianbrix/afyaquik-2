@@ -2,12 +2,13 @@
 
 package com.afyaquik.hms.patient.service;
 
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.insurance.domain.InsurancePlan;
 import com.afyaquik.hms.insurance.domain.InsuranceProvider;
 import com.afyaquik.hms.insurance.repository.InsurancePlanRepository;
 import com.afyaquik.hms.insurance.repository.InsuranceProviderRepository;
 import com.afyaquik.hms.patient.domain.Patient;
-import com.afyaquik.hms.patient.model.PatientInsuranceDetails;
+import com.afyaquik.hms.patient.domain.PatientInsuranceDetails;
 import com.afyaquik.hms.patient.repository.PatientInsuranceDetailsRepository;
 import com.afyaquik.hms.patient.repository.PatientRepository;
 import com.afyaquik.hms.patient.dto.PatientInsuranceDetailsDto;
@@ -87,6 +88,7 @@ public class PatientInsuranceDetailsService {
         }
         details.setProvider(provider);
         details.setPlan(plan);
+        details.setTenantId(TenantHeaderInterceptor.getCurrentTenant());
         details.setPolicyNumber(dto.getPolicyNumber());
         details.setCoverageType(dto.getCoverageType());
         details.setExpiryDate(dto.getExpiryDate());

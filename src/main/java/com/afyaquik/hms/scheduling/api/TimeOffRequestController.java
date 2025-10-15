@@ -3,7 +3,6 @@ package com.afyaquik.hms.scheduling.api;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -63,9 +62,6 @@ public class TimeOffRequestController {
             @RequestParam(defaultValue = "submittedAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
         
-        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
-        Pageable pageable = PageRequest.of(page, size, sort);
-        
         List<TimeOffRequestDto> response = timeOffRequestService.getMyTimeOffRequests(
                 getCurrentUserId());
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -77,9 +73,6 @@ public class TimeOffRequestController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "submittedAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
-        
-        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
-        Pageable pageable = PageRequest.of(page, size, sort);
         
         List<TimeOffRequestDto> response = timeOffRequestService.getPendingReviews(
                 getCurrentUserId());
@@ -125,11 +118,10 @@ public class TimeOffRequestController {
 
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
-            // Extract user ID from username or principal
-            // For now, we'll need to get the user ID from the user service
-            // This is a temporary solution - in a real implementation, you'd store the user ID in the JWT token
-            return 1L; // TODO: Implement proper user ID extraction
+        if (authentication != null && authentication.getPrincipal() instanceof com.afyaquik.hms.auth.security.TenantUserDetails) {
+            com.afyaquik.hms.auth.security.TenantUserDetails userDetails = 
+                (com.afyaquik.hms.auth.security.TenantUserDetails) authentication.getPrincipal();
+            return userDetails.getUser().getId();
         }
         throw new RuntimeException("User not authenticated");
     }

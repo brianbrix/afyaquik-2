@@ -29,8 +29,12 @@ function unwrap<T>(payload: any): T {
   return payload as T;
 }
 
-export async function fetchQueueByStatus(status: QueueStatus): Promise<QueueSummary[]> {
-  const response = await apiClient.get("/queue", { params: { status } });
+export async function fetchQueueByStatus(status: QueueStatus, startDate?: string, endDate?: string): Promise<QueueSummary[]> {
+  const params: any = { status };
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  
+  const response = await apiClient.get("/queue", { params });
   const unwrapped = unwrap<unknown>(response.data);
   return Array.isArray(unwrapped) ? (unwrapped as QueueSummary[]) : [];
 }

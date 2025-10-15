@@ -1,20 +1,18 @@
-package com.afyaquik.hms.patient.model;
+package com.afyaquik.hms.patient.domain;
 
+import com.afyaquik.hms.common.domain.BaseEntity;
 import com.afyaquik.hms.insurance.domain.InsurancePlan;
 import com.afyaquik.hms.insurance.domain.InsuranceProvider;
-import com.afyaquik.hms.patient.domain.Patient;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDate;
 
 @Entity
+@Table(name = "patient_insurance_details")
 @Getter
 @Setter
-public class PatientInsuranceDetails {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class PatientInsuranceDetails extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id", nullable = false)

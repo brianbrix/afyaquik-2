@@ -1,14 +1,12 @@
 package com.afyaquik.hms.auth.domain;
 
+import com.afyaquik.hms.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import java.util.Objects;
 
 @Entity
 @Table(name = "permissions")
-public class Permission {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class Permission extends BaseEntity {
 
     @Column(nullable = false, unique = true)
     private String code; // e.g. CREATE_PATIENT
@@ -21,8 +19,6 @@ public class Permission {
         this.code = code;
         this.description = description;
     }
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
     public String getDescription() { return description; }

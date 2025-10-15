@@ -23,6 +23,7 @@ public class PrescriptionDto {
     private String dispensedByName;
     private LocalDateTime dispensedAt;
     private String dispensingNotes;
+    private Long queueItemId;
     private List<PrescriptionItemDto> items;
     private Instant createdAt;
     private Instant updatedAt;
@@ -149,6 +150,14 @@ public class PrescriptionDto {
 
     public void setDispensingNotes(String dispensingNotes) {
         this.dispensingNotes = dispensingNotes;
+    }
+
+    public Long getQueueItemId() {
+        return queueItemId;
+    }
+
+    public void setQueueItemId(Long queueItemId) {
+        this.queueItemId = queueItemId;
     }
 
     public List<PrescriptionItemDto> getItems() {

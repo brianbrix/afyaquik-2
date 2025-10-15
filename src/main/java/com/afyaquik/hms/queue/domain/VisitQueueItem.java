@@ -14,7 +14,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 
-import com.afyaquik.hms.patient.model.PatientInsuranceDetails;
+import com.afyaquik.hms.patient.domain.PatientInsuranceDetails;
 import java.util.Set;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.JoinTable;

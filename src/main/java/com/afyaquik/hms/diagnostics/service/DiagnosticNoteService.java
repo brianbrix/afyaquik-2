@@ -15,6 +15,8 @@ import com.afyaquik.hms.diagnostics.domain.DiagnosticNote;
 import com.afyaquik.hms.diagnostics.dto.CreateDiagnosticNoteRequest;
 import com.afyaquik.hms.diagnostics.dto.DiagnosticNoteDto;
 import com.afyaquik.hms.diagnostics.repository.DiagnosticNoteRepository;
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.auth.domain.StaffUser;
 
 @Service
 @Transactional
@@ -22,6 +24,9 @@ public class DiagnosticNoteService {
 
     @Autowired
     private DiagnosticNoteRepository diagnosticNoteRepository;
+    
+    @Autowired
+    private StaffUserRepository staffUserRepository;
 
     public DiagnosticNoteDto createNote(CreateDiagnosticNoteRequest request) {
         DiagnosticNote note = new DiagnosticNote();
@@ -35,7 +40,7 @@ public class DiagnosticNoteService {
         if (authentication != null && authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails) {
             String username = authentication.getName();
             note.setAddedBy(username);
-            note.setAddedByName(username); // TODO: Get display name from user service
+            note.setAddedByName(getDisplayName(username));
         } else {
             note.setAddedBy("system");
             note.setAddedByName("System");
@@ -82,5 +87,18 @@ public class DiagnosticNoteService {
         dto.setAddedByName(note.getAddedByName());
         dto.setAddedAt(note.getAddedAt());
         return dto;
+    }
+    
+    private String getDisplayName(String username) {
+        try {
+            String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+            StaffUser user = staffUserRepository.findByTenantIdAndUsernameAndDeletedFalse(tenantId, username);
+            if (user != null && user.getDisplayName() != null) {
+                return user.getDisplayName();
+            }
+        } catch (Exception e) {
+            // Log error if needed, but don't fail the operation
+        }
+        return username; // Fallback to username
     }
 }

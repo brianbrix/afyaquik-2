@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, Row, Col, Button, Card, Image } from 'react-bootstrap';
+import { Form, Row, Col, Button, Card, Image, Spinner } from 'react-bootstrap';
 import { UserProfile } from '../../../services/profileApi';
 
 interface PersonalInfoSectionProps {

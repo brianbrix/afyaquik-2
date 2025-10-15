@@ -114,16 +114,31 @@ export const billingApi = {
   getBillsByQueueItem: (queueItemId: number) =>
     apiClient.get<ApiEnvelope<Bill[]>>(`/billing/bills/queue/${queueItemId}`).then(res => res.data.data),
 
+  getAllBills: (params?: { status?: string; patientId?: number }) =>
+    apiClient.get<ApiEnvelope<Bill[]>>('/billing/bills', { params }).then(res => res.data.data),
+
   updateBillStatus: (billId: number, status: BillStatus) =>
     apiClient.patch<ApiEnvelope<Bill>>(`/billing/bills/${billId}/status?status=${status}`).then(res => res.data.data),
 
+  deleteBill: (billId: number) =>
+    apiClient.delete<ApiEnvelope<void>>(`/billing/bills/${billId}`).then(res => res.data.data),
+
+  cancelBill: (billId: number) =>
+    apiClient.patch<ApiEnvelope<Bill>>(`/billing/bills/${billId}/cancel`).then(res => res.data.data),
+
+  deleteBillItem: (billId: number, itemId: number) =>
+    apiClient.delete<ApiEnvelope<void>>(`/billing/bills/${billId}/items/${itemId}`).then(res => res.data.data),
+
   // Payments
+  getPayments: (params?: { method?: string; status?: string }) =>
+    apiClient.get<ApiEnvelope<Payment[]>>('/billing/payments', { params }).then(res => res.data.data),
+
   addPayment: (billId: number, request: CreatePaymentRequest) =>
     apiClient.post<ApiEnvelope<Bill>>(`/billing/bills/${billId}/payments`, request).then(res => res.data.data),
 
   // Reference data
   getPaymentMethods: () =>
-    apiClient.get<ApiEnvelope<string[]>>('/billing/payment-methods').then(res => res.data.data),
+    apiClient.get<ApiEnvelope<any[]>>('/billing/payment-methods').then(res => res.data.data),
 
   getBillStatuses: () =>
     apiClient.get<ApiEnvelope<string[]>>('/billing/bill-statuses').then(res => res.data.data),

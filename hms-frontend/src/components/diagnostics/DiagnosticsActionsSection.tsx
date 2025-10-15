@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
 import RichTextEditor from '../shared/RichTextEditor';
 import { apiClient } from '../../services/apiClient';
+import { useAuth } from '../../hooks/useAuth';
 
 interface DiagnosticsActionsSectionProps {
   queueItemId?: number;
@@ -15,6 +16,7 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
   queueItemId,
   patientId
 }) => {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -343,8 +345,8 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
             resultValue: fieldValue,
             resultText: template.fieldType === 'TEXT' ? fieldValue : null,
             status: 'COMPLETED',
-            performedBy: 'current-user', // TODO: Get from auth context
-            performedByName: 'Current User' // TODO: Get from auth context
+            performedBy: user?.id?.toString() || 'current-user',
+            performedByName: user?.displayName || user?.username || 'Current User'
           };
 
           if (existingResult) {

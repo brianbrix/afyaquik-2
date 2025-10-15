@@ -1,30 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Button, Row, Col } from 'react-bootstrap';
-import { UserProfile } from '../../../types/profile';
+import { UserProfile } from '../../../services/authApi';
 
 interface EmergencyContactSectionProps {
-  userProfile: UserProfile;
-  onSave: (data: Partial<UserProfile>) => Promise<void>;
+  profile: UserProfile;
+  onUpdate: (data: Partial<UserProfile>) => Promise<void>;
+  isUpdating?: boolean;
 }
 
-export function EmergencyContactSection({ userProfile, onSave }: EmergencyContactSectionProps) {
-  const [emergencyContactName, setEmergencyContactName] = useState(userProfile.emergencyContactName || '');
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState(userProfile.emergencyContactPhone || '');
-  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState(userProfile.emergencyContactRelationship || '');
+export function EmergencyContactSection({ profile, onUpdate, isUpdating = false }: EmergencyContactSectionProps) {
+  // Safety check for undefined profile
+  if (!profile) {
+    return (
+      <Card className="shadow-sm mb-4">
+        <Card.Body>
+          <Card.Title className="mb-3">Emergency Contact</Card.Title>
+          <div className="text-center py-4">
+            <p className="text-muted">Loading profile information...</p>
+          </div>
+        </Card.Body>
+      </Card>
+    );
+  }
+  const [emergencyContactName, setEmergencyContactName] = useState(profile.emergencyContactName || '');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState(profile.emergencyContactPhone || '');
+  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState(profile.emergencyContactRelationship || '');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setEmergencyContactName(userProfile.emergencyContactName || '');
-    setEmergencyContactPhone(userProfile.emergencyContactPhone || '');
-    setEmergencyContactRelationship(userProfile.emergencyContactRelationship || '');
-  }, [userProfile]);
+    setEmergencyContactName(profile.emergencyContactName || '');
+    setEmergencyContactPhone(profile.emergencyContactPhone || '');
+    setEmergencyContactRelationship(profile.emergencyContactRelationship || '');
+  }, [profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await onSave({
+      await onUpdate({
         emergencyContactName,
         emergencyContactPhone,
         emergencyContactRelationship,
@@ -59,7 +73,7 @@ export function EmergencyContactSection({ userProfile, onSave }: EmergencyContac
                   type="tel"
                   value={emergencyContactPhone}
                   onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                  disabled={!isEditing || isSaving}
+                  disabled={!isEditing || isSaving || isUpdating}
                   placeholder="+254 700 000 000"
                 />
               </Form.Group>
@@ -70,7 +84,7 @@ export function EmergencyContactSection({ userProfile, onSave }: EmergencyContac
                 <Form.Select
                   value={emergencyContactRelationship}
                   onChange={(e) => setEmergencyContactRelationship(e.target.value)}
-                  disabled={!isEditing || isSaving}
+                  disabled={!isEditing || isSaving || isUpdating}
                 >
                   <option value="">Select relationship</option>
                   <option value="SPOUSE">Spouse</option>

@@ -5,7 +5,10 @@ import com.afyaquik.hms.diagnostics.domain.DiagnosticOrderStatus;
 import com.afyaquik.hms.diagnostics.dto.CreateDiagnosticOrderRequest;
 import com.afyaquik.hms.diagnostics.dto.DiagnosticOrderDto;
 import com.afyaquik.hms.diagnostics.service.DiagnosticOrderService;
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.auth.domain.StaffUser;
 import org.springframework.security.core.Authentication;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +19,9 @@ public class DiagnosticOrderController {
     
     private final DiagnosticOrderService diagnosticOrderService;
     
+    @Autowired
+    private StaffUserRepository staffUserRepository;
+    
     public DiagnosticOrderController(DiagnosticOrderService diagnosticOrderService) {
         this.diagnosticOrderService = diagnosticOrderService;
     }
@@ -24,7 +30,7 @@ public class DiagnosticOrderController {
     public ApiResponse<DiagnosticOrderDto> createDiagnosticOrder(@RequestBody CreateDiagnosticOrderRequest request,
                                                                Authentication authentication) {
         String orderedBy = authentication.getName();
-        String orderedByName = authentication.getName(); // TODO: Get display name from user service
+        String orderedByName = getDisplayName(orderedBy);
         
         DiagnosticOrderDto order = diagnosticOrderService.createDiagnosticOrder(request, orderedBy, orderedByName);
         return ApiResponse.success(order);
@@ -72,5 +78,18 @@ public class DiagnosticOrderController {
                                                                      @RequestParam DiagnosticOrderStatus status) {
         DiagnosticOrderDto order = diagnosticOrderService.updateDiagnosticOrderStatus(id, status);
         return ApiResponse.success(order);
+    }
+    
+    private String getDisplayName(String username) {
+        try {
+            String tenantId = com.afyaquik.hms.common.web.TenantHeaderInterceptor.getCurrentTenant();
+            StaffUser user = staffUserRepository.findByTenantIdAndUsernameAndDeletedFalse(tenantId, username);
+            if (user != null && user.getDisplayName() != null) {
+                return user.getDisplayName();
+            }
+        } catch (Exception e) {
+            // Log error if needed, but don't fail the operation
+        }
+        return username; // Fallback to username
     }
 }

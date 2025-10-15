@@ -9,6 +9,6 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FormDefinitionRepository extends TenantAwareRepository<FormDefinition, Long> {
-    Optional<FormDefinition> findTopByTenantIdAndFormKeyOrderByVersionDesc(String tenantId, String formKey);
+    Optional<FormDefinition> findTopByTenantIdAndFormKeyOrderByCreatedAtDesc(String tenantId, String formKey);
     List<FormDefinition> findByTenantIdAndFormKey(String tenantId, String formKey);
 }

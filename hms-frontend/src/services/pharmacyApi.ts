@@ -155,13 +155,15 @@ export interface Prescription {
   prescribedById: number;
   prescribedByName: string;
   prescriptionDate: string;
-  status: 'PENDING' | 'DISPENSED' | 'CANCELLED' | 'EXPIRED';
+  status: 'DRAFT' | 'PENDING' | 'PARTIALLY_DISPENSED' | 'DISPENSED' | 'CANCELLED' | 'EXPIRED' | 'REPLACED' | 'REVERSED';
   notes?: string;
   totalAmount?: number;
   dispensedBy?: number;
   dispensedByName?: string;
   dispensedAt?: string;
   dispensingNotes?: string;
+  queueItemId?: number;
+  version: number;
   items: PrescriptionItem[];
   createdAt: string;
   updatedAt: string;
@@ -305,6 +307,9 @@ export const prescriptionApi = {
 
   cancel: (id: number) =>
     apiClient.post<ApiEnvelope<Prescription>>(`/pharmacy/prescriptions/${id}/cancel`).then(res => res.data.data),
+
+  replace: (id: number, replacementId: number, replacedBy: number, notes?: string) =>
+    apiClient.post<ApiEnvelope<Prescription>>(`/pharmacy/prescriptions/${id}/replace?replacementId=${replacementId}&replacedBy=${replacedBy}${notes ? `&notes=${encodeURIComponent(notes)}` : ''}`).then(res => res.data.data),
 
   delete: (id: number) =>
     apiClient.delete<ApiEnvelope<any>>(`/pharmacy/prescriptions/${id}`).then(res => res.data.data)

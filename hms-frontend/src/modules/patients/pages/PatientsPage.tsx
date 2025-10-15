@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Button, Card, Table, Form, Alert, Spinner, Row, Col } from "react-bootstrap";
 import { ReactPaginateComponent } from "../../../components/shared/ReactPaginate";
 import { FormModal } from "../../../components/shared/FormModal";
@@ -85,8 +85,10 @@ export function PatientsPage() {
   const [showModal, setShowModal] = useState(false);
   const [activePatientId, setActivePatientId] = useState<number | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const patientFormRef = useRef<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState<any | null>(null);
+  const editPatientFormRef = useRef<any>(null);
   const [showQueueModal, setShowQueueModal] = useState(false);
   const [queueForm, setQueueForm] = useState<{ visitReason: string; priority: string }>({ visitReason: '', priority: 'LOW' });
   const [queuePatientId, setQueuePatientId] = useState<number | null>(null);
@@ -406,41 +408,26 @@ export function PatientsPage() {
             return;
           }
           
-          // Get form data from the PatientRegistrationForm
-          const form = e.currentTarget;
-          const formData = new FormData(form);
-          const data: any = {};
-          
-          // Extract data from all form fields
-          const allFields = [
-            'medicalRecordNumber', 'firstName', 'lastName', 'middleName', 'dateOfBirth', 'nationalId', 'gender',
-            'phone', 'alternatePhone', 'email', 'address', 'city', 'state', 'postalCode', 'country',
-            'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelationship',
-            'allergies', 'medications', 'medicalHistory', 'notes'
-          ];
-          
-          allFields.forEach(fieldName => {
-            const value = formData.get(fieldName);
-            if (value && value.toString().trim()) {
-              data[fieldName] = value.toString().trim();
-            }
-          });
-
-          // Validate required fields
-          const requiredFields = ['firstName', 'lastName'];
-          const missingFields = requiredFields.filter(field => !data[field]);
-          
-          if (missingFields.length > 0) {
-            const errorMessages = missingFields.map(field => {
-              const fieldLabel = field === 'firstName' ? 'First name' : 
-                               field === 'lastName' ? 'Last name' : 
-                               field === 'medicalRecordNumber' ? 'Medical record number' : field;
-              return `${fieldLabel} is required`;
+          // Get form data from the PatientRegistrationForm using ref
+          if (!editPatientFormRef.current) {
+            Swal.fire({
+              title: 'Error',
+              text: 'Form reference not available',
+              icon: 'error',
+              confirmButtonText: 'OK'
             });
-            
+            return;
+          }
+
+          const data = editPatientFormRef.current.getFormData();
+          
+          // Validate form using the form's validation method
+          const validation = editPatientFormRef.current.validateForm();
+          
+          if (!validation.isValid) {
             Swal.fire({
               title: 'Validation Error',
-              html: errorMessages.join('<br>'),
+              html: validation.errors.join('<br>'),
               icon: 'error',
               confirmButtonText: 'OK'
             });
@@ -472,10 +459,12 @@ export function PatientsPage() {
         error={editError}
       >
         <PatientRegistrationForm
+          ref={editPatientFormRef}
           onCancel={() => setShowEditModal(false)}
           loading={editMutation.isPending}
           error={editError}
           initialData={editForm}
+          isModal={true}
         />
       </FormModal>
 
@@ -551,41 +540,27 @@ export function PatientsPage() {
         title="Register New Patient"
         onSubmit={async (e) => {
           e.preventDefault();
-          // Get form data from the PatientRegistrationForm
-          const form = e.currentTarget;
-          const formData = new FormData(form);
-          const payload: any = {};
           
-          // Extract data from all form fields (including those not in patientFields)
-          const allFields = [
-            'medicalRecordNumber', 'firstName', 'lastName', 'middleName', 'dateOfBirth', 'nationalId', 'gender',
-            'phone', 'alternatePhone', 'email', 'address', 'city', 'state', 'postalCode', 'country',
-            'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelationship',
-            'allergies', 'medications', 'medicalHistory', 'notes'
-          ];
-          
-          allFields.forEach(fieldName => {
-            const value = formData.get(fieldName);
-            if (value && value.toString().trim()) {
-              payload[fieldName] = value.toString().trim();
-            }
-          });
-
-          // Validate required fields
-          const requiredFields = ['firstName', 'lastName'];
-          const missingFields = requiredFields.filter(field => !payload[field]);
-          
-          if (missingFields.length > 0) {
-            const errorMessages = missingFields.map(field => {
-              const fieldLabel = field === 'firstName' ? 'First name' : 
-                               field === 'lastName' ? 'Last name' : 
-                               field === 'medicalRecordNumber' ? 'Medical record number' : field;
-              return `${fieldLabel} is required`;
+          // Get form data from the PatientRegistrationForm using ref
+          if (!patientFormRef.current) {
+            Swal.fire({
+              title: 'Error',
+              text: 'Form reference not available',
+              icon: 'error',
+              confirmButtonText: 'OK'
             });
-            
+            return;
+          }
+
+          const payload = patientFormRef.current.getFormData();
+          
+          // Validate form using the form's validation method
+          const validation = patientFormRef.current.validateForm();
+          
+          if (!validation.isValid) {
             Swal.fire({
               title: 'Validation Error',
-              html: errorMessages.join('<br>'),
+              html: validation.errors.join('<br>'),
               icon: 'error',
               confirmButtonText: 'OK'
             });
@@ -609,7 +584,6 @@ export function PatientsPage() {
 
           createMutation.mutate(payload, {
             onSuccess: () => {
-              form.reset();
               setShowModal(false);
               Swal.fire({
                 title: 'Patient created',
@@ -648,9 +622,11 @@ export function PatientsPage() {
         error={createMutation.isError ? (createMutation.error as any)?.message ?? "Failed to create patient" : null}
       >
         <PatientRegistrationForm
+          ref={patientFormRef}
           onCancel={() => setShowModal(false)}
           loading={createMutation.isPending}
           error={createMutation.isError ? (createMutation.error as any)?.message ?? "Failed to create patient" : null}
+          isModal={true}
         />
       </FormModal>
     </div>

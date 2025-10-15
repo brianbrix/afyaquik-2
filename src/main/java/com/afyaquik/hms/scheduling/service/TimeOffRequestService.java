@@ -1,20 +1,20 @@
 package com.afyaquik.hms.scheduling.service;
 
-import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.scheduling.domain.TimeOffRequest;
 import com.afyaquik.hms.scheduling.domain.TimeOffStatus;
-import com.afyaquik.hms.scheduling.domain.TimeOffType;
 import com.afyaquik.hms.scheduling.dto.CreateTimeOffRequestDto;
 import com.afyaquik.hms.scheduling.dto.ReviewTimeOffRequestDto;
 import com.afyaquik.hms.scheduling.dto.TimeOffRequestDto;
 import com.afyaquik.hms.scheduling.repository.TimeOffRequestRepository;
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.auth.domain.StaffUser;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,6 +30,9 @@ public class TimeOffRequestService {
     private static final Logger log = LoggerFactory.getLogger(TimeOffRequestService.class);
 
     private final TimeOffRequestRepository timeOffRequestRepository;
+    
+    @Autowired
+    private StaffUserRepository staffUserRepository;
 
     public TimeOffRequestService(TimeOffRequestRepository timeOffRequestRepository) {
         this.timeOffRequestRepository = timeOffRequestRepository;
@@ -65,8 +68,15 @@ public class TimeOffRequestService {
         timeOffRequest.setEmergencyContact(request.emergencyContact());
         timeOffRequest.setEmergencyPhone(request.emergencyPhone());
 
-        // TODO: Set supervisor from user's supervisor relationship
-        // For now, we'll leave supervisor fields null and handle in admin
+        // Set supervisor from user's supervisor relationship
+        StaffUser user = staffUserRepository.findById(request.userId()).orElse(null);
+        if (user != null) {
+            timeOffRequest.setUserDisplayName(user.getDisplayName());
+            if (user.getSupervisorId() != null) {
+                timeOffRequest.setSupervisorId(user.getSupervisorId());
+                timeOffRequest.setSupervisorDisplayName(user.getSupervisorDisplayName());
+            }
+        }
 
         TimeOffRequest saved = timeOffRequestRepository.save(timeOffRequest);
         log.info("Time-off request created with ID {} for user {} in tenant {}", 
@@ -95,7 +105,16 @@ public class TimeOffRequestService {
         request.setStatus(review.status());
         request.setReviewedAt(LocalDateTime.now());
         request.setReviewNotes(review.reviewNotes());
-        // TODO: Set reviewedBy from current user context
+        
+        // Set reviewedBy from current user context
+        String currentUsername = getCurrentUser();
+        if (currentUsername != null && !"system".equals(currentUsername)) {
+            StaffUser reviewer = staffUserRepository.findByTenantIdAndUsernameAndDeletedFalse(tenantId, currentUsername);
+            if (reviewer != null) {
+                request.setReviewedBy(reviewer.getId());
+                request.setReviewerDisplayName(reviewer.getDisplayName());
+            }
+        }
 
         TimeOffRequest saved = timeOffRequestRepository.save(request);
         log.info("Time-off request {} reviewed with status {} in tenant {}", 
@@ -202,5 +221,23 @@ public class TimeOffRequestService {
                 request.getEmergencyContact(),
                 request.getEmergencyPhone()
         );
+    }
+    
+    /**
+     * Get the current authenticated user's username.
+     * Returns "system" if no user is authenticated.
+     */
+    private String getCurrentUser() {
+        try {
+            org.springframework.security.core.Authentication authentication = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated() && 
+                !"anonymousUser".equals(authentication.getName())) {
+                return authentication.getName();
+            }
+        } catch (Exception e) {
+            // Log the exception if needed, but don't fail the operation
+        }
+        return "system";
     }
 }
