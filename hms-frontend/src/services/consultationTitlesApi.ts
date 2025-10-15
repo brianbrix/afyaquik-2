@@ -1,24 +1,61 @@
-export async function updateConsultationTitle(id: number, title: string): Promise<ConsultationTitleDto> {
-  const res = await apiClient.put(`/admin/consultation-titles/${id}`, { id, title });
-  return res.data?.data;
-}
-import { apiClient } from "./apiClient";
+import { apiClient } from './apiClient';
+import { ApiEnvelope } from './apiClient';
 
-export interface ConsultationTitleDto {
-  id: number;
+export interface ConsultationTitle {
+  id?: number;
   title: string;
+  level: number;
+  sortOrder: number;
+  isCustom: boolean;
+  parentId?: number;
+  parentTitle?: string;
+  children?: ConsultationTitle[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export async function fetchConsultationTitles(): Promise<ConsultationTitleDto[]> {
-  const res = await apiClient.get("/admin/consultation-titles");
-  return res.data?.data ?? [];
+export interface ConsultationTitleRequest {
+  title: string;
+  level: number;
+  sortOrder?: number;
+  isCustom?: boolean;
+  parentId?: number;
 }
 
-export async function createConsultationTitle(title: string): Promise<ConsultationTitleDto> {
-  const res = await apiClient.post("/admin/consultation-titles", { title });
-  return res.data?.data;
-}
+export const consultationTitlesApi = {
+  // Get all consultation titles
+  getAll: () =>
+    apiClient.get<ApiEnvelope<ConsultationTitle[]>>('/admin/consultation-titles').then(res => res.data.data),
 
-export async function deleteConsultationTitle(id: number): Promise<void> {
-  await apiClient.delete(`/admin/consultation-titles/${id}`);
-}
+  // Get root level titles (level 1)
+  getRootTitles: () =>
+    apiClient.get<ApiEnvelope<ConsultationTitle[]>>('/admin/consultation-titles/root').then(res => res.data.data),
+
+  // Get children of a specific parent
+  getChildren: (parentId: number) =>
+    apiClient.get<ApiEnvelope<ConsultationTitle[]>>(`/admin/consultation-titles/children/${parentId}`).then(res => res.data.data),
+
+  // Get titles by level
+  getByLevel: (level: number) =>
+    apiClient.get<ApiEnvelope<ConsultationTitle[]>>(`/admin/consultation-titles/level/${level}`).then(res => res.data.data),
+
+  // Get parent candidates (titles that can have children)
+  getParentCandidates: () =>
+    apiClient.get<ApiEnvelope<ConsultationTitle[]>>('/admin/consultation-titles/parent-candidates').then(res => res.data.data),
+
+  // Get consultation title by ID
+  getById: (id: number) =>
+    apiClient.get<ApiEnvelope<ConsultationTitle>>(`/admin/consultation-titles/${id}`).then(res => res.data.data),
+
+  // Create consultation title
+  create: (title: ConsultationTitleRequest) =>
+    apiClient.post<ApiEnvelope<ConsultationTitle>>('/admin/consultation-titles', title).then(res => res.data.data),
+
+  // Update consultation title
+  update: (id: number, title: ConsultationTitleRequest) =>
+    apiClient.put<ApiEnvelope<ConsultationTitle>>(`/admin/consultation-titles/${id}`, title).then(res => res.data.data),
+
+  // Delete consultation title
+  delete: (id: number) =>
+    apiClient.delete<ApiEnvelope<void>>(`/admin/consultation-titles/${id}`).then(res => res.data.data)
+};

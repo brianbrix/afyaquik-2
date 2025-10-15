@@ -10,7 +10,7 @@ if ! docker info > /dev/null 2>&1; then
 fi
 
 # Start MinIO using docker-compose
-docker-compose -f docker-compose.minio.yml up -d
+docker compose -f docker-compose.minio.yml up -d
 
 echo "MinIO is starting up..."
 echo "MinIO Console: http://localhost:9001"
@@ -36,5 +36,5 @@ while [ $counter -lt $timeout ]; do
 done
 
 echo "MinIO failed to start within $timeout seconds."
-echo "Please check the logs: docker-compose -f docker-compose.minio.yml logs"
+echo "Please check the logs: docker compose -f docker-compose.minio.yml logs"
 exit 1

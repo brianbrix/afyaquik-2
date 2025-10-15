@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Form, Button } from 'react-bootstrap';
 
 interface StaffDirectoryEntry { 
@@ -34,6 +34,16 @@ export function FilteredStaffSelect({
 }: FilteredStaffSelectProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+
+  // Sync searchQuery with value prop when value changes externally
+  useEffect(() => {
+    if (value) {
+      setSearchQuery(value.displayName);
+      console.log('FilteredStaffSelect: Value changed to', value.displayName);
+    } else {
+      setSearchQuery('');
+    }
+  }, [value]);
   
   // Filter staff based on selected status and role matrix
   const filteredStaff = useMemo(() => {
@@ -44,11 +54,20 @@ export function FilteredStaffSelect({
       .filter(([_, statuses]) => statuses.has(selectedStatus))
       .map(([role, _]) => role);
     
-    // Filter staff by allowed roles
-    return staffData.filter(staff => 
+    // Filter staff by allowed roles, but always include the currently selected user
+    const filtered = staffData.filter(staff => 
       staff.roles.some(role => allowedRoles.includes(role))
     );
-  }, [staffData, selectedStatus, statusMatrix]);
+    
+    // If the current value is not in the filtered list, add it back
+    if (value && !filtered.some(staff => staff.id === value.id)) {
+      console.log('FilteredStaffSelect: Adding current value back to filtered list', value.displayName);
+      filtered.unshift(value);
+    }
+    
+    console.log('FilteredStaffSelect: Filtered staff count', filtered.length, 'for status', selectedStatus);
+    return filtered;
+  }, [staffData, selectedStatus, statusMatrix, value]);
 
   const searchFilteredStaff = useMemo(() => {
     if (!searchQuery.trim()) return filteredStaff;

@@ -41,31 +41,31 @@ show_logs() {
         "backend"|"b")
             print_status "Showing backend logs..."
             if [ "$follow" = "true" ]; then
-                docker-compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" logs -f
+                docker compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" logs -f
             else
-                docker-compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" logs --tail=100
+                docker compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" logs --tail=100
             fi
             ;;
         "frontend"|"f")
             print_status "Showing frontend logs..."
             if [ "$follow" = "true" ]; then
-                docker-compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" logs -f
+                docker compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" logs -f
             else
-                docker-compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" logs --tail=100
+                docker compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" logs --tail=100
             fi
             ;;
         "all"|"")
             print_status "Showing all logs..."
             if [ "$follow" = "true" ]; then
-                docker-compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" logs -f &
-                docker-compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" logs -f &
+                docker compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" logs -f &
+                docker compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" logs -f &
                 wait
             else
                 echo "=== Backend Logs ==="
-                docker-compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" logs --tail=50
+                docker compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" logs --tail=50
                 echo ""
                 echo "=== Frontend Logs ==="
-                docker-compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" logs --tail=50
+                docker compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" logs --tail=50
             fi
             ;;
         *)

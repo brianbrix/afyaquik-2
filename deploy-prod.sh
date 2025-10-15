@@ -115,7 +115,7 @@ deploy_services() {
     print_status "Deploying HMS services..."
     
     # Build and start all services
-    docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" up -d --build
+    docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" up -d --build
     
     # Wait for database to be ready
     print_status "Waiting for database to be ready..."
@@ -131,7 +131,7 @@ deploy_services() {
         if [ $i -eq 60 ]; then
             print_error "Backend health check failed after 2 minutes"
             print_status "Checking backend logs..."
-            docker-compose -f docker-compose.prod.yml -p "$PROJECT_NAME" logs hms-backend
+            docker compose -f docker-compose.prod.yml -p "$PROJECT_NAME" logs hms-backend
             exit 1
         fi
         sleep 2
@@ -147,7 +147,7 @@ deploy_services() {
         if [ $i -eq 30 ]; then
             print_error "Frontend health check failed"
             print_status "Checking frontend logs..."
-            docker-compose -f docker-compose.prod.yml -p "$PROJECT_NAME" logs hms-frontend
+            docker compose -f docker-compose.prod.yml -p "$PROJECT_NAME" logs hms-frontend
             exit 1
         fi
         sleep 2
@@ -158,7 +158,7 @@ deploy_services() {
 show_status() {
     print_status "Deployment Status:"
     echo ""
-    docker-compose -f docker-compose.prod.yml -p "$PROJECT_NAME" ps
+    docker compose -f docker-compose.prod.yml -p "$PROJECT_NAME" ps
     echo ""
     print_success "HMS Application deployed successfully!"
     echo ""

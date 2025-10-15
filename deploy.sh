@@ -86,7 +86,7 @@ deploy_backend() {
     print_status "Deploying HMS Backend..."
     
     # Build and start backend services
-    docker-compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" up -d --build
+    docker compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" up -d --build
     
     # Wait for database to be ready
     print_status "Waiting for database to be ready..."
@@ -112,7 +112,7 @@ deploy_frontend() {
     print_status "Deploying HMS Frontend..."
     
     # Build and start frontend
-    docker-compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" up -d --build
+    docker compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" up -d --build
     
     # Wait for frontend to be ready
     print_status "Waiting for frontend to be ready..."
@@ -138,10 +138,10 @@ show_status() {
     print_status "Deployment Status:"
     echo ""
     echo "Backend Services:"
-    docker-compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" ps
+    docker compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" ps
     echo ""
     echo "Frontend Services:"
-    docker-compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" ps
+    docker compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" ps
     echo ""
     print_success "HMS Application deployed successfully!"
     echo ""

@@ -38,7 +38,7 @@ stop_services() {
     print_status "Stopping HMS services..."
     
     # Stop all services
-    docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" down
+    docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" down
     
     print_success "All HMS services stopped"
 }

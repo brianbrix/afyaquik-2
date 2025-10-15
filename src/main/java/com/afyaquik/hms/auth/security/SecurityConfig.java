@@ -46,7 +46,7 @@ public class SecurityConfig {
             // Allow websocket handshake + SockJS info/endpoints (authentication will be enforced at message level if needed)
             .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(HttpMethod.GET,"/api/v1/admin/triage-titles**").authenticated()
-                .requestMatchers(HttpMethod.GET,"/api/v1/admin/consultation-titles**").authenticated()
+                .requestMatchers(HttpMethod.GET,"/api/v1/admin/consultation-titles/**").authenticated()
                 .requestMatchers(HttpMethod.GET,"/api/v1/admin/queue-status-role-matrix**").authenticated()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 // Allow any authenticated user to access queue endpoints

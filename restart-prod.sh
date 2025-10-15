@@ -38,7 +38,7 @@ restart_services() {
     print_status "Restarting HMS services..."
     
     # Restart all services
-    docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" restart
+    docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" restart
     
     # Wait for services to be ready
     print_status "Waiting for services to be ready..."
@@ -79,7 +79,7 @@ restart_services() {
 show_status() {
     print_status "Checking service status..."
     echo ""
-    docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" ps
+    docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" ps
     echo ""
 }
 

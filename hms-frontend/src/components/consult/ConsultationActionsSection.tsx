@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { fetchConsultationTitles, ConsultationTitleDto } from '../../services/consultationTitlesApi';
+import { consultationTitlesApi, ConsultationTitle } from '../../services/consultationTitlesApi';
 import { testCatalogApi, diagnosticOrderApi } from '../../services/diagnosticsApi';
 import { medicationApi, queuePrescriptionApi, prescriptionApi, type Medication } from '../../services/pharmacyApi';
 import RichTextEditor from '../shared/RichTextEditor';
-import { Button, Form, Row, Col, InputGroup, Modal, Card, Badge, Table, Alert } from 'react-bootstrap';
+import { Button, Form, Row, Col, InputGroup, Modal, Card, Badge, Table, Alert, Spinner } from 'react-bootstrap';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
@@ -13,6 +13,10 @@ export interface ConsultationItem {
   title: string;
   details: string;
   isCustom: boolean;
+  consultationTitleId?: number;
+  consultationTitleName?: string;
+  consultationTitleLevel?: number;
+  sortOrder?: number;
 }
 
 interface ConsultationActionsSectionProps {
@@ -35,8 +39,13 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
   const [items, setItems] = useState<ConsultationItem[]>(initialItems);
   const [customTitle, setCustomTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [consultationTitles, setConsultationTitles] = useState<ConsultationTitleDto[]>([]);
-  const [loadingTitles, setLoadingTitles] = useState(true);
+  
+  // Hierarchical title selection state
+  const [selectedLevel1, setSelectedLevel1] = useState<ConsultationTitle | null>(null);
+  const [selectedLevel2, setSelectedLevel2] = useState<ConsultationTitle | null>(null);
+  const [selectedLevel3, setSelectedLevel3] = useState<ConsultationTitle | null>(null);
+  const [currentLevel, setCurrentLevel] = useState(1);
+  const [showCustomInput, setShowCustomInput] = useState(false);
   
   // Diagnostic order state
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
@@ -60,17 +69,153 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
   
   const { user } = useAuth();
 
+  // Fetch consultation titles by level
+  const { data: level1Titles = [], isLoading: loadingLevel1, error: level1Error } = useQuery({
+    queryKey: ['consultationTitles', 'level', 1],
+    queryFn: () => consultationTitlesApi.getByLevel(1)
+  });
+
+  // Debug logging
+  React.useEffect(() => {
+    if (level1Titles.length > 0) {
+      console.log('Level 1 titles loaded:', level1Titles);
+    }
+    if (level1Error) {
+      console.error('Error loading level 1 titles:', level1Error);
+    }
+  }, [level1Titles, level1Error]);
+
+  const { data: level2Titles = [], isLoading: loadingLevel2, error: level2Error } = useQuery({
+    queryKey: ['consultationTitles', 'level', 2, selectedLevel1?.id],
+    queryFn: () => consultationTitlesApi.getChildren(selectedLevel1!.id!),
+    enabled: !!selectedLevel1
+  });
+
+  const { data: level3Titles = [], isLoading: loadingLevel3, error: level3Error } = useQuery({
+    queryKey: ['consultationTitles', 'level', 3, selectedLevel2?.id],
+    queryFn: () => consultationTitlesApi.getChildren(selectedLevel2!.id!),
+    enabled: !!selectedLevel2
+  });
+
+  // Debug logging for level 2 and 3
+  React.useEffect(() => {
+    if (level2Titles.length > 0) {
+      console.log('Level 2 titles loaded:', level2Titles);
+    }
+    if (level2Error) {
+      console.error('Error loading level 2 titles:', level2Error);
+    }
+  }, [level2Titles, level2Error]);
+
+  React.useEffect(() => {
+    if (level3Titles.length > 0) {
+      console.log('Level 3 titles loaded:', level3Titles);
+    }
+    if (level3Error) {
+      console.error('Error loading level 3 titles:', level3Error);
+    }
+  }, [level3Titles, level3Error]);
+
   useEffect(() => {
     setItems(initialItems);
   }, [initialItems]);
 
-  useEffect(() => {
-    setLoadingTitles(true);
-    fetchConsultationTitles().then(titles => {
-      setConsultationTitles(titles);
-      setLoadingTitles(false);
+  // Hierarchical selection handlers
+  const handleLevel1Select = (title: ConsultationTitle) => {
+    setSelectedLevel1(title);
+    setSelectedLevel2(null);
+    setSelectedLevel3(null);
+    setCurrentLevel(2);
+    setShowCustomInput(false);
+  };
+
+  const handleLevel2Select = (title: ConsultationTitle) => {
+    setSelectedLevel2(title);
+    setSelectedLevel3(null);
+    setCurrentLevel(3);
+    setShowCustomInput(false);
+  };
+
+  const handleLevel3Select = (title: ConsultationTitle) => {
+    setSelectedLevel3(title);
+    setShowCustomInput(true);
+  };
+
+  const handleCustomTitleSubmit = () => {
+    if (!customTitle.trim()) return;
+    
+    const fullTitle = buildFullTitle();
+    const isNote = shouldShowRichText();
+    
+    const newItem: ConsultationItem = {
+      id: Date.now(),
+      title: isNote ? fullTitle : fullTitle,
+      details: isNote ? customTitle : '',
+      isCustom: true,
+      consultationTitleId: selectedLevel3?.id || selectedLevel2?.id || selectedLevel1?.id,
+      consultationTitleName: selectedLevel3?.title || selectedLevel2?.title || selectedLevel1?.title,
+      consultationTitleLevel: selectedLevel3?.level || selectedLevel2?.level || selectedLevel1?.level,
+      sortOrder: items.length
+    };
+    
+    setItems([...items, newItem]);
+    setCustomTitle('');
+    resetSelection();
+    onChange?.(items);
+  };
+
+  const buildFullTitle = () => {
+    const parts = [];
+    if (selectedLevel1) parts.push(selectedLevel1.title);
+    if (selectedLevel2) parts.push(selectedLevel2.title);
+    if (selectedLevel3) parts.push(selectedLevel3.title);
+    if (customTitle.trim()) parts.push(customTitle.trim());
+    return parts.join(' > ');
+  };
+
+  const resetSelection = () => {
+    setSelectedLevel1(null);
+    setSelectedLevel2(null);
+    setSelectedLevel3(null);
+    setCurrentLevel(1);
+    setShowCustomInput(false);
+    setCustomTitle('');
+  };
+
+  const canAddCustom = () => {
+    if (currentLevel === 1) return true;
+    if (currentLevel === 2 && selectedLevel1) return true;
+    if (currentLevel === 3 && selectedLevel2) return true;
+    return false;
+  };
+
+  const shouldShowRichText = () => {
+    // Show RichText if we have a selected level but no children available
+    if (selectedLevel1 && level2Titles.length === 0 && !selectedLevel2) return true;
+    if (selectedLevel2 && level3Titles.length === 0 && !selectedLevel3) return true;
+    if (selectedLevel3) return true;
+    return false;
+  };
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('Debug - shouldShowRichText:', {
+      selectedLevel1: selectedLevel1?.title,
+      selectedLevel2: selectedLevel2?.title,
+      selectedLevel3: selectedLevel3?.title,
+      level2Titles: level2Titles.length,
+      level3Titles: level3Titles.length,
+      shouldShow: shouldShowRichText()
     });
-  }, []);
+  }, [selectedLevel1, selectedLevel2, selectedLevel3, level2Titles.length, level3Titles.length]);
+
+  const shouldShowCustomTitleInput = () => {
+    // Show custom title input only when we have children but want to add more
+    if (selectedLevel1 && level2Titles.length > 0 && !selectedLevel2) return false;
+    if (selectedLevel2 && level3Titles.length > 0 && !selectedLevel3) return false;
+    return showCustomInput && canAddCustom() && !shouldShowRichText();
+  };
+
 
   // Fetch available diagnostic tests
   const { data: availableTests = [], isLoading: testsLoading } = useQuery({
@@ -505,45 +650,215 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
   return (
     <div className="mb-2">
       <div className="fw-semibold mb-2">Consultation Actions</div>
-      <Form.Group as={Row} className="mb-2 align-items-center">
-        <Col sm={6}>
-          <Form.Select 
-            onChange={e => {
-              const selectedTitle = e.target.value;
-              if (selectedTitle) {
-                handleAddItem(selectedTitle);
-                e.target.value = ""; // Reset selection
-              }
-            }} 
-            defaultValue="" 
-            disabled={loadingTitles}
-          >
-            <option value="">Add from configured titles...</option>
-            {consultationTitles
-              .filter(t => !items.some(item => item.title.toLowerCase() === t.title.toLowerCase()))
-              .map(t => (
-                <option key={t.id} value={t.title}>{t.title}</option>
-              ))}
-          </Form.Select>
-        </Col>
-        <Col sm={6}>
-          <InputGroup>
-            <Form.Control
-              type="text"
-              placeholder="Custom title..."
-              value={customTitle}
-              onChange={e => setCustomTitle(e.target.value)}
-            />
-            <Button 
-              variant="outline-primary" 
-              onClick={() => handleAddItem(customTitle, true)} 
-              disabled={!customTitle.trim() || items.some(item => item.title.toLowerCase() === customTitle.trim().toLowerCase())}
-            >
-              Add Custom
-            </Button>
-          </InputGroup>
-        </Col>
-      </Form.Group>
+      {/* Hierarchical Consultation Title Selection */}
+      <Card className="mb-3">
+        <Card.Header>
+          <h6 className="mb-0">Add Consultation Title</h6>
+        </Card.Header>
+        <Card.Body>
+          {/* Level 1 Selection */}
+          {currentLevel >= 1 && (
+            <div className="mb-3">
+              {level1Error ? (
+                <Alert variant="danger" className="py-2">
+                  <small>Error loading categories: {level1Error.message}</small>
+                </Alert>
+              ) : loadingLevel1 ? (
+                <div className="text-center py-2">
+                  <Spinner size="sm" className="me-2" />
+                  Loading categories...
+                </div>
+              ) : level1Titles.length === 0 ? (
+                <Alert variant="warning" className="py-2">
+                  <small>No consultation categories found. Please contact admin to set up consultation titles.</small>
+                </Alert>
+              ) : (
+                <div className="d-flex flex-wrap gap-2">
+                  {level1Titles.map((title: ConsultationTitle) => (
+                    <Button
+                      key={title.id}
+                      variant={selectedLevel1?.id === title.id ? "primary" : "outline-primary"}
+                      size="sm"
+                      onClick={() => handleLevel1Select(title)}
+                    >
+                      {title.title}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Level 2 Selection */}
+          {currentLevel >= 2 && selectedLevel1 && (
+            <div className="mb-3">
+              {level2Error ? (
+                <Alert variant="danger" className="py-2">
+                  <small>Error loading subcategories: {level2Error.message}</small>
+                </Alert>
+              ) : loadingLevel2 ? (
+                <div className="text-center py-2">
+                  <Spinner size="sm" className="me-2" />
+                  Loading subcategories...
+                </div>
+              ) : level2Titles.length === 0 ? (
+                <div className="text-center py-3">
+                  <div className="text-muted mb-3">
+                    <i className="bi bi-info-circle me-2"></i>
+                    No subcategories found for "{selectedLevel1.title}". You can add a note below.
+                  </div>
+                </div>
+              ) : (
+                <div className="d-flex flex-wrap gap-2">
+                  {level2Titles.map((title: ConsultationTitle) => (
+                    <Button
+                      key={title.id}
+                      variant={selectedLevel2?.id === title.id ? "primary" : "outline-primary"}
+                      size="sm"
+                      onClick={() => handleLevel2Select(title)}
+                    >
+                      {title.title}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Level 3 Selection */}
+          {currentLevel >= 3 && selectedLevel2 && (
+            <div className="mb-3">
+              {level3Error ? (
+                <Alert variant="danger" className="py-2">
+                  <small>Error loading specific areas: {level3Error.message}</small>
+                </Alert>
+              ) : loadingLevel3 ? (
+                <div className="text-center py-2">
+                  <Spinner size="sm" className="me-2" />
+                  Loading specific areas...
+                </div>
+              ) : level3Titles.length === 0 ? (
+                <div className="text-center py-3">
+                  <div className="text-muted mb-3">
+                    <i className="bi bi-info-circle me-2"></i>
+                    No specific areas found for "{selectedLevel2.title}". You can add a note below.
+                  </div>
+                </div>
+              ) : (
+                <div className="d-flex flex-wrap gap-2">
+                  {level3Titles.map((title: ConsultationTitle) => (
+                    <Button
+                      key={title.id}
+                      variant={selectedLevel3?.id === title.id ? "primary" : "outline-primary"}
+                      size="sm"
+                      onClick={() => handleLevel3Select(title)}
+                    >
+                      {title.title}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* RichText Field - Show when no children available */}
+          {shouldShowRichText() && (
+            <div className="mb-3">
+              <Form.Label>Add Consultation Note</Form.Label>
+              <div className="border rounded p-3 bg-light">
+                <div className="mb-2">
+                  <strong>Selected Path:</strong> {buildFullTitle()}
+                </div>
+                <Form.Control
+                  as="textarea"
+                  rows={4}
+                  placeholder="Enter your consultation notes here..."
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                />
+                <div className="mt-2 d-flex justify-content-end">
+                  <Button 
+                    variant="success" 
+                    size="sm"
+                    onClick={handleCustomTitleSubmit}
+                    disabled={!customTitle.trim()}
+                  >
+                    <i className="bi bi-plus me-1"></i>
+                    Add Note
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Custom Title Input */}
+          {shouldShowCustomTitleInput() && (
+            <div className="mb-3">
+              <Form.Label>Custom Title</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter custom title..."
+                  value={customTitle}
+                  onChange={e => setCustomTitle(e.target.value)}
+                />
+                <Button 
+                  variant="primary" 
+                  onClick={handleCustomTitleSubmit}
+                  disabled={!customTitle.trim()}
+                >
+                  Add Title
+                </Button>
+              </InputGroup>
+              <Form.Text className="text-muted">
+                Full title: {buildFullTitle()}
+              </Form.Text>
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="d-flex gap-2">
+            {currentLevel > 1 && (
+              <Button 
+                variant="outline-secondary" 
+                size="sm"
+                onClick={() => {
+                  if (currentLevel === 2) {
+                    setSelectedLevel1(null);
+                    setCurrentLevel(1);
+                  } else if (currentLevel === 3) {
+                    setSelectedLevel2(null);
+                    setCurrentLevel(2);
+                  }
+                }}
+              >
+                <i className="bi bi-arrow-left me-1"></i>
+                Back
+              </Button>
+            )}
+            {canAddCustom() && !showCustomInput && (
+              <Button 
+                variant="outline-success" 
+                size="sm"
+                onClick={() => setShowCustomInput(true)}
+              >
+                <i className="bi bi-plus me-1"></i>
+                Add Custom Title
+              </Button>
+            )}
+            {(selectedLevel1 || selectedLevel2 || selectedLevel3) && (
+              <Button 
+                variant="outline-danger" 
+                size="sm"
+                onClick={resetSelection}
+              >
+                <i className="bi bi-x me-1"></i>
+                Reset
+              </Button>
+            )}
+          </div>
+        </Card.Body>
+      </Card>
       {items.length === 0 && <div className="text-muted small mb-2">No consultation items added yet.</div>}
       {items.map((item, idx) => (
         <div key={item.id} className="border rounded p-2 mb-2 bg-light">

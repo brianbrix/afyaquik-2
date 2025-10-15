@@ -42,49 +42,49 @@ show_logs() {
         "backend"|"b")
             print_status "Showing backend logs..."
             if [ "$follow" = "true" ]; then
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-backend
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-backend
             else
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-backend
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-backend
             fi
             ;;
         "frontend"|"f")
             print_status "Showing frontend logs..."
             if [ "$follow" = "true" ]; then
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-frontend
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-frontend
             else
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-frontend
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-frontend
             fi
             ;;
         "database"|"db")
             print_status "Showing database logs..."
             if [ "$follow" = "true" ]; then
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-db
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-db
             else
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-db
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-db
             fi
             ;;
         "redis"|"r")
             print_status "Showing Redis logs..."
             if [ "$follow" = "true" ]; then
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-redis
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-redis
             else
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-redis
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-redis
             fi
             ;;
         "minio"|"m")
             print_status "Showing MinIO logs..."
             if [ "$follow" = "true" ]; then
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-minio
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f hms-minio
             else
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-minio
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=100 hms-minio
             fi
             ;;
         "all"|"")
             print_status "Showing all logs..."
             if [ "$follow" = "true" ]; then
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs -f
             else
-                docker-compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=50
+                docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=50
             fi
             ;;
         *)

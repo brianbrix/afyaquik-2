@@ -38,11 +38,11 @@ restart_services() {
     
     # Restart backend
     print_status "Restarting backend services..."
-    docker-compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" restart
+    docker compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" restart
     
     # Restart frontend
     print_status "Restarting frontend services..."
-    docker-compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" restart
+    docker compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" restart
     
     print_success "All HMS services restarted"
 }
@@ -52,10 +52,10 @@ show_status() {
     print_status "Checking service status..."
     echo ""
     echo "Backend Services:"
-    docker-compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" ps
+    docker compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" ps
     echo ""
     echo "Frontend Services:"
-    docker-compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" ps
+    docker compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" ps
     echo ""
 }
 

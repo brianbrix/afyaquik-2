@@ -47,6 +47,8 @@ import com.afyaquik.hms.scheduling.repository.StaffShiftRepository;
 import com.afyaquik.hms.notification.domain.NotificationLevel;
 import com.afyaquik.hms.notification.domain.NotificationTemplate;
 import com.afyaquik.hms.notification.repository.NotificationTemplateRepository;
+import com.afyaquik.hms.consultation.domain.ConsultationTitle;
+import com.afyaquik.hms.consultation.repository.ConsultationTitleRepository;
 
 @Component
 @Profile("!test")
@@ -82,6 +84,7 @@ public class DemoDataInitializer implements CommandLineRunner {
     private final TestCatalogRepository testCatalogRepository;
     private final ResultTemplateRepository resultTemplateRepository;
     private final NotificationTemplateRepository notificationTemplateRepository;
+    private final ConsultationTitleRepository consultationTitleRepository;
 
     public DemoDataInitializer(
             PasswordEncoder passwordEncoder,
@@ -98,7 +101,8 @@ public class DemoDataInitializer implements CommandLineRunner {
             TestCategoryRepository testCategoryRepository,
             TestCatalogRepository testCatalogRepository,
             ResultTemplateRepository resultTemplateRepository,
-            NotificationTemplateRepository notificationTemplateRepository) {
+            NotificationTemplateRepository notificationTemplateRepository,
+            ConsultationTitleRepository consultationTitleRepository) {
         this.passwordEncoder = passwordEncoder;
         this.staffRoleRepository = staffRoleRepository;
         this.staffUserRepository = staffUserRepository;
@@ -114,6 +118,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         this.testCatalogRepository = testCatalogRepository;
         this.resultTemplateRepository = resultTemplateRepository;
         this.notificationTemplateRepository = notificationTemplateRepository;
+        this.consultationTitleRepository = consultationTitleRepository;
     }
 
     @Override
@@ -172,6 +177,7 @@ public class DemoDataInitializer implements CommandLineRunner {
     seedForms(tenantId);
         seedDiagnostics(tenantId);
         seedNotificationTemplates(tenantId);
+        seedConsultationTitles(tenantId);
 
         seedQueue(tenantId, doctor, nurse, receptionist);
 
@@ -588,5 +594,77 @@ public class DemoDataInitializer implements CommandLineRunner {
         nurseNotification.setTargetRoles("NURSE"); // Only nurse role
         nurseNotification.setEnabled(true);
         notificationTemplateRepository.save(nurseNotification);
+    }
+
+    private void seedConsultationTitles(String tenantId) {
+        if (consultationTitleRepository.count() > 0) {
+            return; // already seeded consultation titles
+        }
+        log.info("Seeding consultation titles for tenant {}", tenantId);
+
+        // Level 1 - Main Categories
+        ConsultationTitle systemicExam = createConsultationTitle(tenantId, "Systemic Examination", 1, null, 0, false);
+        ConsultationTitle historyTaking = createConsultationTitle(tenantId, "History Taking", 1, null, 1, false);
+        ConsultationTitle physicalExam = createConsultationTitle(tenantId, "Physical Examination", 1, null, 2, false);
+        ConsultationTitle assessment = createConsultationTitle(tenantId, "Assessment & Plan", 1, null, 3, false);
+
+        // Level 2 - Sub Categories under Systemic Examination
+        ConsultationTitle respiratory = createConsultationTitle(tenantId, "Respiratory", 2, systemicExam, 0, false);
+        ConsultationTitle cardiovascular = createConsultationTitle(tenantId, "Cardiovascular", 2, systemicExam, 1, false);
+        ConsultationTitle gastrointestinal = createConsultationTitle(tenantId, "Gastrointestinal", 2, systemicExam, 2, false);
+        ConsultationTitle neurological = createConsultationTitle(tenantId, "Neurological", 2, systemicExam, 3, false);
+
+        // Level 3 - Specific Areas under Respiratory
+        createConsultationTitle(tenantId, "Lungs", 3, respiratory, 0, false);
+        createConsultationTitle(tenantId, "Chest Wall", 3, respiratory, 1, false);
+        createConsultationTitle(tenantId, "Breathing Pattern", 3, respiratory, 2, false);
+
+        // Level 3 - Specific Areas under Cardiovascular
+        createConsultationTitle(tenantId, "Heart Sounds", 3, cardiovascular, 0, false);
+        createConsultationTitle(tenantId, "Pulse", 3, cardiovascular, 1, false);
+        createConsultationTitle(tenantId, "Blood Pressure", 3, cardiovascular, 2, false);
+
+        // Level 2 - Sub Categories under History Taking
+        ConsultationTitle presentIllness = createConsultationTitle(tenantId, "Present Illness", 2, historyTaking, 0, false);
+        ConsultationTitle pastHistory = createConsultationTitle(tenantId, "Past Medical History", 2, historyTaking, 1, false);
+        ConsultationTitle familyHistory = createConsultationTitle(tenantId, "Family History", 2, historyTaking, 2, false);
+
+        // Level 3 - Specific Areas under Present Illness
+        createConsultationTitle(tenantId, "Chief Complaint", 3, presentIllness, 0, false);
+        createConsultationTitle(tenantId, "History of Present Illness", 3, presentIllness, 1, false);
+        createConsultationTitle(tenantId, "Associated Symptoms", 3, presentIllness, 2, false);
+
+        // Level 2 - Sub Categories under Physical Examination
+        ConsultationTitle vitalSigns = createConsultationTitle(tenantId, "Vital Signs", 2, physicalExam, 0, false);
+        ConsultationTitle generalAppearance = createConsultationTitle(tenantId, "General Appearance", 2, physicalExam, 1, false);
+        ConsultationTitle headNeck = createConsultationTitle(tenantId, "Head & Neck", 2, physicalExam, 2, false);
+
+        // Level 3 - Specific Areas under Vital Signs
+        createConsultationTitle(tenantId, "Temperature", 3, vitalSigns, 0, false);
+        createConsultationTitle(tenantId, "Blood Pressure", 3, vitalSigns, 1, false);
+        createConsultationTitle(tenantId, "Heart Rate", 3, vitalSigns, 2, false);
+        createConsultationTitle(tenantId, "Respiratory Rate", 3, vitalSigns, 3, false);
+
+        // Level 2 - Sub Categories under Assessment & Plan
+        ConsultationTitle diagnosis = createConsultationTitle(tenantId, "Diagnosis", 2, assessment, 0, false);
+        ConsultationTitle treatment = createConsultationTitle(tenantId, "Treatment Plan", 2, assessment, 1, false);
+        ConsultationTitle followUp = createConsultationTitle(tenantId, "Follow-up", 2, assessment, 2, false);
+
+        // Level 3 - Specific Areas under Treatment Plan
+        createConsultationTitle(tenantId, "Medications", 3, treatment, 0, false);
+        createConsultationTitle(tenantId, "Procedures", 3, treatment, 1, false);
+        createConsultationTitle(tenantId, "Lifestyle Modifications", 3, treatment, 2, false);
+    }
+
+    private ConsultationTitle createConsultationTitle(String tenantId, String title, Integer level, 
+            ConsultationTitle parent, Integer sortOrder, Boolean isCustom) {
+        ConsultationTitle consultationTitle = new ConsultationTitle();
+        consultationTitle.setTitle(title);
+        consultationTitle.setLevel(level);
+        consultationTitle.setSortOrder(sortOrder);
+        consultationTitle.setIsCustom(isCustom);
+        consultationTitle.setParent(parent);
+        consultationTitle.setTenantId(tenantId);
+        return consultationTitleRepository.save(consultationTitle);
     }
 }

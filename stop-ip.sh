@@ -38,11 +38,11 @@ stop_services() {
     
     # Stop frontend
     print_status "Stopping frontend services..."
-    docker-compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" down
+    docker compose -f docker-compose.frontend.yml -p "$PROJECT_NAME-frontend" down
     
     # Stop backend
     print_status "Stopping backend services..."
-    docker-compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" down
+    docker compose -f docker-compose.backend.yml -p "$PROJECT_NAME-backend" down
     
     print_success "All HMS services stopped"
 }

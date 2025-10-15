@@ -446,6 +446,13 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
     const formData = new FormData(event.currentTarget);
     const targetStatus = formData.get("targetStatus")?.toString() as QueueStatus | undefined;
     if (!targetStatus) return;
+    
+    const assigneeId = formData.get("assigneeId")?.toString().trim() || undefined;
+    const assigneeDisplayName = formData.get("assigneeDisplayName")?.toString().trim() || undefined;
+    const assigneeRole = formData.get("assigneeRole")?.toString().trim() || undefined;
+    
+    // Log transition data for debugging
+    
     const payload = {
       targetStatus,
       // Actor fields (current user performing the transition)
@@ -453,9 +460,9 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
       actorDisplayName: formData.get("actorDisplayName")?.toString().trim() || undefined,
       actorRole: formData.get("actorRole")?.toString().trim() || activeRole,
       // Assignee fields (who the item will be assigned to after transition)
-      assigneeId: formData.get("assigneeId")?.toString().trim() || undefined,
-      assigneeDisplayName: formData.get("assigneeDisplayName")?.toString().trim() || undefined,
-      assigneeRole: formData.get("assigneeRole")?.toString().trim() || undefined,
+      assigneeId,
+      assigneeDisplayName,
+      assigneeRole,
       departmentId: formData.get("departmentId")?.toString().trim() || activeItem.departmentId || undefined,
       note: formData.get("note")?.toString().trim() || undefined
     };
@@ -779,7 +786,9 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                       const upserts = items.map(i => ({
                                         id: i.id > 0 ? i.id : undefined,
                                         title: i.title,
-                                        details: i.details
+                                        details: i.details,
+                                        consultationTitleId: i.consultationTitleId,
+                                        sortOrder: i.sortOrder
                                       }));
                                       if (deletedIds.length > 0) {
                                         await bulkDeleteConsultationEntries(item.id, deletedIds);
@@ -1143,6 +1152,9 @@ function TransitionModal({
         setSelectedAssignee(currentUser);
         setRoleQuery(currentUser.roles[0] || '');
         setDeptQuery(currentUser.departments[0] || '');
+        // Auto-assigned current user for IN status
+      } else {
+        console.warn('Current user not found in staff directory:', user.username);
       }
     } else if (!show) {
       setSelectedAssignee(null);
@@ -1274,6 +1286,14 @@ function TransitionModal({
                 selectedStatus={selectedStatus}
                 statusMatrix={statusMatrix}
               />
+              {selectedStatus && selectedStatus.includes("IN") && selectedAssignee && (
+                <div className="alert alert-info py-2 mb-0">
+                  <i className="bi bi-info-circle me-2"></i>
+                  <small>
+                    <strong>Auto-assigned:</strong> {selectedAssignee.displayName} (current user) for {selectedStatus} status
+                  </small>
+                </div>
+              )}
               <input type="hidden" name="assigneeId" value={selectedAssignee?.username || ''} />
               <input type="hidden" name="assigneeDisplayName" value={selectedAssignee?.displayName || ''} />
 
