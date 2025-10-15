@@ -1,161 +1,170 @@
-import React, { useState } from 'react';
-import { Form, Row, Col, Button, Card } from 'react-bootstrap';
-import { UserProfile } from '../../../services/profileApi';
+import React, { useState, useEffect } from 'react';
+import { Card, Form, Button, Row, Col } from 'react-bootstrap';
+import { UserProfile } from '../../../types/profile';
 
 interface WorkInfoSectionProps {
-  profile: UserProfile;
-  onUpdate: (data: Partial<UserProfile>) => void;
-  isUpdating: boolean;
+  userProfile: UserProfile;
+  onSave: (data: Partial<UserProfile>) => Promise<void>;
 }
 
-export function WorkInfoSection({ profile, onUpdate, isUpdating }: WorkInfoSectionProps) {
-  const [formData, setFormData] = useState({
-    department: profile.department || '',
-    jobTitle: profile.jobTitle || '',
-    employeeId: profile.employeeId || '',
-    hireDate: profile.hireDate || '',
-    supervisor: profile.supervisor || '',
-    workLocation: profile.workLocation || '',
-    workPhone: profile.workPhone || '',
-    workEmail: profile.workEmail || ''
-  });
+export function WorkInfoSection({ userProfile, onSave }: WorkInfoSectionProps) {
+  const [department, setDepartment] = useState(userProfile.department || '');
+  const [jobTitle, setJobTitle] = useState(userProfile.jobTitle || '');
+  const [employeeId, setEmployeeId] = useState(userProfile.employeeId || '');
+  const [hireDate, setHireDate] = useState(userProfile.hireDate || '');
+  const [supervisor, setSupervisor] = useState(userProfile.supervisor || '');
+  const [workLocation, setWorkLocation] = useState(userProfile.workLocation || '');
+  const [workPhone, setWorkPhone] = useState(userProfile.workPhone || '');
+  const [workEmail, setWorkEmail] = useState(userProfile.workEmail || '');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    setDepartment(userProfile.department || '');
+    setJobTitle(userProfile.jobTitle || '');
+    setEmployeeId(userProfile.employeeId || '');
+    setHireDate(userProfile.hireDate || '');
+    setSupervisor(userProfile.supervisor || '');
+    setWorkLocation(userProfile.workLocation || '');
+    setWorkPhone(userProfile.workPhone || '');
+    setWorkEmail(userProfile.workEmail || '');
+  }, [userProfile]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdate(formData);
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setIsSaving(true);
+    try {
+      await onSave({
+        department,
+        jobTitle,
+        employeeId,
+        hireDate,
+        supervisor,
+        workLocation,
+        workPhone,
+        workEmail,
+      });
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <Card>
-      <Card.Header>
-        <h5 className="mb-0">
-          <i className="bi bi-briefcase me-2"></i>
-          Work Information
-        </h5>
-      </Card.Header>
+    <Card className="shadow-sm mb-4">
       <Card.Body>
+        <Card.Title className="mb-3">Work Information</Card.Title>
         <Form onSubmit={handleSubmit}>
-          <Row>
+          <Row className="mb-3">
             <Col md={6}>
-              <Form.Group className="mb-3">
+              <Form.Group controlId="department">
                 <Form.Label>Department</Form.Label>
                 <Form.Control
                   type="text"
-                  value={formData.department}
-                  onChange={(e) => handleChange('department', e.target.value)}
-                  placeholder="IT Department"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  disabled={!isEditing || isSaving}
                 />
               </Form.Group>
             </Col>
             <Col md={6}>
-              <Form.Group className="mb-3">
+              <Form.Group controlId="jobTitle">
                 <Form.Label>Job Title</Form.Label>
                 <Form.Control
                   type="text"
-                  value={formData.jobTitle}
-                  onChange={(e) => handleChange('jobTitle', e.target.value)}
-                  placeholder="Software Developer"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  disabled={!isEditing || isSaving}
                 />
               </Form.Group>
             </Col>
           </Row>
 
-          <Row>
+          <Row className="mb-3">
             <Col md={6}>
-              <Form.Group className="mb-3">
+              <Form.Group controlId="employeeId">
                 <Form.Label>Employee ID</Form.Label>
                 <Form.Control
                   type="text"
-                  value={formData.employeeId}
-                  onChange={(e) => handleChange('employeeId', e.target.value)}
-                  placeholder="EMP001"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                  disabled={!isEditing || isSaving}
                 />
               </Form.Group>
             </Col>
             <Col md={6}>
-              <Form.Group className="mb-3">
+              <Form.Group controlId="hireDate">
                 <Form.Label>Hire Date</Form.Label>
                 <Form.Control
                   type="date"
-                  value={formData.hireDate}
-                  onChange={(e) => handleChange('hireDate', e.target.value)}
+                  value={hireDate}
+                  onChange={(e) => setHireDate(e.target.value)}
+                  disabled={!isEditing || isSaving}
                 />
               </Form.Group>
             </Col>
           </Row>
 
-          <Row>
+          <Form.Group controlId="supervisor" className="mb-3">
+            <Form.Label>Supervisor</Form.Label>
+            <Form.Control
+              type="text"
+              value={supervisor}
+              onChange={(e) => setSupervisor(e.target.value)}
+              disabled={!isEditing || isSaving}
+            />
+          </Form.Group>
+
+          <Row className="mb-3">
             <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>Supervisor</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={formData.supervisor}
-                  onChange={(e) => handleChange('supervisor', e.target.value)}
-                  placeholder="John Smith"
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3">
+              <Form.Group controlId="workLocation">
                 <Form.Label>Work Location</Form.Label>
                 <Form.Control
                   type="text"
-                  value={formData.workLocation}
-                  onChange={(e) => handleChange('workLocation', e.target.value)}
-                  placeholder="Main Office - Floor 3"
+                  value={workLocation}
+                  onChange={(e) => setWorkLocation(e.target.value)}
+                  disabled={!isEditing || isSaving}
                 />
               </Form.Group>
             </Col>
-          </Row>
-
-          <Row>
             <Col md={6}>
-              <Form.Group className="mb-3">
+              <Form.Group controlId="workPhone">
                 <Form.Label>Work Phone</Form.Label>
                 <Form.Control
                   type="tel"
-                  value={formData.workPhone}
-                  onChange={(e) => handleChange('workPhone', e.target.value)}
-                  placeholder="+1 (555) 123-4567"
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>Work Email</Form.Label>
-                <Form.Control
-                  type="email"
-                  value={formData.workEmail}
-                  onChange={(e) => handleChange('workEmail', e.target.value)}
-                  placeholder="john.doe@company.com"
+                  value={workPhone}
+                  onChange={(e) => setWorkPhone(e.target.value)}
+                  disabled={!isEditing || isSaving}
                 />
               </Form.Group>
             </Col>
           </Row>
 
+          <Form.Group controlId="workEmail" className="mb-3">
+            <Form.Label>Work Email</Form.Label>
+            <Form.Control
+              type="email"
+              value={workEmail}
+              onChange={(e) => setWorkEmail(e.target.value)}
+              disabled={!isEditing || isSaving}
+            />
+          </Form.Group>
+
           <div className="d-flex justify-content-end">
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isUpdating}
-            >
-              {isUpdating ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-check-lg me-2"></i>
-                  Update Work Information
-                </>
-              )}
-            </Button>
+            {!isEditing ? (
+              <Button variant="secondary" onClick={() => setIsEditing(true)}>
+                Edit Work Info
+              </Button>
+            ) : (
+              <>
+                <Button variant="secondary" onClick={() => setIsEditing(false)} className="me-2" disabled={isSaving}>
+                  Cancel
+                </Button>
+                <Button variant="primary" type="submit" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            )}
           </div>
         </Form>
       </Card.Body>

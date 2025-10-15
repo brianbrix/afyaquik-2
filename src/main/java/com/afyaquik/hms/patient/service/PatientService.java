@@ -48,6 +48,23 @@ public class PatientService {
         patient.setDateOfBirth(request.dateOfBirth());
         patient.setNationalId(request.nationalId());
         patient.setGender(request.gender());
+        
+        // Set additional fields
+        patient.setMiddleName(request.middleName());
+        patient.setAlternatePhone(request.alternatePhone());
+        patient.setAddress(request.address());
+        patient.setCity(request.city());
+        patient.setState(request.state());
+        patient.setPostalCode(request.postalCode());
+        patient.setCountry(request.country());
+        patient.setEmergencyContactName(request.emergencyContactName());
+        patient.setEmergencyContactPhone(request.emergencyContactPhone());
+        patient.setEmergencyContactRelationship(request.emergencyContactRelationship());
+        patient.setAllergies(request.allergies());
+        patient.setMedications(request.medications());
+        patient.setMedicalHistory(request.medicalHistory());
+        patient.setNotes(request.notes());
+        
         Patient saved = patientRepository.save(patient);
         VisitQueueItem queueItem = queueRepository.findFirstByTenantIdAndPatientIdOrderByCreatedAtDesc(tenantId, saved.getId()).orElse(null);
         log.info("Patient updated tenant={} id={}", tenantId, saved.getId());
@@ -82,6 +99,22 @@ public class PatientService {
         patient.setDateOfBirth(request.dateOfBirth());
         patient.setNationalId(request.nationalId());
         patient.setGender(request.gender());
+        
+        // Set additional fields
+        patient.setMiddleName(request.middleName());
+        patient.setAlternatePhone(request.alternatePhone());
+        patient.setAddress(request.address());
+        patient.setCity(request.city());
+        patient.setState(request.state());
+        patient.setPostalCode(request.postalCode());
+        patient.setCountry(request.country());
+        patient.setEmergencyContactName(request.emergencyContactName());
+        patient.setEmergencyContactPhone(request.emergencyContactPhone());
+        patient.setEmergencyContactRelationship(request.emergencyContactRelationship());
+        patient.setAllergies(request.allergies());
+        patient.setMedications(request.medications());
+        patient.setMedicalHistory(request.medicalHistory());
+        patient.setNotes(request.notes());
 
         Patient saved = patientRepository.save(patient);
 
@@ -173,7 +206,22 @@ public class PatientService {
                 queueItem != null ? queueItem.getCurrentStatus() : null,
                 queueItem != null ? queueItem.getPriority() : null,
                 queueItem != null ? queueItem.getSlaDueAt() : null,
-                queueItem != null ? queueItem.getTicketNumber() : null);
+                queueItem != null ? queueItem.getTicketNumber() : null,
+                // Additional fields
+                patient.getMiddleName(),
+                patient.getAlternatePhone(),
+                patient.getAddress(),
+                patient.getCity(),
+                patient.getState(),
+                patient.getPostalCode(),
+                patient.getCountry(),
+                patient.getEmergencyContactName(),
+                patient.getEmergencyContactPhone(),
+                patient.getEmergencyContactRelationship(),
+                patient.getAllergies(),
+                patient.getMedications(),
+                patient.getMedicalHistory(),
+                patient.getNotes());
     }
 
     private QueuePriority parsePriority(String value) {

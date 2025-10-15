@@ -51,10 +51,8 @@ public class PermissionSeeder {
                 new Permission("DELETE_ROLE", "Delete role"),
                 new Permission("VIEW_REPORTS", "View reports"),
                 new Permission("EXPORT_REPORTS", "Export reports"),
-                new Permission("CREATE_BILL", "Create a bill"),
-                new Permission("EDIT_BILL", "Edit bill"),
-                new Permission("VIEW_BILL", "View bill"),
-                new Permission("DELETE_BILL", "Delete bill"),
+                new Permission("MANAGE_BILLING", "Manage billing and payments"),
+                new Permission("VIEW_BILLING", "View billing information"),
                 new Permission("MANAGE_SETTINGS", "Manage system settings"),
                 new Permission("MANAGE_PERMISSIONS", "Manage permissions"),
                 new Permission("MANAGE_SHIFT_TYPES", "Manage Shift Types"),
@@ -69,9 +67,25 @@ public class PermissionSeeder {
                 new Permission("MANAGE_PHARMACY_INVENTORY", "Manage pharmacy inventory"),
                 new Permission("MANAGE_PHARMACY_MEDICATIONS", "Manage pharmacy MEDICATIONS"),
                 new Permission("VIEW_PHARMACY_INVENTORY", "View pharmacy inventory"),
+                new Permission("MANAGE_PHARMACY_INVENTORY", "Manage pharmacy inventory"),
                 new Permission("MANAGE_PRESCRIPTIONS", "Dispense medication"),
                 new Permission("VIEW_PRESCRIPTIONS", "View prescriptions"),
-                new Permission("VIEW_PATIENT_NOTES", "View patient notes")
+                new Permission("VIEW_PATIENT_NOTES", "View patient notes"),
+                new Permission("MANAGE_DIAGNOSTICS", "Manage diagnostics"),
+                new Permission("MANAGE_REGISTRATION", "Manage patient registration"),
+                new Permission("MANAGE_TRIAGE", "Manage patient triage"),
+                new Permission("MANAGE_CONSULTATIONS", "Manage patient consultation"),
+                new Permission("MANAGE_PHARMACY", "Manage pharmacy"),
+                new Permission("MANAGE_LAB", "Manage laboratory"),
+                new Permission("MANAGE_BILLING", "Manage billing"),
+                // Medication Inventory Permissions
+                new Permission("MANAGE_MEDICATION_INVENTORY", "Manage medication inventory"),
+                new Permission("VIEW_MEDICATION_INVENTORY", "View medication inventory"),
+                // Team Management Permissions
+                new Permission("MANAGE_TEAM", "Manage team members and requests"),
+                new Permission("VIEW_TEAM", "View team information"),
+                new Permission("APPROVE_TIME_OFF", "Approve time-off requests"),
+                new Permission("APPROVE_SHIFT_SWAPS", "Approve shift swap requests")
             );
             for (Permission p : permissions) {
                 permissionRepository.findByCode(p.getCode()).orElseGet(() -> permissionRepository.save(p));

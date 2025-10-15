@@ -14,8 +14,12 @@ import com.afyaquik.hms.diagnostics.domain.DiagnosticOrder;
 import com.afyaquik.hms.diagnostics.domain.DiagnosticResult;
 import com.afyaquik.hms.diagnostics.domain.ResultTemplate;
 import com.afyaquik.hms.diagnostics.domain.Sample;
+import com.afyaquik.hms.diagnostics.dto.DiagnosticFileAttachmentDto;
+import com.afyaquik.hms.diagnostics.dto.DiagnosticNoteDto;
 import com.afyaquik.hms.diagnostics.dto.DiagnosticResultDto;
+import com.afyaquik.hms.diagnostics.repository.DiagnosticFileAttachmentRepository;
 import com.afyaquik.hms.diagnostics.repository.DiagnosticItemRepository;
+import com.afyaquik.hms.diagnostics.repository.DiagnosticNoteRepository;
 import com.afyaquik.hms.diagnostics.repository.DiagnosticOrderRepository;
 import com.afyaquik.hms.diagnostics.repository.DiagnosticResultRepository;
 import com.afyaquik.hms.diagnostics.repository.ResultTemplateRepository;
@@ -30,17 +34,23 @@ public class DiagnosticResultService {
     private final DiagnosticItemRepository diagnosticItemRepository;
     private final SampleRepository sampleRepository;
     private final ResultTemplateRepository resultTemplateRepository;
+    private final DiagnosticNoteRepository diagnosticNoteRepository;
+    private final DiagnosticFileAttachmentRepository diagnosticFileAttachmentRepository;
     
     public DiagnosticResultService(DiagnosticResultRepository diagnosticResultRepository,
                                   DiagnosticOrderRepository diagnosticOrderRepository,
                                   DiagnosticItemRepository diagnosticItemRepository,
                                   SampleRepository sampleRepository,
-                                  ResultTemplateRepository resultTemplateRepository) {
+                                  ResultTemplateRepository resultTemplateRepository,
+                                  DiagnosticNoteRepository diagnosticNoteRepository,
+                                  DiagnosticFileAttachmentRepository diagnosticFileAttachmentRepository) {
         this.diagnosticResultRepository = diagnosticResultRepository;
         this.diagnosticOrderRepository = diagnosticOrderRepository;
         this.diagnosticItemRepository = diagnosticItemRepository;
         this.sampleRepository = sampleRepository;
         this.resultTemplateRepository = resultTemplateRepository;
+        this.diagnosticNoteRepository = diagnosticNoteRepository;
+        this.diagnosticFileAttachmentRepository = diagnosticFileAttachmentRepository;
     }
     
     public List<DiagnosticResultDto> getAllDiagnosticResults() {
@@ -146,6 +156,27 @@ public class DiagnosticResultService {
         dto.setValidatedByName(result.getValidatedByName());
         dto.setValidatedAt(result.getValidatedAt());
         dto.setValidationNotes(result.getValidationNotes());
+        
+        // Set item notes and files from the diagnostic item
+        DiagnosticItem diagnosticItem = result.getDiagnosticItem();
+        if (diagnosticItem != null) {
+            dto.setItemNotes(diagnosticItem.getNotes());
+            
+            // Load notes for this diagnostic item
+            List<DiagnosticNoteDto> notes = diagnosticNoteRepository.findByDiagnosticItemIdAndDeletedFalseOrderByAddedAtDesc(diagnosticItem.getId())
+                .stream()
+                .map(this::convertNoteToDto)
+                .collect(Collectors.toList());
+            dto.setItemNotesList(notes);
+            
+            // Load files for this diagnostic item
+            List<DiagnosticFileAttachmentDto> files = diagnosticFileAttachmentRepository.findByDiagnosticItemIdAndDeletedFalseOrderByUploadedAtDesc(diagnosticItem.getId())
+                .stream()
+                .map(this::convertFileToDto)
+                .collect(Collectors.toList());
+            dto.setItemFiles(files);
+        }
+        
         return dto;
     }
     
@@ -197,5 +228,31 @@ public class DiagnosticResultService {
         }
         
         return result;
+    }
+    
+    private DiagnosticNoteDto convertNoteToDto(com.afyaquik.hms.diagnostics.domain.DiagnosticNote note) {
+        DiagnosticNoteDto dto = new DiagnosticNoteDto();
+        dto.setId(note.getId());
+        dto.setDiagnosticItemId(note.getDiagnosticItemId());
+        dto.setNoteText(note.getNoteText());
+        dto.setAddedBy(note.getAddedBy());
+        dto.setAddedByName(note.getAddedByName());
+        dto.setAddedAt(note.getAddedAt());
+        return dto;
+    }
+    
+    private DiagnosticFileAttachmentDto convertFileToDto(com.afyaquik.hms.diagnostics.domain.DiagnosticFileAttachment file) {
+        DiagnosticFileAttachmentDto dto = new DiagnosticFileAttachmentDto();
+        dto.setId(file.getId());
+        dto.setDiagnosticItemId(file.getDiagnosticItemId());
+        dto.setOriginalFilename(file.getOriginalFilename());
+        dto.setObjectName(file.getObjectName());
+        dto.setFileSize(file.getFileSize());
+        dto.setContentType(file.getContentType());
+        dto.setFileUrl(file.getFileUrl());
+        dto.setUploadedBy(file.getUploadedBy());
+        dto.setUploadedByName(file.getUploadedByName());
+        dto.setUploadedAt(file.getUploadedAt());
+        return dto;
     }
 }

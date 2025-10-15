@@ -33,17 +33,23 @@ public class PrescriptionService {
     private final MedicationRepository medicationRepository;
     private final PatientRepository patientRepository;
     private final StaffUserRepository staffUserRepository;
+    private final PrescriptionBillingService prescriptionBillingService;
+    private final StockManagementService stockManagementService;
 
     public PrescriptionService(PrescriptionRepository prescriptionRepository,
                               PrescriptionItemRepository prescriptionItemRepository,
                               MedicationRepository medicationRepository,
                               PatientRepository patientRepository,
-                              StaffUserRepository staffUserRepository) {
+                              StaffUserRepository staffUserRepository,
+                              PrescriptionBillingService prescriptionBillingService,
+                              StockManagementService stockManagementService) {
         this.prescriptionRepository = prescriptionRepository;
         this.prescriptionItemRepository = prescriptionItemRepository;
         this.medicationRepository = medicationRepository;
         this.patientRepository = patientRepository;
         this.staffUserRepository = staffUserRepository;
+        this.prescriptionBillingService = prescriptionBillingService;
+        this.stockManagementService = stockManagementService;
     }
 
     public PrescriptionDto create(String tenantId, PrescriptionRequest request) {
@@ -115,6 +121,57 @@ public class PrescriptionService {
         prescriptionRepository.save(savedPrescription);
 
         return mapEntityToDto(savedPrescription);
+    }
+
+    @Transactional
+    public PrescriptionDto update(String tenantId, Long id, PrescriptionRequest request) {
+        // Find existing prescription
+        Prescription prescription = prescriptionRepository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("Prescription not found"));
+
+        if (!prescription.getTenantId().equals(tenantId) || prescription.isDeleted()) {
+            throw new IllegalStateException("Prescription not found");
+        }
+
+        // Update prescription details
+        prescription.setNotes(request.getNotes());
+
+        // Delete existing prescription items
+        List<PrescriptionItem> existingItems = prescriptionItemRepository.findByTenantIdAndPrescriptionId(tenantId, id);
+        for (PrescriptionItem item : existingItems) {
+            prescriptionItemRepository.delete(item);
+        }
+
+        // Create new prescription items
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (var itemRequest : request.getItems()) {
+            var medication = medicationRepository.findById(itemRequest.getMedicationId())
+                    .orElseThrow(() -> new IllegalStateException("Medication not found"));
+
+            PrescriptionItem item = new PrescriptionItem();
+            item.setTenantId(tenantId);
+            item.setPrescription(prescription);
+            item.setMedication(medication);
+            item.setQuantityPrescribed(itemRequest.getQuantityPrescribed());
+            item.setDosageInstructions(itemRequest.getDosageInstructions());
+            item.setFrequency(itemRequest.getFrequency());
+            item.setDurationDays(itemRequest.getDurationDays());
+            item.setUnitPrice(itemRequest.getUnitPrice() != null ? itemRequest.getUnitPrice() : medication.getUnitPrice());
+            item.setNotes(itemRequest.getNotes());
+
+            // Calculate total price for this item
+            BigDecimal itemTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantityPrescribed()));
+            item.setTotalPrice(itemTotal);
+            totalAmount = totalAmount.add(itemTotal);
+
+            prescriptionItemRepository.save(item);
+        }
+
+        // Update prescription total amount
+        prescription.setTotalAmount(totalAmount);
+        prescriptionRepository.save(prescription);
+
+        return mapEntityToDto(prescription);
     }
 
     @Transactional(readOnly = true)
@@ -218,6 +275,11 @@ public class PrescriptionService {
         prescription.setDispensedAt(LocalDateTime.now());
         prescription.setDispensingNotes(dispensingNotes);
 
+        // Check stock availability before dispensing
+        if (!stockManagementService.checkPrescriptionStockAvailability(tenantId, id)) {
+            throw new IllegalStateException("Insufficient stock to dispense this prescription");
+        }
+
         // Mark all items as fully dispensed
         List<PrescriptionItem> items = prescriptionItemRepository.findByTenantIdAndPrescriptionId(tenantId, id);
         for (PrescriptionItem item : items) {
@@ -225,7 +287,32 @@ public class PrescriptionService {
             prescriptionItemRepository.save(item);
         }
 
+        // Deduct stock from inventory using batch-aware deduction
+        for (PrescriptionItem item : items) {
+            stockManagementService.deductStockFromBatches(tenantId, item.getMedication().getId(), 
+                item.getQuantityDispensed(), 
+                "Dispensed for prescription #" + prescription.getPrescriptionNumber());
+        }
+
         Prescription saved = prescriptionRepository.save(prescription);
+        
+        // Add prescription items to bill
+        try {
+            // Get queue item ID from prescription
+            Long queueItemId = prescription.getQueueItemId();
+            if (queueItemId != null) {
+                prescriptionBillingService.addPrescriptionToBill(id, queueItemId, prescription.getPatient().getId(), 
+                    prescription.getPatient().getFirstName() + " " + prescription.getPatient().getLastName());
+            } else {
+                // Log warning if no queue item ID is available
+                System.err.println("Warning: No queue item ID found for prescription " + prescription.getPrescriptionNumber() + 
+                    ". Billing integration skipped.");
+            }
+        } catch (Exception e) {
+            // Log error but don't fail the dispense operation
+            System.err.println("Failed to add prescription to bill: " + e.getMessage());
+        }
+        
         return mapEntityToDto(saved);
     }
 
@@ -239,6 +326,11 @@ public class PrescriptionService {
 
         if (prescription.getStatus() != Prescription.PrescriptionStatus.PENDING) {
             throw new IllegalStateException("Only pending prescriptions can be cancelled");
+        }
+
+        // If prescription was already dispensed, restore stock
+        if (prescription.getStatus() == Prescription.PrescriptionStatus.DISPENSED) {
+            stockManagementService.restoreStockForPrescription(tenantId, id);
         }
 
         prescription.setStatus(Prescription.PrescriptionStatus.CANCELLED);
@@ -274,6 +366,7 @@ public class PrescriptionService {
         dto.setDispensedBy(prescription.getDispensedBy());
         dto.setDispensedAt(prescription.getDispensedAt());
         dto.setDispensingNotes(prescription.getDispensingNotes());
+        dto.setQueueItemId(prescription.getQueueItemId());
         dto.setCreatedAt(prescription.getCreatedAt());
         dto.setUpdatedAt(prescription.getUpdatedAt());
 

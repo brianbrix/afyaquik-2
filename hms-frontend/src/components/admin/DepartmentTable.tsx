@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
-import { useAdminDepartments, useUpdateDepartment, useDeleteDepartment } from '../../services/adminApi';
+import { useAdminDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from '../../services/adminApi';
 import { DepartmentTag } from './DepartmentTag';
 import { EditDepartmentModal } from './EditDepartmentModal';
+import { CreateDepartmentModal } from './CreateDepartmentModal';
 
 export const DepartmentTable: React.FC = () => {
   const { data: depts, isLoading, error } = useAdminDepartments();
+  const createDepartment = useCreateDepartment();
   const updateDepartment = useUpdateDepartment();
   const deleteDepartment = useDeleteDepartment();
   const [editing, setEditing] = useState<any|undefined>();
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const onSave = (name: string, description?: string) => {
     if (!editing) return;
     updateDepartment.mutate({ id: editing.id, displayName: name, description }, { onSuccess: () => setEditing(undefined) });
+  };
+
+  const onCreate = (departmentId: string, displayName: string, description?: string) => {
+    createDepartment.mutate({ departmentId, displayName, description }, { onSuccess: () => setShowCreateModal(false) });
   };
 
   const onDelete = (d: any) => {
@@ -23,7 +30,7 @@ export const DepartmentTable: React.FC = () => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h5 className="mb-0">Departments</h5>
-        <button className="btn btn-sm btn-primary" disabled>+ New Department</button>
+        <button className="btn btn-sm btn-primary" onClick={() => setShowCreateModal(true)}>+ New Department</button>
       </div>
       {isLoading && <div>Loading...</div>}
       {error && <div className="text-danger">Failed to load departments</div>}
@@ -58,6 +65,7 @@ export const DepartmentTable: React.FC = () => {
         </table>
       </div>
       <EditDepartmentModal show={!!editing} department={editing} onClose={()=>setEditing(undefined)} onSave={onSave} />
+      <CreateDepartmentModal show={showCreateModal} onClose={()=>setShowCreateModal(false)} onCreate={onCreate} />
     </div>
   );
 };

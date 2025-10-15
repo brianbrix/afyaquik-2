@@ -2,6 +2,7 @@ package com.afyaquik.hms.auth.api;
 
 import com.afyaquik.hms.auth.security.TenantUserDetails;
 import com.afyaquik.hms.auth.service.ActiveRoleService;
+import com.afyaquik.hms.auth.service.PermissionService;
 import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.common.web.TenantHeaderResolver;
 import jakarta.validation.Valid;
@@ -19,9 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ActiveRoleController {
 
     private final ActiveRoleService activeRoleService;
+    private final PermissionService permissionService;
 
-    public ActiveRoleController(ActiveRoleService activeRoleService) {
+    public ActiveRoleController(ActiveRoleService activeRoleService, PermissionService permissionService) {
         this.activeRoleService = activeRoleService;
+        this.permissionService = permissionService;
     }
 
     @PostMapping("/active-role")
@@ -38,7 +41,21 @@ public class ActiveRoleController {
             throw new org.springframework.security.access.AccessDeniedException("Tenant mismatch");
         }
         String userId = principal.getUser().getId().toString();
-        activeRoleService.setActiveRole(tenantId, userId, request.role());
+        
+        // Find the role details from user's roles
+        String roleName = "Unknown Role";
+        String roleDescription = "No description available";
+        
+        for (var role : principal.getUser().getRoles()) {
+            if (role.getRoleKey().equals(request.role())) {
+                roleName = role.getDisplayName();
+                roleDescription = "Role: " + role.getDisplayName();
+                break;
+            }
+        }
+        
+        activeRoleService.setActiveRole(tenantId, userId, request.role(), roleName, roleDescription);
+        
         return ApiResponse.success(new ActiveRoleResponse(request.role()));
     }
 
@@ -55,9 +72,25 @@ public class ActiveRoleController {
             throw new org.springframework.security.access.AccessDeniedException("Tenant mismatch");
         }
         String userId = principal.getUser().getId().toString();
+        
         return activeRoleService
                 .getActiveRole(tenantId, userId)
-                .map(role -> ResponseEntity.ok(ApiResponse.success(new ActiveRoleResponse(role))))
+                .map(role -> {
+                    // Resolve permissions for the active role
+                    try {
+                        permissionService.resolvePermissions(principal.getUser().getId(), 
+                            principal.getUser().getRoles().stream()
+                                .filter(r -> r.getRoleKey().equals(role))
+                                .findFirst()
+                                .map(r -> r.getId())
+                                .orElse(null));
+                    } catch (Exception e) {
+                        // Log error but don't fail the request
+                        System.err.println("Failed to resolve permissions for active role: " + e.getMessage());
+                    }
+                    
+                    return ResponseEntity.ok(ApiResponse.success(new ActiveRoleResponse(role)));
+                })
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 }

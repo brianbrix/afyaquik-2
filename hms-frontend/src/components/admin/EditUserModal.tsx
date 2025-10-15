@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { AdminUser, useAdminRoles, useUpdateUser, useUpdateUserRoles } from '../../services/adminApi';
+import { AdminUser, useAdminRoles, useUpdateUser, useUpdateUserRoles, useAdminUsers } from '../../services/adminApi';
+import { SearchableStaffSelect } from '../shared/SearchableStaffSelect';
 
 interface EditUserModalProps { show: boolean; onClose: () => void; user?: AdminUser; }
 
 export const EditUserModal: React.FC<EditUserModalProps> = ({ show, onClose, user }) => {
   const { data: roles } = useAdminRoles();
+  const { data: allUsers } = useAdminUsers();
   const updateUser = useUpdateUser();
   const updateUserRoles = useUpdateUserRoles();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedSupervisor, setSelectedSupervisor] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string|undefined>();
 
@@ -20,9 +23,26 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ show, onClose, use
       setEmail(user.email||'');
       setEnabled(user.enabled);
       setSelectedRoles(user.roles?.map(r => r.roleKey || r.displayName) || []);
+      
+      // Set supervisor if available
+      if (user.supervisorId && allUsers) {
+        const supervisor = allUsers.find(u => u.id === user.supervisorId);
+        if (supervisor) {
+          setSelectedSupervisor({
+            id: supervisor.id,
+            username: supervisor.username,
+            displayName: supervisor.displayName,
+            roles: supervisor.roles?.map(r => r.roleKey || r.displayName) || [],
+            departments: [] // Add departments if available
+          });
+        }
+      } else {
+        setSelectedSupervisor(null);
+      }
+      
       setError(undefined);
     }
-  }, [show, user]);
+  }, [show, user, allUsers]);
 
   if (!show || !user) return null;
 
@@ -34,7 +54,14 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ show, onClose, use
     e.preventDefault();
     setSaving(true);
     try {
-      await updateUser.mutateAsync({ id: user.id, displayName, email: email||undefined, enabled });
+      await updateUser.mutateAsync({ 
+        id: user.id, 
+        displayName, 
+        email: email||undefined, 
+        enabled,
+        supervisorId: selectedSupervisor?.id || null,
+        supervisorDisplayName: selectedSupervisor?.displayName || null
+      });
       await updateUserRoles.mutateAsync({ id: user.id, roleKeys: selectedRoles });
       onClose();
     } catch (err: any) {
@@ -73,6 +100,20 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ show, onClose, use
                   <div>
                     <input type="checkbox" className="form-check-input" checked={enabled} onChange={e=>setEnabled(e.target.checked)} />
                   </div>
+                </div>
+              </div>
+              <hr />
+              <div className="row g-2">
+                <div className="col-12">
+                  <label className="form-label form-label-sm">Supervisor/Manager</label>
+                  <SearchableStaffSelect
+                    value={selectedSupervisor}
+                    onChange={setSelectedSupervisor}
+                    placeholder="Select supervisor..."
+                    disabled={saving}
+                    staffData={allUsers?.filter(u => u.id !== user.id) || []}
+                  />
+                  <small className="text-muted">Select a user who will be this user's supervisor/manager</small>
                 </div>
               </div>
               <hr />

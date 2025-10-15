@@ -1,13 +1,14 @@
 package com.afyaquik.hms.scheduling.repository;
 
 import com.afyaquik.hms.scheduling.domain.StaffShift;
-
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.afyaquik.hms.scheduling.domain.ShiftStatus;
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-public interface StaffShiftRepository extends JpaRepository<StaffShift, Long>, JpaSpecificationExecutor<StaffShift> {
+public interface StaffShiftRepository extends TenantAwareRepository<StaffShift, Long>, JpaSpecificationExecutor<StaffShift> {
 
     // Default method for overlap check using specification
     default boolean existsOverlappingShift(String tenantId, Long staffUserId, OffsetDateTime startsAt, OffsetDateTime endsAt, Long excludeId) {
@@ -55,5 +56,46 @@ public interface StaffShiftRepository extends JpaRepository<StaffShift, Long>, J
     default boolean existsByTenantId(String tenantId) {
         return false;
     }
+    
+    // Find shifts by multiple staff user IDs and status
+    List<StaffShift> findByStaffUserIdInAndStatusOrderByCreatedAtDesc(List<Long> staffUserIds, ShiftStatus status);
+    
+    // Count shifts by multiple staff user IDs and status
+    long countByStaffUserIdInAndStatus(List<Long> staffUserIds, ShiftStatus status);
+    
+    // Tenant-aware default methods
+    default boolean existsOverlappingShiftForCurrentTenant(Long staffUserId, OffsetDateTime startsAt, OffsetDateTime endsAt, Long excludeId) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return existsOverlappingShift(tenantId, staffUserId, startsAt, endsAt, excludeId);
+    }
+    
+    default List<StaffShift> findPendingCheckInForCurrentTenant(Long staffUserId, ShiftStatus status, OffsetDateTime before) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return findPendingCheckIn(tenantId, staffUserId, status, before);
+    }
+    
+    default List<StaffShift> findPendingCheckOutForCurrentTenant(Long staffUserId, List<ShiftStatus> statuses, OffsetDateTime before) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return findPendingCheckOut(tenantId, staffUserId, statuses, before);
+    }
+    
+    default List<StaffShift> findShiftsByStaffUserIdAndStatusForCurrentTenant(Long staffUserId, ShiftStatus status) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        // Use the existing method that doesn't require tenantId
+        return findByStaffUserIdInAndStatusOrderByCreatedAtDesc(List.of(staffUserId), status);
+    }
+    
+    default List<StaffShift> findShiftsByStaffUserIdInAndStatusForCurrentTenant(List<Long> staffUserIds, ShiftStatus status) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return findByStaffUserIdInAndStatusOrderByCreatedAtDesc(staffUserIds, status);
+    }
+    
+    default long countShiftsByStaffUserIdInAndStatusForCurrentTenant(List<Long> staffUserIds, ShiftStatus status) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return countByStaffUserIdInAndStatus(staffUserIds, status);
+    }
+
+    // Dashboard methods
+    List<StaffShift> findByStaffUserIdAndStartsAtBetween(Long staffUserId, OffsetDateTime start, OffsetDateTime end);
 
 }

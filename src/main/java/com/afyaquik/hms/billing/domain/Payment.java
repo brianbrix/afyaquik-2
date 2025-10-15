@@ -31,8 +31,8 @@ public class Payment extends BaseEntity {
     @Column(name = "amount", precision = 19, scale = 2, nullable = false)
     private BigDecimal amount;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "payment_method", nullable = false, length = 32)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_method_id", nullable = false)
     private PaymentMethod paymentMethod;
 
     @Column(name = "payment_date", nullable = false)

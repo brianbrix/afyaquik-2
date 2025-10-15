@@ -1,5 +1,8 @@
 package com.afyaquik.hms.diagnostics.domain;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
+@JsonDeserialize(using = FieldTypeDeserializer.class)
 public enum FieldType {
     TEXT("Text"),
     NUMBER("Number"),

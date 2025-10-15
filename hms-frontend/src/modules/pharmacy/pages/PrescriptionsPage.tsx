@@ -3,9 +3,11 @@ import { Button, Card, Col, Form, InputGroup, Row, Table, Badge, Modal, Alert, T
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { prescriptionApi, Prescription, PrescriptionRequest } from '../../../services/pharmacyApi';
 import { PrescriptionForm } from '../components/PrescriptionForm';
+import { useAuth } from '../../../hooks/useAuth';
 // Icons are used via CSS classes: bi-search, bi-plus, bi-pencil-square, bi-trash, bi-check-circle, bi-x-circle, bi-eye
 
 export function PrescriptionsPage() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
@@ -124,8 +126,8 @@ export function PrescriptionsPage() {
 
   const handleDispenseSubmit = () => {
     if (prescriptionToDispense) {
-      // In a real app, you'd get the current user ID
-      const dispensedBy = 1; // This should come from auth context
+      // Get current user ID from auth context
+      const dispensedBy = user?.id || 1;
       dispenseMutation.mutate({
         id: prescriptionToDispense.id,
         dispensedBy,

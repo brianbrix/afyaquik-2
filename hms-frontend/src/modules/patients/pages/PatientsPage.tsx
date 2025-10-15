@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
-import { Button, Card, Table, Form, Alert, Spinner } from "react-bootstrap";
+import { Button, Card, Table, Form, Alert, Spinner, Row, Col } from "react-bootstrap";
+import { ReactPaginateComponent } from "../../../components/shared/ReactPaginate";
 import { FormModal } from "../../../components/shared/FormModal";
 import { FilterBar } from "../../../components/shared/FilterBar";
 import { DynamicForm, type DynamicField } from "../../../components/forms/DynamicForm";
+import { PatientRegistrationForm } from "../../../components/forms/PatientRegistrationForm";
 import { useCreatePatient, usePatients } from "../../../services/patientApi";
 import Swal from 'sweetalert2';
 import { generateRandomMrn } from '../../../utils/mrn';
@@ -13,25 +15,60 @@ import { QueuePriority } from '../../../types/queue';
 import { useEditPatient } from '../../../services/useEditPatient';
 
 const patientFields: DynamicField[] = [
-  { name: "medicalRecordNumber", label: "MRN", type: "text", required: false, placeholder: "Leave blank to auto-generate" },
-  { name: "firstName", label: "First name", type: "text", required: true },
-  { name: "lastName", label: "Last name", type: "text", required: true },
-  { name: "phone", label: "Phone", type: "text", placeholder: "+254..." },
-  { name: "email", label: "Email", type: "text" },
-  { name: "dateOfBirth", label: "Date of birth", type: "date" },
-  { name: "nationalId", label: "National ID", type: "text" },
-  { name: "gender", label: "Gender", type: "select", options: [
-    { value: "female", label: "Female" },
-    { value: "male", label: "Male" },
-    { value: "other", label: "Other" }
+  // Basic Information
+  { name: "medicalRecordNumber", label: "Medical Record Number (MRN)", type: "text", required: false, placeholder: "Leave blank to auto-generate", helpText: "Unique identifier for the patient" },
+  { name: "firstName", label: "First Name", type: "text", required: true, placeholder: "Enter patient's first name" },
+  { name: "lastName", label: "Last Name", type: "text", required: true, placeholder: "Enter patient's last name" },
+  { name: "middleName", label: "Middle Name", type: "text", placeholder: "Enter middle name (optional)" },
+  
+  // Contact Information
+  { name: "phone", label: "Primary Phone", type: "text", required: true, placeholder: "+254 700 000 000" },
+  { name: "alternatePhone", label: "Alternate Phone", type: "text", placeholder: "+254 700 000 000" },
+  { name: "email", label: "Email Address", type: "text", placeholder: "patient@example.com" },
+  
+  // Personal Details
+  { name: "dateOfBirth", label: "Date of Birth", type: "date", required: true },
+  { name: "nationalId", label: "National ID/Passport", type: "text", placeholder: "Enter national ID or passport number" },
+  { name: "gender", label: "Gender", type: "select", required: true, options: [
+    { value: "FEMALE", label: "Female" },
+    { value: "MALE", label: "Male" },
+    { value: "OTHER", label: "Other" },
+    { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" }
   ]},
-  { name: "visitReason", label: "Visit reason", type: "textarea" },
-  { name: "priority", label: "Priority", type: "select", options: [
-    { value: "LOW", label: "Low" },
-    { value: "MEDIUM", label: "Medium" },
-    { value: "HIGH", label: "High" },
-    { value: "CRITICAL", label: "Critical" },
-  ]}
+  
+  // Address Information
+  { name: "address", label: "Address", type: "textarea", placeholder: "Enter full address" },
+  { name: "city", label: "City", type: "text", placeholder: "Enter city" },
+  { name: "state", label: "State/Province", type: "text", placeholder: "Enter state or province" },
+  { name: "postalCode", label: "Postal Code", type: "text", placeholder: "Enter postal code" },
+  { name: "country", label: "Country", type: "text", placeholder: "Enter country" },
+  
+  // Emergency Contact
+  { name: "emergencyContactName", label: "Emergency Contact Name", type: "text", placeholder: "Full name of emergency contact" },
+  { name: "emergencyContactPhone", label: "Emergency Contact Phone", type: "text", placeholder: "+254 700 000 000" },
+  { name: "emergencyContactRelationship", label: "Relationship", type: "select", options: [
+    { value: "SPOUSE", label: "Spouse" },
+    { value: "PARENT", label: "Parent" },
+    { value: "CHILD", label: "Child" },
+    { value: "SIBLING", label: "Sibling" },
+    { value: "FRIEND", label: "Friend" },
+    { value: "OTHER", label: "Other" }
+  ]},
+  
+  // Visit Information
+  { name: "visitReason", label: "Reason for Visit", type: "textarea", required: true, placeholder: "Describe the reason for this visit" },
+  { name: "priority", label: "Priority Level", type: "select", required: true, options: [
+    { value: "LOW", label: "Low - Routine visit" },
+    { value: "MEDIUM", label: "Medium - Standard priority" },
+    { value: "HIGH", label: "High - Urgent attention needed" },
+    { value: "CRITICAL", label: "Critical - Emergency situation" }
+  ]},
+  
+  // Additional Information
+  { name: "allergies", label: "Known Allergies", type: "textarea", placeholder: "List any known allergies or adverse reactions" },
+  { name: "medications", label: "Current Medications", type: "textarea", placeholder: "List current medications and dosages" },
+  { name: "medicalHistory", label: "Medical History", type: "textarea", placeholder: "Relevant medical history and conditions" },
+  { name: "notes", label: "Additional Notes", type: "textarea", placeholder: "Any additional information about the patient" }
 ];
 
 
@@ -43,6 +80,8 @@ export function PatientsPage() {
   const CAN_EDIT = hasPermission(permissions, 'EDIT_PATIENT');
   const CAN_ADD_QUEUE = hasPermission(permissions, 'CREATE_QUEUE');
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [activePatientId, setActivePatientId] = useState<number | null>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -69,58 +108,25 @@ export function PatientsPage() {
   });
   const editMutation = useEditPatient(search);
   const patients = patientsQuery.data ?? [];
-  const filtered = useMemo(() => {
-    if (!search) return patients;
-    const lower = search.toLowerCase();
-    return patients.filter(p => [p.medicalRecordNumber, p.firstName + " " + p.lastName, p.phone, p.email]
-      .filter(Boolean)
-      .some(v => v!.toLowerCase().includes(lower)));
-  }, [patients, search]);
+  
+  // Client-side pagination
+  const paginatedPatients = useMemo(() => {
+    const startIndex = currentPage * pageSize;
+    const endIndex = startIndex + pageSize;
+    return patients.slice(startIndex, endIndex);
+  }, [patients, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(patients.length / pageSize);
+
+  const handlePageChange = ({ selected }: { selected: number }) => {
+    setCurrentPage(selected);
+  };
 
   if (permLoading) return <div>Loading permissions...</div>;
   if (!CAN_VIEW) {
     return <div className="alert alert-danger mt-4">You do not have permission to view patients.</div>;
   }
 
-  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    const payload: any = {};
-    patientFields.forEach(f => {
-      const raw = formData.get(f.name);
-      if (raw && raw.toString().trim()) payload[f.name] = raw.toString().trim();
-    });
-
-    // If MRN missing, confirm auto-generation
-    if (!payload.medicalRecordNumber) {
-      const result = await Swal.fire({
-        title: 'Generate MRN?',
-        text: 'No MRN was entered. A random Medical Record Number will be assigned to this patient.',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Yes, generate',
-        cancelButtonText: 'Cancel',
-        focusCancel: true
-      });
-      if (!result.isConfirmed) return; // abort submission
-      payload.medicalRecordNumber = generateRandomMrn('MRN');
-    }
-
-    createMutation.mutate(payload, {
-      onSuccess: () => {
-        form.reset();
-        setShowModal(false);
-        Swal.fire({
-          title: 'Patient created',
-            text: `MRN: ${payload.medicalRecordNumber}`,
-            icon: 'success',
-            timer: 2500,
-            showConfirmButton: false
-        });
-      }
-    });
-  };
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -154,11 +160,11 @@ export function PatientsPage() {
                   <tr>
                     <td colSpan={5} className="text-center py-4"><Spinner animation="border" /></td>
                   </tr>
-                ) : filtered.length === 0 ? (
+                ) : paginatedPatients.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-4 text-muted">No patients found.</td>
+                    <td colSpan={6} className="text-center py-4 text-muted">No patients found.</td>
                   </tr>
-                ) : filtered.map(p => (
+                ) : paginatedPatients.map(p => (
                   <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => { setActivePatientId(p.id); setShowDetail(true); }}>
                     <td className="fw-semibold">{p.medicalRecordNumber}</td>
                     <td>{p.firstName} {p.lastName}</td>
@@ -196,6 +202,42 @@ export function PatientsPage() {
               </tbody>
             </Table>
           </div>
+          
+          {/* Pagination and Info */}
+          <Row className="align-items-center mt-3">
+            <Col md={6}>
+              <div className="text-muted small">
+                Showing {currentPage * pageSize + 1} to {Math.min((currentPage + 1) * pageSize, patients.length)} of {patients.length} patients
+              </div>
+            </Col>
+            <Col md={6}>
+              <div className="d-flex justify-content-end align-items-center gap-3">
+                <div className="d-flex align-items-center gap-2">
+                  <label className="form-label mb-0 small">Show:</label>
+                  <select
+                    className="form-select form-select-sm"
+                    style={{ width: 'auto' }}
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(0); // Reset to first page when changing page size
+                    }}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="small text-muted">entries</span>
+                </div>
+                <ReactPaginateComponent
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
+              </div>
+            </Col>
+          </Row>
         </Card.Body>
       </Card>
 
@@ -211,88 +253,230 @@ export function PatientsPage() {
         disableSubmit={false}
       >
         {(() => {
-          const patient = patients.find(pt => pt.id === activePatientId);
+          const patient = patientsQuery.data?.find(pt => pt.id === activePatientId);
           if (!patient) return <p className="text-muted mb-0">No patient selected.</p>;
           return (
-            <div className="d-flex flex-column gap-3">
-              <div><strong>{patient.firstName} {patient.lastName}</strong></div>
-              <div className="row g-3">
-                <div className="col-md-4"><small className="text-muted d-block">MRN</small>{patient.medicalRecordNumber}</div>
-                <div className="col-md-4"><small className="text-muted d-block">Phone</small>{patient.phone || '—'}</div>
-                <div className="col-md-4"><small className="text-muted d-block">Email</small>{patient.email || '—'}</div>
-                <div className="col-md-4"><small className="text-muted d-block">DOB</small>{patient.dateOfBirth || '—'}</div>
+            <div className="d-flex flex-column gap-4">
+              {/* Basic Information */}
+              <div className="border rounded p-3">
+                <h6 className="fw-semibold mb-3">
+                  <i className="bi bi-person me-2"></i>Basic Information
+                </h6>
+                <div className="row g-3">
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">First Name</small>
+                    <div className="fw-medium">{patient.firstName}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Last Name</small>
+                    <div className="fw-medium">{patient.lastName}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Middle Name</small>
+                    <div className="fw-medium">{patient.middleName || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Medical Record Number</small>
+                    <div className="fw-medium">{patient.medicalRecordNumber}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Date of Birth</small>
+                    <div className="fw-medium">{patient.dateOfBirth || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Gender</small>
+                    <div className="fw-medium">{patient.gender || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">National ID</small>
+                    <div className="fw-medium">{patient.nationalId || '—'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="border rounded p-3">
+                <h6 className="fw-semibold mb-3">
+                  <i className="bi bi-telephone me-2"></i>Contact Information
+                </h6>
+                <div className="row g-3">
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Primary Phone</small>
+                    <div className="fw-medium">{patient.phone || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Alternate Phone</small>
+                    <div className="fw-medium">{patient.alternatePhone || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Email</small>
+                    <div className="fw-medium">{patient.email || '—'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Address Information */}
+              <div className="border rounded p-3">
+                <h6 className="fw-semibold mb-3">
+                  <i className="bi bi-geo-alt me-2"></i>Address Information
+                </h6>
+                <div className="row g-3">
+                  <div className="col-12">
+                    <small className="text-muted d-block">Address</small>
+                    <div className="fw-medium">{patient.address || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">City</small>
+                    <div className="fw-medium">{patient.city || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">State</small>
+                    <div className="fw-medium">{patient.state || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Postal Code</small>
+                    <div className="fw-medium">{patient.postalCode || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Country</small>
+                    <div className="fw-medium">{patient.country || '—'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Emergency Contact */}
+              <div className="border rounded p-3">
+                <h6 className="fw-semibold mb-3">
+                  <i className="bi bi-person-heart me-2"></i>Emergency Contact
+                </h6>
+                <div className="row g-3">
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Name</small>
+                    <div className="fw-medium">{patient.emergencyContactName || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Phone</small>
+                    <div className="fw-medium">{patient.emergencyContactPhone || '—'}</div>
+                  </div>
+                  <div className="col-md-4">
+                    <small className="text-muted d-block">Relationship</small>
+                    <div className="fw-medium">{patient.emergencyContactRelationship || '—'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Medical Information */}
+              <div className="border rounded p-3">
+                <h6 className="fw-semibold mb-3">
+                  <i className="bi bi-heart-pulse me-2"></i>Medical Information
+                </h6>
+                <div className="row g-3">
+                  <div className="col-12">
+                    <small className="text-muted d-block">Allergies</small>
+                    <div className="fw-medium">{patient.allergies || '—'}</div>
+                  </div>
+                  <div className="col-12">
+                    <small className="text-muted d-block">Current Medications</small>
+                    <div className="fw-medium">{patient.medications || '—'}</div>
+                  </div>
+                  <div className="col-12">
+                    <small className="text-muted d-block">Medical History</small>
+                    <div className="fw-medium">{patient.medicalHistory || '—'}</div>
+                  </div>
+                  <div className="col-12">
+                    <small className="text-muted d-block">Additional Notes</small>
+                    <div className="fw-medium">{patient.notes || '—'}</div>
+                  </div>
+                </div>
               </div>
             </div>
           );
         })()}
       </FormModal>
 
-      {/* Edit patient modal */}
+      {/* Improved patient edit modal */}
       <FormModal
         show={showEditModal}
         onHide={() => setShowEditModal(false)}
-        title="Edit patient"
+        title="Edit Patient"
         onSubmit={async (e) => {
           e.preventDefault();
-          setEditError(null);
           if (!editForm?.id) {
             setEditError('No patient selected');
             return;
           }
-          editMutation.mutate(editForm, {
+          
+          // Get form data from the PatientRegistrationForm
+          const form = e.currentTarget;
+          const formData = new FormData(form);
+          const data: any = {};
+          
+          // Extract data from all form fields
+          const allFields = [
+            'medicalRecordNumber', 'firstName', 'lastName', 'middleName', 'dateOfBirth', 'nationalId', 'gender',
+            'phone', 'alternatePhone', 'email', 'address', 'city', 'state', 'postalCode', 'country',
+            'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelationship',
+            'allergies', 'medications', 'medicalHistory', 'notes'
+          ];
+          
+          allFields.forEach(fieldName => {
+            const value = formData.get(fieldName);
+            if (value && value.toString().trim()) {
+              data[fieldName] = value.toString().trim();
+            }
+          });
+
+          // Validate required fields
+          const requiredFields = ['firstName', 'lastName'];
+          const missingFields = requiredFields.filter(field => !data[field]);
+          
+          if (missingFields.length > 0) {
+            const errorMessages = missingFields.map(field => {
+              const fieldLabel = field === 'firstName' ? 'First name' : 
+                               field === 'lastName' ? 'Last name' : 
+                               field === 'medicalRecordNumber' ? 'Medical record number' : field;
+              return `${fieldLabel} is required`;
+            });
+            
+            Swal.fire({
+              title: 'Validation Error',
+              html: errorMessages.join('<br>'),
+              icon: 'error',
+              confirmButtonText: 'OK'
+            });
+            return;
+          }
+
+          setEditError(null);
+          editMutation.mutate({ ...data, id: editForm.id }, {
             onSuccess: () => {
               setShowEditModal(false);
               Swal.fire({ icon: 'success', title: 'Patient updated', timer: 1800, showConfirmButton: false });
             },
             onError: (err: any) => {
-              setEditError(err?.message || 'Failed to update patient');
+              // Handle backend validation errors
+              const errorMessages = err?.response?.data?.errors || [];
+              if (errorMessages.length > 0) {
+                const uniqueErrors = [...new Set(errorMessages.map((error: any) => error.message))];
+                setEditError(uniqueErrors.join('<br>'));
+              } else {
+                setEditError(err?.message || 'Failed to update patient');
+              }
             }
           });
         }}
-        size="lg"
-        isSubmitting={editMutation.isPending}
-        submitLabel="Save"
+        size="xl"
+        submitLabel="Update Patient"
         cancelLabel="Cancel"
-        disableSubmit={editMutation.isPending || !editForm?.firstName || !editForm?.lastName}
+        isSubmitting={editMutation.isPending}
+        error={editError}
       >
-        {editError && <Alert variant="danger">{editError}</Alert>}
-        {editForm && (
-          <>
-            <Form.Group className="mb-2">
-              <Form.Label>First name</Form.Label>
-              <Form.Control value={editForm.firstName} onChange={e => setEditForm({ ...editForm, firstName: e.target.value })} required />
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>Last name</Form.Label>
-              <Form.Control value={editForm.lastName} onChange={e => setEditForm({ ...editForm, lastName: e.target.value })} required />
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>Phone</Form.Label>
-              <Form.Control value={editForm.phone || ''} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} />
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>Email</Form.Label>
-              <Form.Control value={editForm.email || ''} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>Date of birth</Form.Label>
-              <Form.Control type="date" value={editForm.dateOfBirth || ''} onChange={e => setEditForm({ ...editForm, dateOfBirth: e.target.value })} />
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>National ID</Form.Label>
-              <Form.Control value={editForm.nationalId || ''} onChange={e => setEditForm({ ...editForm, nationalId: e.target.value })} />
-            </Form.Group>
-            <Form.Group className="mb-2">
-              <Form.Label>Gender</Form.Label>
-              <Form.Select value={editForm.gender || ''} onChange={e => setEditForm({ ...editForm, gender: e.target.value })}>
-                <option value="">Select...</option>
-                <option value="female">Female</option>
-                <option value="male">Male</option>
-                <option value="other">Other</option>
-              </Form.Select>
-            </Form.Group>
-          </>
-        )}
+        <PatientRegistrationForm
+          onCancel={() => setShowEditModal(false)}
+          loading={editMutation.isPending}
+          error={editError}
+          initialData={editForm}
+        />
       </FormModal>
 
       {/* New queue record modal */}
@@ -360,24 +544,114 @@ export function PatientsPage() {
         </Form.Group>
       </FormModal>
 
-      {/* Existing new patient modal */}
+      {/* Improved patient registration modal */}
       <FormModal
         show={showModal}
         onHide={() => setShowModal(false)}
-        title="Register new patient"
-        onSubmit={handleCreate}
-        size="lg"
-        isSubmitting={createMutation.isPending}
-  submitLabel={createMutation.isPending ? "Creating..." : "Create"}
+        title="Register New Patient"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          // Get form data from the PatientRegistrationForm
+          const form = e.currentTarget;
+          const formData = new FormData(form);
+          const payload: any = {};
+          
+          // Extract data from all form fields (including those not in patientFields)
+          const allFields = [
+            'medicalRecordNumber', 'firstName', 'lastName', 'middleName', 'dateOfBirth', 'nationalId', 'gender',
+            'phone', 'alternatePhone', 'email', 'address', 'city', 'state', 'postalCode', 'country',
+            'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelationship',
+            'allergies', 'medications', 'medicalHistory', 'notes'
+          ];
+          
+          allFields.forEach(fieldName => {
+            const value = formData.get(fieldName);
+            if (value && value.toString().trim()) {
+              payload[fieldName] = value.toString().trim();
+            }
+          });
+
+          // Validate required fields
+          const requiredFields = ['firstName', 'lastName'];
+          const missingFields = requiredFields.filter(field => !payload[field]);
+          
+          if (missingFields.length > 0) {
+            const errorMessages = missingFields.map(field => {
+              const fieldLabel = field === 'firstName' ? 'First name' : 
+                               field === 'lastName' ? 'Last name' : 
+                               field === 'medicalRecordNumber' ? 'Medical record number' : field;
+              return `${fieldLabel} is required`;
+            });
+            
+            Swal.fire({
+              title: 'Validation Error',
+              html: errorMessages.join('<br>'),
+              icon: 'error',
+              confirmButtonText: 'OK'
+            });
+            return;
+          }
+
+          // If MRN missing, confirm auto-generation
+          if (!payload.medicalRecordNumber) {
+            const result = await Swal.fire({
+              title: 'Generate MRN?',
+              text: 'No MRN was entered. A random Medical Record Number will be assigned to this patient.',
+              icon: 'question',
+              showCancelButton: true,
+              confirmButtonText: 'Yes, generate',
+              cancelButtonText: 'Cancel',
+              focusCancel: true
+            });
+            if (!result.isConfirmed) return; // abort submission
+            payload.medicalRecordNumber = generateRandomMrn('MRN');
+          }
+
+          createMutation.mutate(payload, {
+            onSuccess: () => {
+              form.reset();
+              setShowModal(false);
+              Swal.fire({
+                title: 'Patient created',
+                text: `MRN: ${payload.medicalRecordNumber}`,
+                icon: 'success',
+                timer: 2500,
+                showConfirmButton: false
+              });
+            },
+            onError: (error: any) => {
+              // Handle backend validation errors
+              const errorMessages = error?.response?.data?.errors || [];
+              if (errorMessages.length > 0) {
+                const uniqueErrors = [...new Set(errorMessages.map((err: any) => err.message))];
+                Swal.fire({
+                  title: 'Validation Error',
+                  html: uniqueErrors.join('<br>'),
+                  icon: 'error',
+                  confirmButtonText: 'OK'
+                });
+              } else {
+                Swal.fire({
+                  title: 'Error',
+                  text: error?.message || 'Failed to create patient',
+                  icon: 'error',
+                  confirmButtonText: 'OK'
+                });
+              }
+            }
+          });
+        }}
+        size="xl"
+        submitLabel="Create Patient"
         cancelLabel="Cancel"
-        disableSubmit={createMutation.isPending}
+        isSubmitting={createMutation.isPending}
+        error={createMutation.isError ? (createMutation.error as any)?.message ?? "Failed to create patient" : null}
       >
-        {createMutation.isError && (
-          <Alert variant="danger" className="mb-0">
-            {(createMutation.error as any)?.message ?? "Failed to create patient"}
-          </Alert>
-        )}
-        <DynamicForm fields={patientFields} disabled={createMutation.isPending} />
+        <PatientRegistrationForm
+          onCancel={() => setShowModal(false)}
+          loading={createMutation.isPending}
+          error={createMutation.isError ? (createMutation.error as any)?.message ?? "Failed to create patient" : null}
+        />
       </FormModal>
     </div>
   );

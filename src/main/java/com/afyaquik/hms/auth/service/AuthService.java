@@ -8,13 +8,16 @@ import com.afyaquik.hms.auth.dto.UserProfileDto;
 import com.afyaquik.hms.auth.jwt.JwtPrincipal;
 import com.afyaquik.hms.auth.jwt.JwtService;
 import com.afyaquik.hms.auth.jwt.TokenType;
-import com.afyaquik.hms.auth.domain.StaffRole;
+
 import java.util.List;
+
 import org.springframework.security.authentication.BadCredentialsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import com.afyaquik.hms.auth.domain.StaffRole;
 
 @Service
 public class AuthService {

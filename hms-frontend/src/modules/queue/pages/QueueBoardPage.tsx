@@ -1,12 +1,15 @@
 
 import React, { useMemo, useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { TriageActionsSection } from '../../../components/triage/TriageActionsSection';
 import { ConsultationActionsSection } from '../../../components/consult/ConsultationActionsSection';
 import { PharmacyActionsSection } from '../../../components/pharmacy/PharmacyActionsSection';
 import { DiagnosticsActionsSection } from '../../../components/diagnostics/DiagnosticsActionsSection';
+import { DiagnosticResultsReadOnly } from '../../../components/diagnostics/DiagnosticResultsReadOnly';
+import { BillingActionsSection } from '../../../components/billing/BillingActionsSection';
 import { PreviousStaffNotesModal } from '../../../components/shared/PreviousStaffNotesModal';
 import { SearchableStaffSelect } from '../../../components/shared/SearchableStaffSelect';
+import { FilteredStaffSelect } from '../../../components/shared/FilteredStaffSelect';
 import {
   fetchConsultationEntries,
   createConsultationEntry,
@@ -102,7 +105,7 @@ import {
 } from "react-bootstrap";
 import { PageHeader } from "../../../components/shared/PageHeader";
 import { FilterBar } from "../../../components/shared/FilterBar";
-import { useAssignQueueItem, useQueueList, useQueueTimeline, useTransitionQueueItem, useQueueStream, useAdvanceAssignQueueItem } from "../hooks/useQueueBoardData";
+import { useAssignQueueItem, useQueueList, useQueueListByRole, useQueueTimeline, useTransitionQueueItem, useQueueStream, useAdvanceAssignQueueItem } from "../hooks/useQueueBoardData";
 import type {
   QueueAssignmentPayload,
   QueueStatus,
@@ -211,7 +214,7 @@ function QueueStatusBadge({ status }: { status: QueueStatus }) {
 export function QueueBoardPage() {
   const { user } = useAuth();
   const { activeRole } = useRoleContext();
-  const{permissions} = useResolvedPermissions();
+  const { permissions, loading: permissionsLoading, error: permissionsError, refetch: refetchPermissions } = useResolvedPermissions();
   const CAN_VIEW_NOTES = hasPermission(permissions, 'VIEW_PATIENT_NOTES');
   const [selectedStatus, setSelectedStatus] = useState<QueueStatus>("PENDING_CHECKIN");
   const [searchValue, setSearchValue] = useState("");
@@ -222,10 +225,25 @@ export function QueueBoardPage() {
   const [insuranceFormData, setInsuranceFormData] = useState<InsuranceFormData | undefined>(undefined);
   const [showPreviousNotesModal, setShowPreviousNotesModal] = useState(false);
   const [selectedItemForNotes, setSelectedItemForNotes] = useState<QueueSummary | null>(null);
+  const [showDiagnosticResultsModal, setShowDiagnosticResultsModal] = useState(false);
+  const [selectedItemForResults, setSelectedItemForResults] = useState<QueueSummary | null>(null);
 
   // Matrix: { [roleKey]: Set<QueueStatus> }
   const [statusMatrix, setStatusMatrix] = useState<Record<string, Set<string>>>({});
   const [statusOptions, setStatusOptions] = useState<QueueStatus[]>([]);
+  // Helper function to safely check permissions with loading state
+  const canManage = (permission: string) => {
+    if (permissionsLoading || permissionsError) return false;
+    return hasPermission(permissions, permission);
+  };
+
+  // Only check permissions if they're loaded, otherwise default to false to prevent showing actions
+  const CAN_MANAGE_REGISTRATION = canManage('MANAGE_REGISTRATION');
+  const CAN_MANAGE_TRIAGE = canManage('MANAGE_TRIAGE');
+  const CAN_MANAGE_CONSULTATIONS = canManage('MANAGE_CONSULTATIONS');
+  const CAN_MANAGE_PHARMACY = canManage('MANAGE_PHARMACY');
+  const CAN_MANAGE_DIAGNOSTICS = canManage('MANAGE_DIAGNOSTICS');
+  const CAN_MANAGE_BILLING = canManage('MANAGE_BILLING');
 
   // Fetch matrix on mount or when role changes
   useEffect(() => {
@@ -246,7 +264,16 @@ export function QueueBoardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRole, statusMatrix]);
 
-  const queueQuery = useQueueList(selectedStatus);
+  // Get allowed statuses for the current role
+  const allowedStatuses = useMemo(() => {
+    if (activeRole && statusMatrix[activeRole]) {
+      return Array.from(statusMatrix[activeRole]) as QueueStatus[];
+    }
+    return [];
+  }, [activeRole, statusMatrix]);
+
+  // Use role-based queue fetching
+  const queueQuery = useQueueListByRole(allowedStatuses);
   useQueueStream(selectedStatus);
   const assignMutation = useAssignQueueItem(selectedStatus);
   const transitionMutation = useTransitionQueueItem(selectedStatus);
@@ -260,21 +287,27 @@ export function QueueBoardPage() {
   React.useEffect(() => {
     if (user) {
       // Invalidate all queue list queries so new user gets fresh data
-      queryClient.invalidateQueries({ queryKey: ["queueList"] });
+      queryClient.invalidateQueries({ queryKey: ["queue"] });
+      queryClient.invalidateQueries({ queryKey: ["queue", "role-based"] });
       queueQuery.refetch();
     }
   }, [user, queryClient]);
 
   const filteredItems = useMemo(() => {
     const items = Array.isArray(queueQuery.data) ? queueQuery.data : [];
-    if (!searchValue) return items;
+    
+    // First filter by selected status (since we now fetch all allowed statuses)
+    let statusFilteredItems = items.filter(item => item.status === selectedStatus);
+    
+    // Then apply search filtering
+    if (!searchValue) return statusFilteredItems;
     const lower = searchValue.trim().toLowerCase();
-    return items.filter((item) =>
+    return statusFilteredItems.filter((item) =>
       [item.ticketNumber, item.patientName, item.visitReason]
         .filter(Boolean)
         .some((field) => field?.toLowerCase().includes(lower))
     );
-  }, [queueQuery.data, searchValue]);
+  }, [queueQuery.data, searchValue, selectedStatus]);
 
   const handleOpenModal = (item: QueueSummary, type: "assign" | "transition" | "timeline" | "advanceAssign") => {
     setActiveItem(item);
@@ -407,10 +440,14 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
     if (!targetStatus) return;
     const payload = {
       targetStatus,
-      // Use actor fields for transition
+      // Actor fields (current user performing the transition)
       actorId: formData.get("actorId")?.toString().trim() || undefined,
       actorDisplayName: formData.get("actorDisplayName")?.toString().trim() || undefined,
       actorRole: formData.get("actorRole")?.toString().trim() || activeRole,
+      // Assignee fields (who the item will be assigned to after transition)
+      assigneeId: formData.get("assigneeId")?.toString().trim() || undefined,
+      assigneeDisplayName: formData.get("assigneeDisplayName")?.toString().trim() || undefined,
+      assigneeRole: formData.get("assigneeRole")?.toString().trim() || undefined,
       departmentId: formData.get("departmentId")?.toString().trim() || activeItem.departmentId || undefined,
       note: formData.get("note")?.toString().trim() || undefined
     };
@@ -474,6 +511,17 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
             <Alert variant="danger">Unable to load queue items. Please try again.</Alert>
           )}
 
+          {permissionsError && (
+            <Alert variant="warning" dismissible onClose={() => refetchPermissions()}>
+              <div className="d-flex justify-content-between align-items-center">
+                <span>Failed to load permissions. Some actions may not be available.</span>
+                <Button variant="outline-warning" size="sm" onClick={() => refetchPermissions()}>
+                  Retry
+                </Button>
+              </div>
+            </Alert>
+          )}
+
           {staleWarning && <Alert variant="warning" onClose={() => setStaleWarning(null)} dismissible>{staleWarning}</Alert>}
 
           <div className="table-responsive">
@@ -493,10 +541,13 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                 </tr>
               </thead>
               <tbody>
-                {queueQuery.isLoading ? (
+                {queueQuery.isLoading || permissionsLoading ? (
                   <tr>
                     <td colSpan={10} className="text-center py-4">
                       <Spinner animation="border" role="status" />
+                      {permissionsLoading && (
+                        <div className="mt-2 text-muted small">Loading permissions...</div>
+                      )}
                     </td>
                   </tr>
                 ) : filteredItems.length === 0 ? (
@@ -534,6 +585,20 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                               Notes
                             </Button>
                             )}
+                            {(item.status === 'IN_CONSULT' || item.status === 'WAITING_PROVIDER') && (
+                              <Button
+                                size="sm"
+                                variant="outline-success"
+                                onClick={() => {
+                                  setSelectedItemForResults(item);
+                                  setShowDiagnosticResultsModal(true);
+                                }}
+                                title="View diagnostic results"
+                              >
+                                <i className="bi bi-clipboard-check me-1"></i>
+                                Results
+                              </Button>
+                            )}
                             {item.status === 'PENDING_CHECKIN' ? (
                               <Button
                                 size="sm"
@@ -569,7 +634,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                         </td>
                       </tr>
                       {/* Expandable section for IN_REGISTRATION actions */}
-                      {item.status === 'IN_REGISTRATION' && (
+                      {item.status === 'IN_REGISTRATION' && CAN_MANAGE_REGISTRATION && (
                         <tr>
                           <td colSpan={10} className="bg-light">
                             <details>
@@ -582,7 +647,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                         </tr>
                       )}
 
-                      {item.status === 'IN_TRIAGE' && (
+                      {item.status === 'IN_TRIAGE' && CAN_MANAGE_TRIAGE && (
                         <tr>
                           <td colSpan={10} className="bg-light">
                             <details>
@@ -603,24 +668,35 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                           // onAdd, onUpdate, onDelete removed
                                           loading={loading}
                                           onSubmit={async (items) => {
-                                            // Only send changed items, and use bulk API
-                                            // 1. Find deleted items (in triageEntries but not in items)
-                                            const deletedIds = triageEntries
-                                              .filter(e => !items.some(i => i.id === e.id))
-                                              .map(e => e.id);
-                                            // 2. Find new or updated items
-                                            const upserts = items.map(i => ({
-                                              id: i.id > 0 ? i.id : undefined, // id may be undefined for new
-                                              title: i.title,
-                                              details: i.details
-                                            }));
-                                            if (deletedIds.length > 0) {
-                                              await bulkDeleteTriageEntries(item.id, deletedIds);
+                                            try {
+                                              // Only send changed items, and use bulk API
+                                              // 1. Find deleted items (in triageEntries but not in items)
+                                              const deletedIds = triageEntries
+                                                .filter(e => !items.some(i => i.id === e.id))
+                                                .map(e => e.id);
+                                              // 2. Find new or updated items
+                                              const upserts = items.map(i => ({
+                                                id: i.id > 0 ? i.id : undefined, // id may be undefined for new
+                                                title: i.title,
+                                                details: i.details
+                                              }));
+                                              if (deletedIds.length > 0) {
+                                                await bulkDeleteTriageEntries(item.id, deletedIds);
+                                              }
+                                              if (upserts.length > 0) {
+                                                await bulkUpsertTriageEntries(item.id, upserts);
+                                              }
+                                              Swal.fire({ icon: 'success', title: 'Triage items submitted', timer: 1200, showConfirmButton: false });
+                                            } catch (error: any) {
+                                              console.error('Failed to submit triage items:', error);
+                                              const errorMessage = error?.response?.data?.message || error?.message || 'Failed to submit triage items';
+                                              Swal.fire({ 
+                                                icon: 'error', 
+                                                title: 'Error', 
+                                                text: errorMessage,
+                                                confirmButtonText: 'OK'
+                                              });
                                             }
-                                            if (upserts.length > 0) {
-                                              await bulkUpsertTriageEntries(item.id, upserts);
-                                            }
-                                            Swal.fire({ icon: 'success', title: 'Triage items submitted', timer: 1200, showConfirmButton: false });
                                           }}
                                         />
                                       )}
@@ -634,7 +710,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                       )}
 
 
-                      {item.status === 'IN_CONSULT' && (
+                      {item.status === 'IN_CONSULT' && CAN_MANAGE_CONSULTATIONS && (
                         <tr>
                           <td colSpan={10} className="bg-light">
                             <details>
@@ -653,22 +729,33 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                   queueItemId={item.id}
                                   patientId={item.patientId}
                                   onSubmit={async (items) => {
-                                    // Use bulk API for upsert and delete
-                                    const deletedIds = consultationEntries
-                                      .filter(e => !items.some(i => i.id === e.id))
-                                      .map(e => e.id);
-                                    const upserts = items.map(i => ({
-                                      id: i.id > 0 ? i.id : undefined,
-                                      title: i.title,
-                                      details: i.details
-                                    }));
-                                    if (deletedIds.length > 0) {
-                                      await bulkDeleteConsultationEntries(item.id, deletedIds);
+                                    try {
+                                      // Use bulk API for upsert and delete
+                                      const deletedIds = consultationEntries
+                                        .filter(e => !items.some(i => i.id === e.id))
+                                        .map(e => e.id);
+                                      const upserts = items.map(i => ({
+                                        id: i.id > 0 ? i.id : undefined,
+                                        title: i.title,
+                                        details: i.details
+                                      }));
+                                      if (deletedIds.length > 0) {
+                                        await bulkDeleteConsultationEntries(item.id, deletedIds);
+                                      }
+                                      if (upserts.length > 0) {
+                                        await bulkUpsertConsultationEntries(item.id, upserts);
+                                      }
+                                      Swal.fire({ icon: 'success', title: 'Consultation items submitted', timer: 1200, showConfirmButton: false });
+                                    } catch (error: any) {
+                                      console.error('Failed to submit consultation items:', error);
+                                      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to submit consultation items';
+                                      Swal.fire({ 
+                                        icon: 'error', 
+                                        title: 'Error', 
+                                        text: errorMessage,
+                                        confirmButtonText: 'OK'
+                                      });
                                     }
-                                    if (upserts.length > 0) {
-                                      await bulkUpsertConsultationEntries(item.id, upserts);
-                                    }
-                                    Swal.fire({ icon: 'success', title: 'Consultation items submitted', timer: 1200, showConfirmButton: false });
                                   }}
                                 />
                                   )}
@@ -679,43 +766,81 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                         </tr>
                       )}
 
-                      {item.status === 'IN_PHARMACY' && (
+                      {item.status === 'IN_PHARMACY' && CAN_MANAGE_PHARMACY && (
                         <tr>
                           <td colSpan={10} className="bg-light">
                             <details>
                               <summary className="fw-semibold">Pharmacy Actions</summary>
                               <div className="mt-3">
-                                <PharmacyActionsSection
-                                  initialItems={[]}
-                                  loading={false}
-                                  queueItemId={item.id}
-                                  onSubmit={async (items) => {
-                                    // TODO: Implement pharmacy actions API
-                                    console.log('Pharmacy actions submitted:', items);
-                                    Swal.fire({ 
-                                      icon: 'success', 
-                                      title: 'Pharmacy actions submitted', 
-                                      timer: 1200, 
-                                      showConfirmButton: false 
-                                    });
-                                  }}
-                                />
+                                {permissionsLoading ? (
+                                  <div className="text-center py-3">
+                                    <Spinner animation="border" size="sm" />
+                                    <div className="mt-2 text-muted small">Loading pharmacy permissions...</div>
+                                  </div>
+                                ) : (
+                                  <PharmacyActionsSection
+                                    initialItems={[]}
+                                    loading={false}
+                                    queueItemId={item.id}
+                                    patientId={item.patientId}
+                                    onSubmit={async (items) => {
+                                      // TODO: Implement pharmacy actions API
+                                      console.log('Pharmacy actions submitted:', items);
+                                      Swal.fire({ 
+                                        icon: 'success', 
+                                        title: 'Pharmacy actions submitted', 
+                                        timer: 1200, 
+                                        showConfirmButton: false 
+                                      });
+                                    }}
+                                  />
+                                )}
                               </div>
                             </details>
                           </td>
                         </tr>
                       )}
 
-                      {item.status === 'IN_DIAGNOSTICS' && (
+                      {item.status === 'IN_DIAGNOSTICS' && CAN_MANAGE_DIAGNOSTICS && (
                         <tr>
                           <td colSpan={10} className="bg-light">
                             <details>
                               <summary className="fw-semibold">Diagnostics Actions</summary>
                               <div className="mt-3">
-                                <DiagnosticsActionsSection
-                                  queueItemId={item.id}
-                                  patientId={item.patientId}
-                                />
+                                {permissionsLoading ? (
+                                  <div className="text-center py-3">
+                                    <Spinner animation="border" size="sm" />
+                                    <div className="mt-2 text-muted small">Loading diagnostics permissions...</div>
+                                  </div>
+                                ) : (
+                                  <DiagnosticsActionsSection
+                                    queueItemId={item.id}
+                                    patientId={item.patientId}
+                                  />
+                                )}
+                              </div>
+                            </details>
+                          </td>
+                        </tr>
+                      )}
+
+                      {item.status === 'IN_BILLING' && CAN_MANAGE_BILLING && (
+                        <tr>
+                          <td colSpan={10} className="bg-light">
+                            <details>
+                              <summary className="fw-semibold">Billing Actions</summary>
+                              <div className="mt-3">
+                                {permissionsLoading ? (
+                                  <div className="text-center py-3">
+                                    <Spinner animation="border" size="sm" />
+                                    <div className="mt-2 text-muted small">Loading billing permissions...</div>
+                                  </div>
+                                ) : (
+                                  <BillingActionsSection
+                                    queueItemId={item.id}
+                                    patientId={item.patientId}
+                                  />
+                                )}
                               </div>
                             </details>
                           </td>
@@ -800,6 +925,21 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
         queueItemId={selectedItemForNotes?.id || 0}
         patientName={selectedItemForNotes?.patientName || ''}
       />
+
+      {/* Diagnostic Results Modal */}
+      <Modal show={showDiagnosticResultsModal} onHide={() => setShowDiagnosticResultsModal(false)} size="xl">
+        <Modal.Header closeButton>
+          <Modal.Title>Diagnostic Results - {selectedItemForResults?.patientName}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedItemForResults && (
+            <DiagnosticResultsReadOnly
+              queueItemId={selectedItemForResults.id}
+              onClose={() => setShowDiagnosticResultsModal(false)}
+            />
+          )}
+        </Modal.Body>
+      </Modal>
     </div>
   );
 }
@@ -817,6 +957,25 @@ function AssignModal({
   const [roleQuery, setRoleQuery] = useState("");
   const [deptQuery, setDeptQuery] = useState("");
   const { user } = useAuth();
+  const staffQueryResult = useStaffDirectory(show);
+  const staffData: StaffDirectoryEntry[] = staffQueryResult.data || [];
+
+  // Get unique roles and departments from all staff
+  const availableRoles = useMemo(() => {
+    const roles = new Set<string>();
+    staffData.forEach(staff => {
+      staff.roles.forEach(role => roles.add(role));
+    });
+    return Array.from(roles).sort();
+  }, [staffData]);
+
+  const availableDepartments = useMemo(() => {
+    const departments = new Set<string>();
+    staffData.forEach(staff => {
+      staff.departments.forEach(dept => departments.add(dept));
+    });
+    return Array.from(departments).sort();
+  }, [staffData]);
 
   // Always pre-select current user when modal opens
   React.useEffect(() => {
@@ -866,26 +1025,32 @@ function AssignModal({
 
               <Form.Group>
                 <Form.Label>Role</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder={selectedStaff ? `Filter (${selectedStaff.roles.join(', ')})` : 'Search role...'}
+                <Form.Select
                   value={roleQuery}
-                  disabled={isSubmitting || !!selectedStaff}
+                  disabled={isSubmitting}
                   onChange={(e) => setRoleQuery(e.target.value)}
-                />
-                <input type="hidden" name="assigneeRole" value={roleQuery || (selectedStaff?.roles[0] || '')} />
+                >
+                  <option value="">Select role...</option>
+                  {availableRoles.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </Form.Select>
+                <input type="hidden" name="assigneeRole" value={roleQuery} />
               </Form.Group>
 
               <Form.Group>
                 <Form.Label>Department</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder={selectedStaff ? `Filter (${selectedStaff.departments.join(', ')})` : 'Search department...'}
+                <Form.Select
                   value={deptQuery}
-                  disabled={isSubmitting || !!selectedStaff}
+                  disabled={isSubmitting}
                   onChange={(e) => setDeptQuery(e.target.value)}
-                />
-                <input type="hidden" name="departmentId" value={deptQuery || (selectedStaff?.departments[0] || queueItem?.departmentId || '')} />
+                >
+                  <option value="">Select department...</option>
+                  {availableDepartments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </Form.Select>
+                <input type="hidden" name="departmentId" value={deptQuery || queueItem?.departmentId || ''} />
               </Form.Group>
 
           <Form.Group controlId="note">
@@ -911,26 +1076,72 @@ function TransitionModal({
   onSubmit
 }: { show: boolean; onHide: () => void; queueItem: QueueSummary | null; isSubmitting: boolean; error: string | null; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; }) {
   const nextStatuses = queueItem ? allowedTransitions[queueItem.status] ?? [] : [];
-  const [selectedActor, setSelectedActor] = useState<StaffDirectoryEntry | null>(null);
+  const [selectedAssignee, setSelectedAssignee] = useState<StaffDirectoryEntry | null>(null);
   const [roleQuery, setRoleQuery] = useState("");
   const [deptQuery, setDeptQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
   const { user } = useAuth();
+  const staffQueryResult = useStaffDirectory(show);
+  const staffData: StaffDirectoryEntry[] = staffQueryResult.data || [];
+  
+  // Fetch queue status role matrix for filtering users
+  const { data: statusMatrix } = useQuery({
+    queryKey: ['queue-status-role-matrix'],
+    queryFn: fetchQueueStatusRoleMatrix,
+    enabled: show
+  });
 
-  // Always pre-select current user when modal opens
+  // Auto-select current user as assignee when transitioning to status containing "IN"
   React.useEffect(() => {
-    if (show && user) {
-      // We'll let the SearchableStaffSelect handle finding the current user
-      setRoleQuery("");
-      setDeptQuery("");
+    if (show && user && selectedStatus && selectedStatus.includes("IN")) {
+      const currentUser = staffData.find(s => s.username === user.username);
+      if (currentUser) {
+        setSelectedAssignee(currentUser);
+        setRoleQuery(currentUser.roles[0] || '');
+        setDeptQuery(currentUser.departments[0] || '');
+      }
     } else if (!show) {
-      setSelectedActor(null);
+      setSelectedAssignee(null);
       setRoleQuery("");
       setDeptQuery("");
+      setSelectedStatus("");
     }
-  }, [show, user]);
+  }, [show, user, selectedStatus, staffData]);
+
+  // Filter staff based on selected status and role matrix
+  const filteredStaff = useMemo(() => {
+    if (!selectedStatus || !statusMatrix) return staffData;
+    
+    // Get roles that can see the selected status
+    const allowedRoles = Object.entries(statusMatrix)
+      .filter(([_, statuses]) => (statuses as Set<string>).has(selectedStatus))
+      .map(([role, _]) => role);
+    
+    // Filter staff by allowed roles
+    return staffData.filter(staff => 
+      staff.roles.some(role => allowedRoles.includes(role))
+    );
+  }, [staffData, selectedStatus, statusMatrix]);
+
+  // Get unique roles and departments from filtered staff
+  const availableRoles = useMemo(() => {
+    const roles = new Set<string>();
+    filteredStaff.forEach(staff => {
+      staff.roles.forEach(role => roles.add(role));
+    });
+    return Array.from(roles).sort();
+  }, [filteredStaff]);
+
+  const availableDepartments = useMemo(() => {
+    const departments = new Set<string>();
+    filteredStaff.forEach(staff => {
+      staff.departments.forEach(dept => departments.add(dept));
+    });
+    return Array.from(departments).sort();
+  }, [filteredStaff]);
 
   return (
-    <Modal show={show} onHide={() => { onHide(); setSelectedActor(null); }} centered>
+    <Modal show={show} onHide={() => { onHide(); setSelectedAssignee(null); }} centered>
       <Form onSubmit={onSubmit}>
         <Modal.Header closeButton>
           <Modal.Title>Transition queue item</Modal.Title>
@@ -953,18 +1164,20 @@ function TransitionModal({
                 <Form.Label>Next status</Form.Label>
                 <Form.Select
                   name="targetStatus"
-                  defaultValue={nextStatuses[0] ?? ""}
+                  value={selectedStatus}
                   key={queueItem?.id ?? "transition"}
                   disabled={isSubmitting}
                   required
                   onChange={(e) => {
-                    const selectedStatus = e.target.value;
+                    const newSelectedStatus = e.target.value;
+                    setSelectedStatus(newSelectedStatus);
+                    
                     // Check if this is a reverse transition (going backwards in the workflow)
                     const isReverseTransition = queueItem && (
-                      (queueItem.status === 'IN_CONSULT' && selectedStatus === 'WAITING_TRIAGE') ||
-                      (queueItem.status === 'WAITING_PROVIDER' && selectedStatus === 'IN_TRIAGE') ||
-                      (queueItem.status === 'IN_DIAGNOSTICS' && selectedStatus === 'WAITING_PROVIDER') ||
-                      (queueItem.status === 'IN_PHARMACY' && selectedStatus === 'WAITING_PROVIDER')
+                      (queueItem.status === 'IN_CONSULT' && newSelectedStatus === 'WAITING_TRIAGE') ||
+                      (queueItem.status === 'WAITING_PROVIDER' && newSelectedStatus === 'IN_TRIAGE') ||
+                      (queueItem.status === 'IN_DIAGNOSTICS' && newSelectedStatus === 'WAITING_PROVIDER') ||
+                      (queueItem.status === 'IN_PHARMACY' && newSelectedStatus === 'WAITING_PROVIDER')
                     );
                     
                     if (isReverseTransition) {
@@ -981,6 +1194,7 @@ function TransitionModal({
                     }
                   }}
                 >
+                  <option value="">Select status...</option>
                   {nextStatuses.map((status) => (
                     <option key={status} value={status}>
                       {statusLabels[status as QueueStatus]}
@@ -999,10 +1213,10 @@ function TransitionModal({
                 </Alert>
               </Form.Group>
 
-              <SearchableStaffSelect
-                value={selectedActor}
+              <FilteredStaffSelect
+                value={selectedAssignee}
                 onChange={(staff) => {
-                  setSelectedActor(staff);
+                  setSelectedAssignee(staff);
                   if (staff) {
                     setRoleQuery(staff.roles[0] || '');
                     setDeptQuery(staff.departments[0] || '');
@@ -1011,34 +1225,48 @@ function TransitionModal({
                 placeholder="Search staff..."
                 disabled={isSubmitting}
                 required
-                label="Actor"
+                label="Assignee"
+                staffData={staffData}
+                selectedStatus={selectedStatus}
+                statusMatrix={statusMatrix}
               />
-              <input type="hidden" name="actorId" value={selectedActor?.username || ''} />
-              <input type="hidden" name="actorDisplayName" value={selectedActor?.displayName || ''} />
+              <input type="hidden" name="assigneeId" value={selectedAssignee?.username || ''} />
+              <input type="hidden" name="assigneeDisplayName" value={selectedAssignee?.displayName || ''} />
 
               <Form.Group>
-                <Form.Label>Actor role</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder={selectedActor ? selectedActor.roles.join(', ') : 'Search role...'}
+                <Form.Label>Assignee role</Form.Label>
+                <Form.Select
                   value={roleQuery}
-                  disabled={isSubmitting || !!selectedActor}
+                  disabled={isSubmitting}
                   onChange={(e) => setRoleQuery(e.target.value)}
-                />
-                <input type="hidden" name="actorRole" value={roleQuery || (selectedActor?.roles[0] || '')} />
+                >
+                  <option value="">Select role...</option>
+                  {availableRoles.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </Form.Select>
+                <input type="hidden" name="assigneeRole" value={roleQuery} />
               </Form.Group>
 
               <Form.Group>
                 <Form.Label>Department</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder={selectedActor ? selectedActor.departments.join(', ') : 'Search department...'}
+                <Form.Select
                   value={deptQuery}
-                  disabled={isSubmitting || !!selectedActor}
+                  disabled={isSubmitting}
                   onChange={(e) => setDeptQuery(e.target.value)}
-                />
-                <input type="hidden" name="departmentId" value={deptQuery || (selectedActor?.departments[0] || queueItem?.departmentId || '')} />
+                >
+                  <option value="">Select department...</option>
+                  {availableDepartments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </Form.Select>
+                <input type="hidden" name="departmentId" value={deptQuery || queueItem?.departmentId || ''} />
               </Form.Group>
+
+              {/* Hidden fields for actor (current user) */}
+              <input type="hidden" name="actorId" value={user?.username || ''} />
+              <input type="hidden" name="actorDisplayName" value={user?.displayName || user?.username || ''} />
+              <input type="hidden" name="actorRole" value={user?.roles?.[0] || ''} />
 
               <Form.Group controlId="note">
                 <Form.Label>Note</Form.Label>
@@ -1057,7 +1285,7 @@ function TransitionModal({
           <Button variant="secondary" onClick={onHide} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" variant="success" disabled={isSubmitting || nextStatuses.length === 0 || !selectedActor}>{isSubmitting ? <Spinner animation="border" size="sm" /> : "Transition"}</Button>
+          <Button type="submit" variant="success" disabled={isSubmitting || nextStatuses.length === 0 || !selectedAssignee}>{isSubmitting ? <Spinner animation="border" size="sm" /> : "Transition"}</Button>
         </Modal.Footer>
       </Form>
     </Modal>
@@ -1381,15 +1609,35 @@ function InsuranceDetailsSection(props: { patientId: number, queueItemId: number
             <RichTextEditor theme="snow" value={additionalDetails} onChange={setAdditionalDetails} placeholder="Enter any additional notes or details..." style={{ background: 'white' }} />
           </div>
        <div className="d-flex justify-content-end">
-            <Button size="sm" variant="success" onClick={async () => {
-              if (selectedId === null) return;
-              try {
-                  await updateQueueItem(queueItemId, { insuranceDetailsIds: [selectedId], additionalDetails })
-                await Swal.fire({ icon: 'success', title: 'Saved!', text: 'Additional details saved.', timer: 1500, showConfirmButton: false });
-              } catch (err: any) {
-                await Swal.fire({ icon: 'error', title: 'Error', text: err?.message || 'Failed to save details.' });
-              }
-            }}>
+            <Button 
+              size="sm" 
+              variant="success" 
+              disabled={!additionalDetails?.trim() && selectedId === null}
+              onClick={async () => {
+                try {
+                  const payload: any = { additionalDetails };
+                  // Only include insuranceDetailsIds if an insurance is selected
+                  if (selectedId !== null) {
+                    payload.insuranceDetailsIds = [selectedId];
+                  }
+                  await updateQueueItem(queueItemId, payload);
+                  await Swal.fire({ 
+                    icon: 'success', 
+                    title: 'Saved!', 
+                    text: 'Additional details saved successfully.', 
+                    timer: 1500, 
+                    showConfirmButton: false 
+                  });
+                } catch (err: any) {
+                  console.error('Failed to save additional details:', err);
+                  await Swal.fire({ 
+                    icon: 'error', 
+                    title: 'Error', 
+                    text: err?.response?.data?.message || err?.message || 'Failed to save details. Please try again.' 
+                  });
+                }
+              }}
+            >
               Save Additional Details
             </Button>
           </div>

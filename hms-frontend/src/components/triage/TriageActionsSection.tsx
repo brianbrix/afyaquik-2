@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import RichTextEditor from '../shared/RichTextEditor';
 import { Button, Form, Row, Col, InputGroup } from 'react-bootstrap';
+import Swal from 'sweetalert2';
 
 interface TriageItem {
   id: number;
@@ -29,9 +30,24 @@ export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ tria
 
   const handleAddItem = (title: string, isCustom = false) => {
     if (!title.trim()) return;
+    
+    // Check for duplicate titles
+    const trimmedTitle = title.trim();
+    const existingTitles = items.map(item => item.title.toLowerCase());
+    
+    if (existingTitles.includes(trimmedTitle.toLowerCase())) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Duplicate Title',
+        text: `A triage item with the title "${trimmedTitle}" already exists. Please choose a different title.`,
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+    
     const newItem: TriageItem = {
       id: Date.now() + Math.random(),
-      title,
+      title: trimmedTitle,
       details: '',
       isCustom
     };
@@ -58,11 +74,22 @@ export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ tria
       <div className="fw-semibold mb-2">Triage Actions</div>
       <Form.Group as={Row} className="mb-2 align-items-center">
         <Col sm={6}>
-          <Form.Select onChange={e => handleAddItem(e.target.value)} defaultValue="">
+          <Form.Select 
+            onChange={e => {
+              const selectedTitle = e.target.value;
+              if (selectedTitle) {
+                handleAddItem(selectedTitle);
+                e.target.value = ""; // Reset selection
+              }
+            }} 
+            defaultValue=""
+          >
             <option value="">Add from configured titles...</option>
-            {triageTitles.map(t => (
-              <option key={t.id} value={t.title}>{t.title}</option>
-            ))}
+            {triageTitles
+              .filter(t => !items.some(item => item.title.toLowerCase() === t.title.toLowerCase()))
+              .map(t => (
+                <option key={t.id} value={t.title}>{t.title}</option>
+              ))}
           </Form.Select>
         </Col>
         <Col sm={6}>
@@ -73,7 +100,11 @@ export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ tria
               value={customTitle}
               onChange={e => setCustomTitle(e.target.value)}
             />
-            <Button variant="outline-primary" onClick={() => handleAddItem(customTitle, true)} disabled={!customTitle.trim()}>
+            <Button 
+              variant="outline-primary" 
+              onClick={() => handleAddItem(customTitle, true)} 
+              disabled={!customTitle.trim() || items.some(item => item.title.toLowerCase() === customTitle.trim().toLowerCase())}
+            >
               Add Custom
             </Button>
           </InputGroup>

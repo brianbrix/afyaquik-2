@@ -21,10 +21,14 @@ import PermissionMatrixAdminPage from "../../modules/admin/permissions/Permissio
 import { NotificationTemplatesAdminPage } from "../../modules/admin/pages/NotificationTemplatesAdminPage";
 import { AdminShiftTypesPage } from "../../modules/admin/pages/AdminShiftTypesPage";
 import { InsuranceAdminPage } from "../../modules/insurance/InsuranceAdminPage";
-import { MedicationsPage, InventoryPage, PrescriptionsPage } from "../../modules/pharmacy";
+import { MedicationsPage, PrescriptionsPage, PharmacyInventoryPage, MedicationInventoryPage } from "../../modules/pharmacy";
 import { UserProfilePage } from "../../modules/profile";
 import { BillsPage, PaymentsPage } from "../../modules/billing";
 import { DiagnosticsAdminPage } from "../../modules/admin/pages/DiagnosticsAdminPage";
+import { PaymentMethodsAdminPage } from "../../modules/admin/pages/PaymentMethodsAdminPage";
+import { TeamManagementPage } from "../../modules/team/pages/TeamManagementPage";
+import { TimeOffRequestPage } from "../../modules/timeoff/pages/TimeOffRequestPage";
+import InventoryPage from "../../modules/inventory/pages/InventoryPage";
 
 export function AppRoutes() {
   return (
@@ -38,11 +42,14 @@ export function AppRoutes() {
         <Route path="/scheduling" element={<SchedulingCalendarPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/pharmacy/medications" element={<MedicationsPage />} />
-        <Route path="/pharmacy/inventory" element={<InventoryPage />} />
+        <Route path="/pharmacy/inventory" element={<PharmacyInventoryPage />} />
+        <Route path="/pharmacy/medication-inventory" element={<MedicationInventoryPage />} />
         <Route path="/pharmacy/prescriptions" element={<PrescriptionsPage />} />
         <Route path="/billing/bills" element={<BillsPage />} />
         <Route path="/billing/payments" element={<PaymentsPage />} />
         <Route path="/profile" element={<UserProfilePage />} />
+        <Route path="/team" element={<TeamManagementPage />} />
+        <Route path="/time-off" element={<TimeOffRequestPage />} />
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="users" replace />} />
           <Route path="users" element={<UserDirectory />} />
@@ -59,6 +66,8 @@ export function AppRoutes() {
           <Route path="consultation-titles" element={<ConsultationTitlesAdminPage />} />
           <Route path="queue-status-role-matrix" element={<QueueStatusRoleMatrixAdminPage />} />
           <Route path="diagnostics" element={<DiagnosticsAdminPage />} />
+          <Route path="payment-methods" element={<PaymentMethodsAdminPage />} />
+          <Route path="inventory" element={<InventoryPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

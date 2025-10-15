@@ -74,6 +74,8 @@ public class AdminUserService {
         user.setDisplayName(req.displayName());
         user.setEmail(req.email());
         user.setEnabled(req.enabled());
+        user.setSupervisorId(req.supervisorId());
+        user.setSupervisorDisplayName(req.supervisorDisplayName());
         UserDto dto = mapper.toDto(userRepository.save(user));
         log.info("User updated tenant={} id={}", tenantId, id);
         return dto;

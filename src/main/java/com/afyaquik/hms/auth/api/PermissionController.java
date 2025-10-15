@@ -4,6 +4,9 @@ import com.afyaquik.hms.auth.domain.Permission;
 import com.afyaquik.hms.auth.domain.PermissionAssignment;
 import com.afyaquik.hms.auth.dto.PermissionMatrixDto;
 import com.afyaquik.hms.auth.dto.PermissionAssignmentDto;
+import com.afyaquik.hms.auth.dto.UpsertPermissionAssignmentRequest;
+import com.afyaquik.hms.auth.dto.PermissionDto;
+import com.afyaquik.hms.auth.dto.PermissionAssignmentResponseDto;
 import com.afyaquik.hms.auth.service.PermissionService;
 import java.util.List;
 
@@ -11,8 +14,6 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import com.afyaquik.hms.auth.security.TenantUserDetails;
-import com.afyaquik.hms.auth.service.ActiveRoleService;
 import com.afyaquik.hms.common.web.TenantHeaderResolver;
 
 
@@ -20,21 +21,24 @@ import com.afyaquik.hms.common.web.TenantHeaderResolver;
 @RequestMapping("/api/v1/permissions")
 public class PermissionController {
     private final PermissionService permissionService;
-    private final ActiveRoleService activeRoleService;
 
-    public PermissionController(PermissionService permissionService, ActiveRoleService activeRoleService) {
+    public PermissionController(PermissionService permissionService) {
         this.permissionService = permissionService;
-        this.activeRoleService = activeRoleService;
     }
 
     @GetMapping
-    public List<Permission> listPermissions() {
-        return permissionService.findAllPermissions();
+    public List<PermissionDto> listPermissions() {
+        return permissionService.findAllPermissionDtos();
     }
 
     @PostMapping
-    public Permission createPermission(@RequestBody Permission permission) {
-        return permissionService.savePermission(permission);
+    public PermissionDto createPermission(@RequestBody Permission permission) {
+        Permission savedPermission = permissionService.savePermission(permission);
+        return new PermissionDto(
+            savedPermission.getId(),
+            savedPermission.getCode(),
+            savedPermission.getDescription()
+        );
     }
 
     @GetMapping("/assignments")
@@ -51,9 +55,36 @@ public class PermissionController {
         return permissionService.findPermissionByCode(code)
             .<ResponseEntity<?>>map(permission -> {
                 assignment.setPermission(permission);
-                return ResponseEntity.ok(permissionService.saveAssignment(assignment));
+                PermissionAssignment savedAssignment = permissionService.saveAssignment(assignment);
+                // Use safe conversion to avoid LazyInitializationException
+                PermissionAssignmentResponseDto responseDto = new PermissionAssignmentResponseDto(
+                    savedAssignment.getId(),
+                    savedAssignment.getTargetType().name(),
+                    savedAssignment.getTargetId(),
+                    code, // Use the code we already have
+                    permission.getDescription(), // Use the permission we already fetched
+                    savedAssignment.getState().name()
+                );
+                return ResponseEntity.ok(responseDto);
             })
             .orElseGet(() -> ResponseEntity.badRequest().body("Permission not found: " + code));
+    }
+
+    @PostMapping("/assignments/upsert")
+    public ResponseEntity<?> upsertAssignment(@RequestBody UpsertPermissionAssignmentRequest request) {
+        try {
+            PermissionAssignmentResponseDto assignment = permissionService.upsertAssignment(
+                request.getPermissionCode(),
+                request.getTargetType(),
+                request.getTargetId(),
+                request.getState()
+            );
+            return ResponseEntity.ok(assignment);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Failed to upsert assignment: " + e.getMessage());
+        }
     }
         @GetMapping("/matrix")
     public PermissionMatrixDto getMatrix(@RequestParam PermissionAssignment.TargetType targetType, @RequestParam Long targetId) {

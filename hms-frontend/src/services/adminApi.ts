@@ -5,7 +5,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 // All role keys/types are dynamic from backend
 export interface AdminRole { id: number; roleKey: string; displayName: string; }
 export interface AdminDepartment { id: number; departmentId: string; displayName: string; description?: string; }
-export interface AdminUser { id: number; username: string; displayName: string; email?: string; enabled: boolean; roles: AdminRole[]; }
+export interface AdminUser { 
+  id: number; 
+  username: string; 
+  displayName: string; 
+  email?: string; 
+  enabled: boolean; 
+  roles: AdminRole[];
+  supervisorId?: number;
+  supervisorDisplayName?: string;
+}
 
 interface ApiEnvelope<T> { status: string; data: T; errors?: any; meta?: any; }
 
@@ -51,7 +60,13 @@ export async function createUser(payload: { username: string; displayName: strin
   return res.data.data;
 }
 
-export async function updateUser(id: number, payload: { displayName: string; email?: string; enabled: boolean; }): Promise<AdminUser> {
+export async function updateUser(id: number, payload: { 
+  displayName: string; 
+  email?: string; 
+  enabled: boolean;
+  supervisorId?: number | null;
+  supervisorDisplayName?: string | null;
+}): Promise<AdminUser> {
   const res = await apiClient.put<ApiEnvelope<AdminUser>>(`/admin/users/${id}` , payload);
   return res.data.data;
 }
@@ -131,7 +146,23 @@ export function useCreateUser() {
 
 export function useUpdateUser() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: (vars: { id: number; displayName: string; email?: string; enabled: boolean; }) => updateUser(vars.id, { displayName: vars.displayName, email: vars.email, enabled: vars.enabled }), onSuccess: () => qc.invalidateQueries({ queryKey: ['admin','users'] }) });
+  return useMutation({ 
+    mutationFn: (vars: { 
+      id: number; 
+      displayName: string; 
+      email?: string; 
+      enabled: boolean;
+      supervisorId?: number | null;
+      supervisorDisplayName?: string | null;
+    }) => updateUser(vars.id, { 
+      displayName: vars.displayName, 
+      email: vars.email, 
+      enabled: vars.enabled,
+      supervisorId: vars.supervisorId,
+      supervisorDisplayName: vars.supervisorDisplayName
+    }), 
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin','users'] }) 
+  });
 }
 
 export function useUpdateUserRoles() {

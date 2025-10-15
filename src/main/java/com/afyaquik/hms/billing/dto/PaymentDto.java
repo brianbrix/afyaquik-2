@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 
-import com.afyaquik.hms.billing.domain.PaymentMethod;
 import com.afyaquik.hms.billing.domain.PaymentStatus;
 
 /**
@@ -14,7 +13,7 @@ public record PaymentDto(
     Long id,
     String paymentNumber,
     BigDecimal amount,
-    PaymentMethod paymentMethod,
+    PaymentMethodDto paymentMethod,
     OffsetDateTime paymentDate,
     String referenceNumber,
     String notes,

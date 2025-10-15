@@ -7,6 +7,8 @@ import { UserFormModal } from './UserFormModal';
 import { EditUserModal } from './EditUserModal';
 import { profileApi } from '../../services/profileApi';
 import { useMutation } from '@tanstack/react-query';
+import { ReactPaginateComponent } from '../shared/ReactPaginate';
+import { Row, Col } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 
 export const UserDirectory: React.FC = () => {
@@ -16,6 +18,8 @@ export const UserDirectory: React.FC = () => {
   const updateRoles = useUpdateUserRoles();
   const deleteUser = useDeleteUser();
   const [q, setQ] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<any|undefined>();
   const [profileStatus, setProfileStatus] = useState<Record<string, boolean>>({});
@@ -79,6 +83,19 @@ export const UserDirectory: React.FC = () => {
     return users.filter(u => !term || u.username.toLowerCase().includes(term) || u.displayName.toLowerCase().includes(term));
   }, [users, q]);
 
+  // Client-side pagination
+  const paginatedUsers = useMemo(() => {
+    const startIndex = currentPage * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filtered.slice(startIndex, endIndex);
+  }, [filtered, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+
+  const handlePageChange = ({ selected }: { selected: number }) => {
+    setCurrentPage(selected);
+  };
+
   const toggleEnabled = (u: any) => {
     const prev = users;
     const optimistic = users?.map(x => x.id === u.id ? { ...x, enabled: !x.enabled } : x) || [];
@@ -120,18 +137,26 @@ export const UserDirectory: React.FC = () => {
               <th>Username</th>
               <th>Name</th>
               <th>Roles</th>
+              <th>Supervisor</th>
               <th>Status</th>
               <th>Profile</th>
               <th style={{width:200}}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(u => (
+            {paginatedUsers.map(u => (
               <tr key={u.id}>
                 <td><code>{u.username}</code></td>
                 <td>{u.displayName}</td>
                 <td className="small">
                   {u.roles && u.roles.length ? u.roles.map(r => <RoleBadge key={r.id||r.roleKey||r.displayName} role={(r as any).roleKey ? r : { roleKey: r.roleKey || r.displayName, displayName: r.displayName || r.roleKey }} />) : <span className="text-muted">none</span>}
+                </td>
+                <td>
+                  {u.supervisorDisplayName ? (
+                    <span className="badge bg-info">{u.supervisorDisplayName}</span>
+                  ) : (
+                    <span className="text-muted small">None</span>
+                  )}
                 </td>
                 <td>
                   <StatusToggle enabled={u.enabled} onChange={() => toggleEnabled(u)} disabled={updateUser.isPending} />
@@ -160,12 +185,49 @@ export const UserDirectory: React.FC = () => {
                 </td>
               </tr>
             ))}
-            {!filtered.length && !isLoading && (
-              <tr><td colSpan={6} className="text-center text-muted small py-4">No users match</td></tr>
+            {!paginatedUsers.length && !isLoading && (
+              <tr><td colSpan={7} className="text-center text-muted small py-4">No users match</td></tr>
             )}
           </tbody>
         </table>
       </div>
+      
+      {/* Pagination and Info */}
+      <Row className="align-items-center mt-3">
+        <Col md={6}>
+          <div className="text-muted small">
+            Showing {currentPage * pageSize + 1} to {Math.min((currentPage + 1) * pageSize, filtered.length)} of {filtered.length} users
+          </div>
+        </Col>
+        <Col md={6}>
+          <div className="d-flex justify-content-end align-items-center gap-3">
+            <div className="d-flex align-items-center gap-2">
+              <label className="form-label mb-0 small">Show:</label>
+              <select
+                className="form-select form-select-sm"
+                style={{ width: 'auto' }}
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(0); // Reset to first page when changing page size
+                }}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <span className="small text-muted">entries</span>
+            </div>
+            <ReactPaginateComponent
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </div>
+        </Col>
+      </Row>
+      
       <UserFormModal show={showCreate} onClose={()=>setShowCreate(false)} />
       <EditUserModal show={!!editing} user={editing} onClose={()=>setEditing(undefined)} />
     </div>

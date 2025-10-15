@@ -1,5 +1,8 @@
 package com.afyaquik.hms.diagnostics.repository;
 
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,7 +14,7 @@ import com.afyaquik.hms.diagnostics.domain.DiagnosticItem;
 import com.afyaquik.hms.diagnostics.domain.DiagnosticItemStatus;
 
 @Repository
-public interface DiagnosticItemRepository extends JpaRepository<DiagnosticItem, Long> {
+public interface DiagnosticItemRepository extends TenantAwareRepository<DiagnosticItem, Long> {
     
     List<DiagnosticItem> findByDiagnosticOrderIdOrderByCreatedAtDesc(Long diagnosticOrderId);
     

@@ -54,6 +54,12 @@ public class StaffUser extends BaseEntity {
             inverseJoinColumns = @JoinColumn(name = "department_id"))
     private Set<Department> departments = new HashSet<>();
 
+    @Column(name = "supervisor_id")
+    private Long supervisorId;
+
+    @Column(name = "supervisor_display_name", length = 128)
+    private String supervisorDisplayName;
+
     public String getUsername() {
         return username;
     }
@@ -115,4 +121,20 @@ public class StaffUser extends BaseEntity {
     }
 
     public void addDepartment(Department department) { this.departments.add(department); }
+
+    public Long getSupervisorId() {
+        return supervisorId;
+    }
+
+    public void setSupervisorId(Long supervisorId) {
+        this.supervisorId = supervisorId;
+    }
+
+    public String getSupervisorDisplayName() {
+        return supervisorDisplayName;
+    }
+
+    public void setSupervisorDisplayName(String supervisorDisplayName) {
+        this.supervisorDisplayName = supervisorDisplayName;
+    }
 }

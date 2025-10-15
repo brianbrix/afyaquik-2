@@ -43,7 +43,7 @@ export function ProtectedLayout() {
 
 
   return (
-    <RoleProvider roles={user.roles} defaultRole={user.roles[0]}>
+    <RoleProvider roles={user.roles} defaultRole={user.roles[0]} isAuthenticated={isAuthenticated}>
       <AppLayout />
     </RoleProvider>
   );

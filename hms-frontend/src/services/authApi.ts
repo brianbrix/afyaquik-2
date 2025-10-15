@@ -76,10 +76,25 @@ export async function fetchActiveRole(): Promise<RoleKey | null> {
     return null;
   }
 
+  // Also resolve permissions when fetching active role
+  try {
+    await apiClient.get('/permissions/resolve');
+  } catch (error) {
+    console.warn('Failed to resolve permissions after fetching active role:', error);
+  }
+
   return response.data.role;
 }
 
 export async function updateActiveRole(role: RoleKey): Promise<RoleKey> {
   const response = await apiClient.post<ActiveRoleResponse>("/auth/active-role", { role });
+  
+  // Also resolve permissions when updating active role
+  try {
+    await apiClient.get('/permissions/resolve');
+  } catch (error) {
+    console.warn('Failed to resolve permissions after updating active role:', error);
+  }
+  
   return response.data.role;
 }

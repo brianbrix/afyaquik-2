@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import RichTextEditor from '../shared/RichTextEditor';
 import { Button, Form, Row, Col, InputGroup, Card, Badge, Modal, Table } from 'react-bootstrap';
 import { useQuery } from '@tanstack/react-query';
-import { medicationApi, type Medication } from '../../services/pharmacyApi';
+import { medicationApi, prescriptionApi, queuePrescriptionApi, inventoryApi, type Medication } from '../../services/pharmacyApi';
+import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 
 interface PharmacyItem {
@@ -27,6 +28,8 @@ interface PrescriptionItem {
   status: 'PENDING' | 'PARTIALLY_DISPENSED' | 'FULLY_DISPENSED' | 'CANCELLED';
   prescribedAt: string;
   dispensedAt?: string;
+  prescriptionNumber?: string;
+  unitPrice?: number;
 }
 
 
@@ -36,6 +39,7 @@ interface PharmacyActionsSectionProps {
   onSubmit?: (items: PharmacyItem[]) => void | Promise<void>;
   loading?: boolean;
   queueItemId?: number; // Add queue item ID for prescription association
+  patientId?: number; // Add patient ID for prescription association
 }
 
 const PHARMACY_TITLES = [
@@ -64,13 +68,15 @@ const CATEGORY_COLORS = {
   other: 'secondary'
 };
 
-export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({ 
+export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
   initialItems = [], 
   onChange, 
   onSubmit, 
   loading,
-  queueItemId
+  queueItemId,
+  patientId
 }) => {
+  const { user } = useAuth();
   const [items, setItems] = useState<PharmacyItem[]>(initialItems);
   const [customTitle, setCustomTitle] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<PharmacyItem['category']>('medication');
@@ -83,6 +89,7 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
   const [selectedPrescriptions, setSelectedPrescriptions] = useState<number[]>([]);
   const [showDispenseModal, setShowDispenseModal] = useState(false);
   const [dispenseQuantities, setDispenseQuantities] = useState<Record<number, number>>({});
+  const [stockLevels, setStockLevels] = useState<Record<number, number>>({});
   
   // Fetch medications for prescription
   const { data: medications = [], isLoading: medicationsLoading } = useQuery({
@@ -90,10 +97,35 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
     queryFn: () => medicationApi.getAll(),
   });
 
+  // Fetch existing prescriptions for this queue item
+  const { data: existingPrescriptions = [], isLoading: prescriptionsLoading, refetch: refetchPrescriptions } = useQuery({
+    queryKey: ['queue-prescriptions', queueItemId],
+    queryFn: () => queuePrescriptionApi.getByQueueItem(queueItemId!),
+    enabled: !!queueItemId,
+  });
+
   // Sync items state with initialItems prop
   React.useEffect(() => {
     setItems(initialItems);
   }, [initialItems]);
+
+  // Fetch stock level for selected medication
+  const fetchStockLevel = async (medicationId: number) => {
+    try {
+      const stockLevel = await inventoryApi.getStockLevel(medicationId);
+      setStockLevels(prev => ({ ...prev, [medicationId]: stockLevel }));
+    } catch (error) {
+      console.warn('Could not fetch stock level for medication:', medicationId);
+      setStockLevels(prev => ({ ...prev, [medicationId]: 0 }));
+    }
+  };
+
+  // Fetch stock level when medication is selected
+  React.useEffect(() => {
+    if (currentPrescription.medicationId) {
+      fetchStockLevel(currentPrescription.medicationId);
+    }
+  }, [currentPrescription.medicationId]);
 
   const handleAddItem = (title: string, category: PharmacyItem['category'] = 'medication', isCustom = false) => {
     if (!title.trim()) return;
@@ -130,42 +162,152 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
   };
 
   // Prescription handlers
-  const handleAddPrescription = () => {
+  const handleAddPrescription = async () => {
+    // Check if this is an edit operation
+    if (currentPrescription.id && currentPrescription.id > 0) {
+      await handleUpdatePrescription(currentPrescription.id, currentPrescription);
+      return;
+    }
     if (!currentPrescription.medicationId || !currentPrescription.dosage || !currentPrescription.frequency) {
       Swal.fire('Error', 'Please fill in all required fields', 'error');
       return;
     }
     
-    const selectedMedication = medications.find((m: Medication) => m.id === currentPrescription.medicationId);
-    const quantity = currentPrescription.quantity || 1;
-    const newPrescription: PrescriptionItem = {
-      id: Date.now() + Math.random(),
-      medicationId: currentPrescription.medicationId!,
-      medicationName: selectedMedication?.name || '',
-      dosage: currentPrescription.dosage!,
-      frequency: currentPrescription.frequency!,
-      duration: currentPrescription.duration || '',
-      instructions: currentPrescription.instructions || '',
-      quantity,
-      prescribedQuantity: quantity,
-      dispensedQuantity: 0,
-      status: 'PENDING',
-      prescribedAt: new Date().toISOString()
-    };
+    if (!patientId) {
+      Swal.fire('Error', 'Patient ID is required for prescription', 'error');
+      return;
+    }
     
-    setPrescriptions(prev => [...prev, newPrescription]);
-    setCurrentPrescription({});
-    setShowPrescriptionModal(false);
+    try {
+      setSubmitting(true);
+      
+      const selectedMedication = medications.find((m: Medication) => m.id === currentPrescription.medicationId);
+      const quantity = currentPrescription.quantity || 1;
+      
+      // Check stock availability before creating prescription
+      try {
+        const stockAvailable = await inventoryApi.checkStockAvailability(currentPrescription.medicationId!, quantity);
+        if (!stockAvailable) {
+          const stockLevel = await inventoryApi.getStockLevel(currentPrescription.medicationId!);
+          Swal.fire({
+            icon: 'warning',
+            title: 'Insufficient Stock',
+            text: `Only ${stockLevel} units available in stock. Required: ${quantity}`,
+            confirmButtonText: 'OK'
+          });
+          return;
+        }
+      } catch (error) {
+        console.warn('Could not check stock availability:', error);
+        // Continue with prescription creation even if stock check fails
+      }
+      
+      // Create prescription request for queue item
+      const prescriptionRequest = {
+        patientId: patientId,
+        prescribedById: user?.id || 1, // Use current user ID
+        notes: currentPrescription.instructions || '',
+        items: [{
+          medicationId: currentPrescription.medicationId!,
+          quantityPrescribed: quantity,
+          dosageInstructions: currentPrescription.dosage!,
+          frequency: currentPrescription.frequency!,
+          durationDays: currentPrescription.duration ? parseInt(currentPrescription.duration) : undefined,
+          unitPrice: selectedMedication?.unitPrice || 0,
+          notes: currentPrescription.instructions || ''
+        }]
+      };
+      
+      // Save to backend using queue prescription API
+      const savedPrescription = await queuePrescriptionApi.createForQueueItem(queueItemId!, prescriptionRequest);
+      
+      // Add to local state for display
+      const newPrescription: PrescriptionItem = {
+        id: savedPrescription.id,
+        medicationId: currentPrescription.medicationId!,
+        medicationName: selectedMedication?.name || '',
+        dosage: currentPrescription.dosage!,
+        frequency: currentPrescription.frequency!,
+        duration: currentPrescription.duration || '',
+        instructions: currentPrescription.instructions || '',
+        quantity,
+        prescribedQuantity: quantity,
+        dispensedQuantity: 0,
+        status: 'PENDING',
+        prescribedAt: new Date().toISOString()
+      };
+      
+      setPrescriptions(prev => [...prev, newPrescription]);
+      setCurrentPrescription({});
+      setShowPrescriptionModal(false);
+      
+      // Refetch prescriptions to get updated data
+      refetchPrescriptions();
+      
+      Swal.fire('Success', 'Prescription created successfully', 'success');
+    } catch (error) {
+      console.error('Failed to create prescription:', error);
+      Swal.fire('Error', 'Failed to create prescription', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleRemovePrescription = (id: number) => {
     setPrescriptions(prev => prev.filter(p => p.id !== id));
   };
 
-  const handleUpdatePrescription = (id: number, updates: Partial<PrescriptionItem>) => {
-    setPrescriptions(prev => prev.map(p => 
-      p.id === id ? { ...p, ...updates } : p
-    ));
+  const handleUpdatePrescription = async (id: number, updates: Partial<PrescriptionItem>) => {
+    try {
+      setSubmitting(true);
+      
+      // Find the prescription to update
+      const prescription = prescriptions.find(p => p.id === id);
+      if (!prescription) {
+        Swal.fire('Error', 'Prescription not found', 'error');
+        return;
+      }
+      
+      // Create update request
+      const updateRequest = {
+        prescriptionNumber: prescription.prescriptionNumber || `RX-${Date.now()}`,
+        patientId: patientId!,
+        prescribedById: user?.id || 1, // Use current user ID
+        prescriptionDate: prescription.prescribedAt,
+        notes: updates.instructions || prescription.instructions || '',
+        items: [{
+          medicationId: updates.medicationId || prescription.medicationId,
+          quantityPrescribed: updates.quantity || prescription.quantity,
+          dosageInstructions: updates.dosage || prescription.dosage,
+          frequency: updates.frequency || prescription.frequency,
+          durationDays: updates.duration ? parseInt(updates.duration) : undefined,
+          unitPrice: prescription.unitPrice || 0,
+          notes: updates.instructions || prescription.instructions || ''
+        }]
+      };
+      
+      // Update prescription in backend
+      const updatedPrescription = await prescriptionApi.update(id, updateRequest);
+      
+      // Update local state
+      setPrescriptions(prev => prev.map(p => 
+        p.id === id ? { ...p, ...updates } : p
+      ));
+      
+      // Clear form and close modal
+      setCurrentPrescription({});
+      setShowPrescriptionModal(false);
+      
+      // Refetch prescriptions to get updated data
+      refetchPrescriptions();
+      
+      Swal.fire('Success', 'Prescription updated successfully', 'success');
+    } catch (error) {
+      console.error('Failed to update prescription:', error);
+      Swal.fire('Error', 'Failed to update prescription', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSelectPrescription = (id: number, selected: boolean) => {
@@ -188,40 +330,77 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
     setShowDispenseModal(true);
   };
 
-  const handleDispense = () => {
-    const dispenseData = selectedPrescriptions.map(id => {
-      const prescription = prescriptions.find(p => p.id === id);
-      const dispenseQty = dispenseQuantities[id] || 0;
-      return {
-        prescriptionId: id,
-        quantity: dispenseQty,
-        remainingQuantity: (prescription?.prescribedQuantity || 0) - (prescription?.dispensedQuantity || 0) - dispenseQty
-      };
-    });
+  const handleDispenseRemaining = async (prescriptionId: number, remainingQuantity: number) => {
+    try {
+      setSubmitting(true);
+      
+      // Dispense the remaining quantity directly
+      await prescriptionApi.dispense(prescriptionId, user?.id || 1, 'Dispensed remaining quantity from pharmacy actions');
+      
+      // Update local state
+      setPrescriptions(prev => prev.map(p => {
+        if (p.id === prescriptionId) {
+          const newDispensedQty = (p.dispensedQuantity || 0) + remainingQuantity;
+          const totalPrescribed = p.prescribedQuantity || p.quantity;
+          const status = newDispensedQty >= totalPrescribed ? 'FULLY_DISPENSED' : 'PARTIALLY_DISPENSED';
+          
+          return {
+            ...p,
+            dispensedQuantity: newDispensedQty,
+            status,
+            dispensedAt: new Date().toISOString()
+          };
+        }
+        return p;
+      }));
 
-    // Update prescriptions with dispensed quantities
-    setPrescriptions(prev => prev.map(p => {
-      if (selectedPrescriptions.includes(p.id)) {
-        const dispenseQty = dispenseQuantities[p.id] || 0;
-        const newDispensedQty = (p.dispensedQuantity || 0) + dispenseQty;
-        const totalPrescribed = p.prescribedQuantity || p.quantity;
-        const status = newDispensedQty >= totalPrescribed ? 'FULLY_DISPENSED' : 
-                      newDispensedQty > 0 ? 'PARTIALLY_DISPENSED' : 'PENDING';
-        
-        return {
-          ...p,
-          dispensedQuantity: newDispensedQty,
-          status,
-          dispensedAt: new Date().toISOString()
-        };
+      Swal.fire('Success', 'Remaining quantity dispensed successfully', 'success');
+    } catch (error) {
+      console.error('Failed to dispense remaining quantity:', error);
+      Swal.fire('Error', 'Failed to dispense remaining quantity', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDispense = async () => {
+    try {
+      setSubmitting(true);
+      
+      // Dispense each selected prescription
+      for (const prescriptionId of selectedPrescriptions) {
+        await prescriptionApi.dispense(prescriptionId, user?.id || 1, 'Dispensed from pharmacy actions');
       }
-      return p;
-    }));
 
-    setSelectedPrescriptions([]);
-    setDispenseQuantities({});
-    setShowDispenseModal(false);
-    Swal.fire('Success', 'Medications dispensed successfully', 'success');
+      // Update local state
+      setPrescriptions(prev => prev.map(p => {
+        if (selectedPrescriptions.includes(p.id)) {
+          const dispenseQty = dispenseQuantities[p.id] || 0;
+          const newDispensedQty = (p.dispensedQuantity || 0) + dispenseQty;
+          const totalPrescribed = p.prescribedQuantity || p.quantity;
+          const status = newDispensedQty >= totalPrescribed ? 'FULLY_DISPENSED' : 
+                        newDispensedQty > 0 ? 'PARTIALLY_DISPENSED' : 'PENDING';
+          
+          return {
+            ...p,
+            dispensedQuantity: newDispensedQty,
+            status,
+            dispensedAt: new Date().toISOString()
+          };
+        }
+        return p;
+      }));
+
+      setSelectedPrescriptions([]);
+      setDispenseQuantities({});
+      setShowDispenseModal(false);
+      Swal.fire('Success', 'Medications dispensed successfully', 'success');
+    } catch (error) {
+      console.error('Failed to dispense medications:', error);
+      Swal.fire('Error', 'Failed to dispense medications', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -459,12 +638,9 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
                             <Button 
                               size="sm" 
                               variant="outline-success"
-                              onClick={() => {
-                                setSelectedPrescriptions([prescription.id]);
-                                setDispenseQuantities({ [prescription.id]: remaining });
-                                handleBulkDispense();
-                              }}
+                              onClick={() => handleDispenseRemaining(prescription.id, remaining)}
                               title="Dispense remaining"
+                              disabled={submitting}
                             >
                               <i className="bi bi-check-square"></i>
                             </Button>
@@ -529,6 +705,26 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
                       </option>
                     ))}
                   </Form.Select>
+                  {currentPrescription.medicationId && (
+                    <div className="mt-2">
+                      <small className={`fw-semibold ${
+                        (stockLevels[currentPrescription.medicationId] || 0) < 10 
+                          ? 'text-danger' 
+                          : (stockLevels[currentPrescription.medicationId] || 0) < 50 
+                            ? 'text-warning' 
+                            : 'text-success'
+                      }`}>
+                        <i className="bi bi-box me-1"></i>
+                        Stock: {stockLevels[currentPrescription.medicationId] || 0} units
+                        {(stockLevels[currentPrescription.medicationId] || 0) < 10 && (
+                          <span className="ms-2">
+                            <i className="bi bi-exclamation-triangle me-1"></i>
+                            Low Stock
+                          </span>
+                        )}
+                      </small>
+                    </div>
+                  )}
                 </Form.Group>
               </Col>
               <Col md={3}>

@@ -57,6 +57,11 @@ public class Inventory extends BaseEntity {
     @Column(name = "notes", columnDefinition = "text")
     private String notes;
 
+    @Column(name = "used_in_prescriptions", nullable = false)
+    private Boolean usedInPrescriptions = false;
+
+    private boolean active;
+
     // Getters and Setters
     public Medication getMedication() {
         return medication;
@@ -169,6 +174,22 @@ public class Inventory extends BaseEntity {
 
     public boolean isExpiringSoon(int days) {
         return expiryDate != null && expiryDate.isBefore(java.time.LocalDate.now().plusDays(days));
+    }
+
+    public Boolean getUsedInPrescriptions() {
+        return usedInPrescriptions;
+    }
+
+    public void setUsedInPrescriptions(Boolean usedInPrescriptions) {
+        this.usedInPrescriptions = usedInPrescriptions;
+    }
+
+    public void setActive(boolean b) {
+        this.active = b;
+    }
+
+    public boolean isActive() {
+        return active;
     }
 }
 

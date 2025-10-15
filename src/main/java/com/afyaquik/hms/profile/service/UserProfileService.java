@@ -30,7 +30,10 @@ public class UserProfileService {
     }
     
     public Optional<UserProfileDto> getUserProfileById(Long id) {
-        return userProfileRepository.findById(id).map(this::convertToDto);
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return userProfileRepository.findById(id)
+            .filter(profile -> tenantId.equals(profile.getTenantId()))
+            .map(this::convertToDto);
     }
     
     public Optional<UserProfileDto> getUserProfileByUsername(String username) {

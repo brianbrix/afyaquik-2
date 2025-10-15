@@ -3,7 +3,6 @@ package com.afyaquik.hms.pharmacy.dto;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 
 public class InventoryDto {
     private Long id;
@@ -21,6 +20,7 @@ public class InventoryDto {
     private String supplier;
     private String location;
     private String notes;
+    private boolean active;
     private boolean lowStock;
     private boolean needsReorder;
     private boolean expired;
@@ -198,6 +198,14 @@ public class InventoryDto {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }
 

@@ -9,6 +9,7 @@ import { useRoleContext } from "../../../hooks/useRoleContext";
 import { useResolvedPermissions, hasPermission } from "../../../hooks/usePermissions";
 import { useAuth } from "../../../hooks/useAuth";
 import { SearchableStaffSelect } from "../../../components/shared/SearchableStaffSelect";
+import { useStaffDirectory } from "../../../services/staffDirectoryApi";
 import { useRoles, useDepartments } from "../../reference/hooks/useReferenceData";
 import type { RoleDefinition, DepartmentDefinition } from "../../../types/reference";
 import { useApproveShiftSwap, useCreateStaffShift, useRequestShiftSwap, useStaffShiftsList, useUpdateStaffShift } from "../hooks/useStaffShifts";
@@ -191,9 +192,13 @@ type ShiftEditModalProps = { show: boolean; onHide: () => void; onSubmit: (e: Fo
 
 function ShiftEditModal({ show, onHide, onSubmit, isSubmitting, error, shift, roles, departments, shiftTypes, shiftTypesError, canManageShifts }: ShiftEditModalProps) {
   const [editStaffUserId, setEditStaffUserId] = useState<number | undefined>(shift?.staffUserId);
+  const [selectedStaffUser, setSelectedStaffUser] = useState<any>(null);
   const [selectedShiftType, setSelectedShiftType] = useState<string>(shift?.shiftType?.toString() || "");
   const [startTime, setStartTime] = useState<string>(shift ? toDateTimeUtcValue(shift.startsAt) : "");
   const [endTime, setEndTime] = useState<string>(shift ? toDateTimeUtcValue(shift.endsAt) : "");
+
+  // Fetch staff directory to find the current staff user
+  const { data: staffData = [] } = useStaffDirectory(show);
 
   // Reset field values when the modal opens or the shift changes
   useEffect(() => {
@@ -204,6 +209,18 @@ function ShiftEditModal({ show, onHide, onSubmit, isSubmitting, error, shift, ro
       setEndTime(toDateTimeUtcValue(shift.endsAt));
     }
   }, [shift, show]);
+
+  // Find and set the staff user when staff data is loaded
+  useEffect(() => {
+    if (editStaffUserId && staffData.length > 0) {
+      const staffUser = staffData.find(staff => staff.id === editStaffUserId);
+      if (staffUser) {
+        setSelectedStaffUser(staffUser);
+      }
+    } else if (!editStaffUserId) {
+      setSelectedStaffUser(null);
+    }
+  }, [editStaffUserId, staffData]);
 
   // Extract date from shift.startsAt (yyyy-MM-dd)
   const getShiftDate = () => {
@@ -237,7 +254,16 @@ function ShiftEditModal({ show, onHide, onSubmit, isSubmitting, error, shift, ro
           <Col md={6}>
             <Form.Group controlId="eStaff">
               <Form.Label className="fw-semibold">Staff User</Form.Label>
-              <SearchableStaffSelect value={editStaffUserId} onChange={setEditStaffUserId} required disabled={isCheckedIn || true} name="staffUserId" />
+              <SearchableStaffSelect 
+                value={selectedStaffUser} 
+                onChange={(staff) => {
+                  setSelectedStaffUser(staff);
+                  setEditStaffUserId(staff?.id);
+                }} 
+                required 
+                disabled={isCheckedIn || true} 
+                name="staffUserId" 
+              />
               <input type="hidden" name="staffUserId" value={editStaffUserId ?? ''} />
             </Form.Group>
           </Col>
@@ -386,13 +412,19 @@ function mapFilters(values: FilterBarValues, activeRole?: number | string, roles
   if (dept) f.departmentId = dept;
   if (status) f.status = status.trim() as ShiftStatus;
   if (shiftType !== undefined && !isNaN(shiftType)) f.shiftType = shiftType;
-  if (restrict && activeRole && rolesList && typeof activeRole === 'string') {
-    const found = rolesList.find(r => r.roleKey === activeRole || r.id.toString() === activeRole);
-    if (found) f.roleId = found.id;
-  } else if (restrict && activeRole && typeof activeRole === 'number') {
-    f.roleId = activeRole;
-  } else if (!restrict) {
-    // Only set roleId if user has explicitly selected a role
+  if (restrict) {
+    // When restricting to role, use active role if available, otherwise use selected role
+    if (activeRole && rolesList && typeof activeRole === 'string') {
+      const found = rolesList.find(r => r.roleKey === activeRole || r.id.toString() === activeRole);
+      if (found) f.roleId = found.id;
+    } else if (activeRole && typeof activeRole === 'number') {
+      f.roleId = activeRole;
+    } else if (role) {
+      // Fallback to selected role if active role not available
+      f.roleId = role;
+    }
+  } else {
+    // When not restricting, use selected role if available
     if (role) f.roleId = role;
     // If no role selected, do not set roleId (return all roles)
   }

@@ -1,20 +1,21 @@
   
 package com.afyaquik.hms.queue.service;
 
-import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
-import com.afyaquik.hms.queue.domain.TriageEntry;
-import com.afyaquik.hms.queue.domain.VisitQueueItem;
-import com.afyaquik.hms.queue.dto.TriageEntryDto;
-import com.afyaquik.hms.queue.dto.TriageEntryRequest;
-import com.afyaquik.hms.queue.repository.TriageEntryRepository;
-import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+import com.afyaquik.hms.queue.domain.TriageEntry;
+import com.afyaquik.hms.queue.domain.VisitQueueItem;
 import com.afyaquik.hms.queue.dto.BulkTriageEntryRequest;
+import com.afyaquik.hms.queue.dto.TriageEntryDto;
+import com.afyaquik.hms.queue.dto.TriageEntryRequest;
+import com.afyaquik.hms.queue.repository.TriageEntryRepository;
+import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
 
 @Service
 public class TriageEntryService {
@@ -89,6 +90,36 @@ public class TriageEntryService {
         .orElseThrow(() -> new IllegalArgumentException("Queue item not found"));
     List<TriageEntry> existing = triageEntryRepository.findByQueueItemId(queueItemId);
     java.util.Map<Long, TriageEntry> existingMap = existing.stream().collect(Collectors.toMap(TriageEntry::getId, e -> e));
+    
+    // Check for duplicate titles within the request
+    java.util.Set<String> titlesInRequest = new java.util.HashSet<>();
+    java.util.List<String> duplicateTitles = new java.util.ArrayList<>();
+    
+    for (BulkTriageEntryRequest.BulkTriageEntryDto dto : request.getEntries()) {
+        if (dto.getId() == null) { // Only check for new entries
+            if (titlesInRequest.contains(dto.getTitle())) {
+                duplicateTitles.add(dto.getTitle());
+            } else {
+                titlesInRequest.add(dto.getTitle());
+            }
+        }
+    }
+    
+    if (!duplicateTitles.isEmpty()) {
+        throw new IllegalArgumentException("Duplicate titles found in request: " + String.join(", ", duplicateTitles));
+    }
+    
+    // Check for duplicates with existing entries
+    java.util.Set<String> existingTitles = existing.stream()
+            .map(TriageEntry::getTitle)
+            .collect(Collectors.toSet());
+    
+    for (BulkTriageEntryRequest.BulkTriageEntryDto dto : request.getEntries()) {
+        if (dto.getId() == null && existingTitles.contains(dto.getTitle())) {
+            throw new IllegalArgumentException("A triage entry with title '" + dto.getTitle() + "' already exists");
+        }
+    }
+    
     List<TriageEntry> toSave = new java.util.ArrayList<>();
     for (BulkTriageEntryRequest.BulkTriageEntryDto dto : request.getEntries()) {
         TriageEntry entry = dto.getId() != null && existingMap.containsKey(dto.getId())

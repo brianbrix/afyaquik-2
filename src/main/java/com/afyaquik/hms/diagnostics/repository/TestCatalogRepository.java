@@ -1,5 +1,8 @@
 package com.afyaquik.hms.diagnostics.repository;
 
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -12,7 +15,7 @@ import com.afyaquik.hms.diagnostics.domain.TestCatalog;
 import com.afyaquik.hms.diagnostics.domain.TestType;
 
 @Repository
-public interface TestCatalogRepository extends JpaRepository<TestCatalog, Long> {
+public interface TestCatalogRepository extends TenantAwareRepository<TestCatalog, Long> {
     
     Optional<TestCatalog> findByTestCode(String testCode);
     

@@ -6,9 +6,25 @@ export type Patient = {
   medicalRecordNumber: string;
   firstName: string;
   lastName: string;
+  middleName?: string;
   phone?: string;
+  alternatePhone?: string;
   email?: string;
   dateOfBirth?: string;
+  nationalId?: string;
+  gender?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelationship?: string;
+  allergies?: string;
+  medications?: string;
+  medicalHistory?: string;
+  notes?: string;
 };
 
 export type PatientSummary = Patient; // same for now
@@ -54,8 +70,8 @@ export function useCreatePatient(currentQuery: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createPatient,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: PATIENTS_KEY(currentQuery) });
-    }
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: PATIENTS_KEY(currentQuery) });
+      }
   });
 }

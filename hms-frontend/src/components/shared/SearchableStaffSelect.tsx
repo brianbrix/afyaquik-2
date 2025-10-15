@@ -168,16 +168,16 @@ export function SearchableStaffSelect({
         </div>
       )}
 
-      {value && (
+      {value && typeof value === 'object' && value.displayName && value.username && (
         <div className="mt-2">
           <div className="d-flex align-items-center gap-2">
             <i className="bi bi-person-check text-success"></i>
             <span className="fw-semibold">{value.displayName}</span>
             <span className="text-muted small">@{value.username}</span>
-            {showRole && value.roles.length > 0 && (
+            {showRole && value.roles && value.roles.length > 0 && (
               <span className="badge bg-primary">{value.roles[0]}</span>
             )}
-            {showDepartment && value.departments.length > 0 && (
+            {showDepartment && value.departments && value.departments.length > 0 && (
               <span className="badge bg-secondary">{value.departments[0]}</span>
             )}
           </div>

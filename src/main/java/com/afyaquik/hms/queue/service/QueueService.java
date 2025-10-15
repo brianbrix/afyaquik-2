@@ -18,8 +18,10 @@ import com.afyaquik.hms.queue.dto.QueueSummary;
 import com.afyaquik.hms.queue.dto.QueueTimelineEntryResponse;
 import com.afyaquik.hms.queue.repository.QueueTimelineEntryRepository;
 import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
+import com.afyaquik.hms.notification.service.NotificationService;
 import jakarta.persistence.EntityNotFoundException;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -221,6 +223,10 @@ public class QueueService {
                 request.note());
         QueueItemResponse response = toResponse(saved);
         eventPublisher.publish(response);
+        
+        // Send notification to the assigned user
+        sendQueueAssignmentNotification(tenantId, saved, request.assigneeId());
+        
         log.info("Assign success for queueItemId={} assigneeId={}", queueItemId, request.assigneeId());
         return response;
     }
@@ -236,6 +242,7 @@ public class QueueService {
         QueueStatus fromStatus = queueItem.getCurrentStatus();
         queueItem.setPreviousStatus(fromStatus);
         queueItem.setCurrentStatus(targetStatus);
+        queueItem.setCurrentAssigneeId(request.assigneeId());
         if (request.departmentId() != null && !request.departmentId().isBlank()) {
             queueItem.setDepartmentId(request.departmentId().trim());
         }
@@ -254,6 +261,10 @@ public class QueueService {
                 request.note());
         QueueItemResponse response = toResponse(saved);
         eventPublisher.publish(response);
+        
+        // Send notification for status transition
+        sendQueueTransitionNotification(tenantId, saved, fromStatus, targetStatus);
+        
         log.info("Transition success for queueItemId={} to status={}", queueItemId, targetStatus);
         return response;
     }
@@ -457,5 +468,53 @@ public class QueueService {
         log.debug("Getting queue item tenant={} queueItemId={}", tenantId, queueItemId);
         VisitQueueItem item = getQueueItemForTenant(tenantId, queueItemId);
         return toResponse(item);
+    }
+
+    /**
+     * Send notification when a queue item is assigned to a user
+     */
+    private void sendQueueAssignmentNotification(String tenantId, VisitQueueItem queueItem, String assigneeId) {
+        try {
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("patientName", queueItem.getPatient().getFirstName() + " " + queueItem.getPatient().getLastName());
+            variables.put("ticketNumber", queueItem.getTicketNumber());
+            variables.put("status", queueItem.getCurrentStatus().toString());
+            
+            notificationService.sendNotification(
+                "QUEUE_ASSIGNED",
+                variables,
+                assigneeId,
+                "IN_APP"
+            );
+        } catch (Exception e) {
+            log.warn("Failed to send queue assignment notification for queueItemId={} assigneeId={}: {}", 
+                queueItem.getId(), assigneeId, e.getMessage());
+        }
+    }
+
+    /**
+     * Send notification when a queue item status is transitioned
+     */
+    private void sendQueueTransitionNotification(String tenantId, VisitQueueItem queueItem, QueueStatus fromStatus, QueueStatus toStatus) {
+        try {
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("patientName", queueItem.getPatient().getFirstName() + " " + queueItem.getPatient().getLastName());
+            variables.put("ticketNumber", queueItem.getTicketNumber());
+            variables.put("fromStatus", fromStatus.toString());
+            variables.put("toStatus", toStatus.toString());
+            
+            // Send notification to the current assignee if there is one
+            if (queueItem.getCurrentAssigneeId() != null && !queueItem.getCurrentAssigneeId().trim().isEmpty()) {
+                notificationService.sendNotification(
+                    "QUEUE_ADVANCED",
+                    variables,
+                    queueItem.getCurrentAssigneeId(),
+                    "IN_APP"
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Failed to send queue transition notification for queueItemId={}: {}", 
+                queueItem.getId(), e.getMessage());
+        }
     }
 }

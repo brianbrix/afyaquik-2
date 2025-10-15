@@ -19,7 +19,7 @@ export function ProfilePage() {
   // Fetch current user's profile
   const { data: profile, isLoading, error, refetch } = useQuery({
     queryKey: ['user-profile'],
-    queryFn: profileApi.getCurrent,
+    queryFn: profileApi.getMe,
     retry: 1
   });
 

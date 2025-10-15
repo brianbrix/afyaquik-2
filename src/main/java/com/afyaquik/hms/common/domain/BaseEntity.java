@@ -1,9 +1,19 @@
 package com.afyaquik.hms.common.domain;
 
-import jakarta.persistence.*;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 
 @MappedSuperclass
 public abstract class BaseEntity {
@@ -27,16 +37,25 @@ public abstract class BaseEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Column(name = "created_by", length = 255)
+    private String createdBy;
+
+    @Column(name = "updated_by", length = 255)
+    private String updatedBy;
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
+        this.createdBy = getCurrentUser();
+        this.updatedBy = getCurrentUser();
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = Instant.now();
+        this.updatedBy = getCurrentUser();
     }
 
     public Long getId() {
@@ -72,11 +91,45 @@ public abstract class BaseEntity {
         if (!this.deleted) {
             this.deleted = true;
             this.deletedAt = Instant.now();
+            this.updatedBy = getCurrentUser();
         }
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public String getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(String updatedBy) {
+        this.updatedBy = updatedBy;
     }
 
     /** Optional helper to display in Nairobi time */
     public ZonedDateTime getCreatedAtNairobi() {
         return createdAt.atZone(ZoneId.of("Africa/Nairobi"));
+    }
+
+    /**
+     * Get the current authenticated user's username.
+     * Returns "system" if no user is authenticated.
+     */
+    private String getCurrentUser() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated() && 
+                !"anonymousUser".equals(authentication.getName())) {
+                return authentication.getName();
+            }
+        } catch (Exception e) {
+            // Log the exception if needed, but don't fail the operation
+        }
+        return "system";
     }
 }

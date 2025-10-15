@@ -8,8 +8,8 @@ export function useShiftAction() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: async ({ shift, status }: { shift: StaffShift; status: ShiftStatus }) => {
-      // Use PATCH /owner endpoint for CHECKED_IN (owner check-in), else use PUT
-      const useOwnerEndpoint = status === "CHECKED_IN";
+      // Use PATCH /owner endpoint for CHECKED_IN (owner check-in) or COMPLETED (owner check-out) or IN_PROGRESS (owner check-out), else use PUT
+      const useOwnerEndpoint = status === "CHECKED_IN" || status === "COMPLETED" || status === "IN_PROGRESS";
       return updateStaffShift(shift.id, { status }, useOwnerEndpoint);
     },
     onSuccess: () => {

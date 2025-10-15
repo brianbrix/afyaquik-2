@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { testCatalogApi, diagnosticOrderApi, resultTemplateApi, diagnosticResultApi, diagnosticItemApi } from '../../services/diagnosticsApi';
+import { testCatalogApi, diagnosticOrderApi, resultTemplateApi, diagnosticResultApi, diagnosticItemApi, diagnosticNoteApi, diagnosticFileAttachmentApi } from '../../services/diagnosticsApi';
 import { Button, Form, Row, Col, Card, Badge, Table, Alert, Modal } from 'react-bootstrap';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
+import RichTextEditor from '../shared/RichTextEditor';
+import { apiClient } from '../../services/apiClient';
 
 interface DiagnosticsActionsSectionProps {
   queueItemId?: number;
@@ -13,6 +15,7 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
   queueItemId,
   patientId
 }) => {
+  const queryClient = useQueryClient();
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -36,6 +39,16 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
   const [testResults, setTestResults] = useState<Record<number, any>>({});
   const [savingResults, setSavingResults] = useState(false);
   const [existingResults, setExistingResults] = useState<any[]>([]);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showFileUploadModal, setShowFileUploadModal] = useState(false);
+  const [selectedTestForNote, setSelectedTestForNote] = useState<any>(null);
+  const [selectedTestForFile, setSelectedTestForFile] = useState<any>(null);
+  const [noteText, setNoteText] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [files, setFiles] = useState<any[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [loadingFiles, setLoadingFiles] = useState(false);
 
   // Fetch existing diagnostic orders for this queue item
   const { data: existingOrders = [], isLoading: ordersLoading, refetch: refetchOrders } = useQuery({
@@ -71,6 +84,7 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
   const handleUpdateOrderStatus = async (orderId: number, newStatus: string) => {
     try {
       await diagnosticOrderApi.updateStatus(orderId, newStatus);
+      await queryClient.invalidateQueries({ queryKey: ['diagnostic-orders'] });
       refetchOrders();
       Swal.fire('Success', `Order status updated to ${newStatus}`, 'success');
     } catch (error) {
@@ -102,6 +116,7 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
       };
 
       await diagnosticOrderApi.update(selectedOrder.id, updatedOrder);
+      await queryClient.invalidateQueries({ queryKey: ['diagnostic-orders'] });
       refetchOrders();
       setShowEditModal(false);
       setSelectedOrder(null);
@@ -114,26 +129,54 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
 
   const handleAddResults = (order: any) => {
     setSelectedOrderForResults(order);
-    setTestResults({});
+    // Don't clear testResults here - let the useEffect handle prefilling
     setShowResultsModal(true);
   };
 
-  // Load existing results when results are fetched
+  // Effect to prefill results when existing results are loaded
   React.useEffect(() => {
-    if (results && results.length > 0) {
-      const resultsMap: Record<number, any> = {};
+    if (results && results.length > 0 && selectedOrderForResults) {
+      console.log('Results data:', results);
+      console.log('Selected order diagnostic items:', selectedOrderForResults.diagnosticItems);
       
-      // Group results by testCatalogId
+      const prefilledResults: Record<number, any> = {};
+      
+      // Map results to testCatalogId using diagnosticItems
       results.forEach((result: any) => {
-        if (!resultsMap[result.testCatalogId]) {
-          resultsMap[result.testCatalogId] = {};
+        console.log('Processing result:', result);
+        
+        if (result.diagnosticItemId && result.resultValue) {
+          // Find the diagnostic item to get the testCatalogId
+          const diagnosticItem = selectedOrderForResults.diagnosticItems?.find(
+            (item: any) => item.id === result.diagnosticItemId
+          );
+          
+          console.log('Found diagnostic item:', diagnosticItem);
+          
+          if (diagnosticItem && diagnosticItem.testCatalogId) {
+            const testCatalogId = diagnosticItem.testCatalogId;
+            if (!prefilledResults[testCatalogId]) {
+              prefilledResults[testCatalogId] = {};
+            }
+            prefilledResults[testCatalogId][result.fieldName] = result.resultValue;
+            console.log(`Mapped result ${result.fieldName}=${result.resultValue} to testCatalogId ${testCatalogId}`);
+          }
         }
-        resultsMap[result.testCatalogId][result.fieldName] = result.resultValue;
       });
       
-      setTestResults(resultsMap);
+      console.log('Final prefilled results:', prefilledResults);
+      setTestResults(prefilledResults);
     }
-  }, [results]);
+  }, [results, selectedOrderForResults]);
+
+  // Cleanup effect when modal is closed
+  React.useEffect(() => {
+    if (!showResultsModal) {
+      // Reset state when modal is closed
+      setTestResults({});
+      setSelectedOrderForResults(null);
+    }
+  }, [showResultsModal]);
 
   const handleResultChange = (testCatalogId: number, fieldName: string, value: any) => {
     setTestResults(prev => ({
@@ -143,6 +186,127 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
         [fieldName]: value
       }
     }));
+  };
+
+  const handleAddNote = async (testItem: any) => {
+    setSelectedTestForNote(testItem);
+    setNoteText('');
+    setShowNoteModal(true);
+    
+    // Load existing notes for this test
+    try {
+      setLoadingNotes(true);
+      const existingNotes = await diagnosticNoteApi.getByDiagnosticItem(testItem.id);
+      console.log('Loaded existing notes:', existingNotes);
+      setNotes(existingNotes);
+    } catch (error) {
+      console.error('Failed to load notes:', error);
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  const handleUploadFile = async (testItem: any) => {
+    setSelectedTestForFile(testItem);
+    setUploadedFiles([]);
+    setShowFileUploadModal(true);
+    
+    // Load existing files for this test
+    try {
+      setLoadingFiles(true);
+      const existingFiles = await diagnosticFileAttachmentApi.getByDiagnosticItem(testItem.id);
+      console.log('Loaded existing files:', existingFiles);
+      setFiles(existingFiles);
+    } catch (error) {
+      console.error('Failed to load files:', error);
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!selectedTestForNote || !noteText.trim()) return;
+    
+    try {
+      setLoadingNotes(true);
+      await diagnosticNoteApi.create({
+        diagnosticItemId: selectedTestForNote.id,
+        noteText: noteText.trim()
+      });
+      
+      // Refetch notes from backend to ensure we have the latest data
+      const updatedNotes = await diagnosticNoteApi.getByDiagnosticItem(selectedTestForNote.id);
+      console.log('Refetched notes:', updatedNotes);
+      setNotes(updatedNotes);
+      
+      Swal.fire('Success', 'Note saved successfully', 'success');
+      setNoteText(''); // Clear the input but keep modal open to show the new note
+    } catch (error) {
+      console.error('Failed to save note:', error);
+      Swal.fire('Error', 'Failed to save note', 'error');
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  const handleSaveFiles = async () => {
+    if (!selectedTestForFile || uploadedFiles.length === 0) return;
+    
+    try {
+      setLoadingFiles(true);
+      const uploadPromises = uploadedFiles.map(file => 
+        diagnosticFileAttachmentApi.upload(selectedTestForFile.id, file)
+      );
+      
+      await Promise.all(uploadPromises);
+      
+      // Refetch files from backend to ensure we have the latest data
+      const updatedFiles = await diagnosticFileAttachmentApi.getByDiagnosticItem(selectedTestForFile.id);
+      console.log('Refetched files:', updatedFiles);
+      setFiles(updatedFiles);
+      
+      Swal.fire('Success', `Successfully uploaded ${uploadedFiles.length} file(s)`, 'success');
+      setUploadedFiles([]); // Clear the upload list but keep modal open to show the new files
+    } catch (error) {
+      console.error('Failed to upload files:', error);
+      Swal.fire('Error', 'Failed to upload files', 'error');
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: number) => {
+    try {
+      await diagnosticNoteApi.delete(noteId);
+      
+      // Refetch notes from backend to ensure we have the latest data
+      if (selectedTestForNote) {
+        const updatedNotes = await diagnosticNoteApi.getByDiagnosticItem(selectedTestForNote.id);
+        setNotes(updatedNotes);
+      }
+      
+      Swal.fire('Success', 'Note deleted successfully', 'success');
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      Swal.fire('Error', 'Failed to delete note', 'error');
+    }
+  };
+
+  const handleDeleteFile = async (fileId: number) => {
+    try {
+      await diagnosticFileAttachmentApi.delete(fileId);
+      
+      // Refetch files from backend to ensure we have the latest data
+      if (selectedTestForFile) {
+        const updatedFiles = await diagnosticFileAttachmentApi.getByDiagnosticItem(selectedTestForFile.id);
+        setFiles(updatedFiles);
+      }
+      
+      Swal.fire('Success', 'File deleted successfully', 'success');
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      Swal.fire('Error', 'Failed to delete file', 'error');
+    }
   };
 
   const handleSaveResults = async () => {
@@ -200,7 +364,17 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
         }
       }
 
-      // Refetch results and orders
+      // Invalidate and refetch results and orders
+      await queryClient.invalidateQueries({ queryKey: ['diagnostic-results'] });
+      await queryClient.invalidateQueries({ queryKey: ['diagnostic-orders'] });
+      
+      // Also invalidate the specific result query if we have a selected order
+      if (selectedOrderForResults?.id) {
+        await queryClient.invalidateQueries({ 
+          queryKey: ['diagnostic-results', selectedOrderForResults.id] 
+        });
+      }
+      
       refetchResults();
       refetchOrders();
 
@@ -227,6 +401,7 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
     if (result.isConfirmed) {
       try {
         await diagnosticOrderApi.updateStatus(orderId, 'CANCELLED');
+        await queryClient.invalidateQueries({ queryKey: ['diagnostic-orders'] });
         refetchOrders();
         Swal.fire('Success', 'Order cancelled successfully', 'success');
       } catch (error) {
@@ -253,12 +428,43 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
 
     if (validationNotes !== undefined) {
       try {
+        // Optimistic update - immediately update the UI
+        queryClient.setQueryData(['diagnostic-results', selectedOrderForResults?.id], (oldData: any) => {
+          if (!oldData) return oldData;
+          return oldData.map((result: any) => 
+            result.id === resultId 
+              ? { ...result, status: 'VALIDATED', validatedAt: new Date().toISOString() }
+              : result
+          );
+        });
+        
         await diagnosticResultApi.validate(resultId, validationNotes || '');
-        refetchResults();
-        refetchOrders();
+        
+        // Comprehensive query invalidation
+        await queryClient.invalidateQueries({ queryKey: ['diagnostic-results'] });
+        await queryClient.invalidateQueries({ queryKey: ['diagnostic-orders'] });
+        await queryClient.invalidateQueries({ queryKey: ['diagnostic-orders', queueItemId] });
+        
+        // Invalidate specific result queries
+        if (selectedOrderForResults?.id) {
+          await queryClient.invalidateQueries({ 
+            queryKey: ['diagnostic-results', selectedOrderForResults.id] 
+          });
+        }
+        
+        // Force refetch all related queries
+        await Promise.all([
+          refetchResults(),
+          refetchOrders(),
+          queryClient.refetchQueries({ queryKey: ['diagnostic-results'] }),
+          queryClient.refetchQueries({ queryKey: ['diagnostic-orders'] })
+        ]);
+        
         Swal.fire('Success', 'Result validated successfully', 'success');
       } catch (error) {
         console.error('Failed to validate result:', error);
+        // Revert optimistic update on error
+        queryClient.invalidateQueries({ queryKey: ['diagnostic-results'] });
         Swal.fire('Error', 'Failed to validate result', 'error');
       }
     }
@@ -294,7 +500,8 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
 
       await diagnosticOrderApi.create(orderData);
       
-      // Refetch orders to show the new one
+      // Invalidate and refetch orders to show the new one
+      await queryClient.invalidateQueries({ queryKey: ['diagnostic-orders'] });
       refetchOrders();
       
       Swal.fire('Success', 'Diagnostic order created successfully', 'success');
@@ -355,7 +562,7 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
               onClick={() => handleAddResults(order)}
             >
               <i className="bi bi-clipboard-data me-1"></i>
-              Add Results
+              Add/Edit Results
             </Button>
             <Button 
               size="sm" 
@@ -760,10 +967,29 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
                                       onChange={(e) => handleResultChange(item.testCatalogId, template.fieldName, e.target.value)}
                                     >
                                       <option value="">Select {template.fieldName.toLowerCase()}...</option>
-                                      {template.options?.split(',').map((option: string, optionIndex: number) => (
-                                        <option key={optionIndex} value={option.trim()}>{option.trim()}</option>
+                                      {(() => {
+                                        try {
+                                          // Try to parse as JSON array first
+                                          const options = JSON.parse(template.fieldOptions || '[]');
+                                          return Array.isArray(options) ? options : [];
+                                        } catch {
+                                          // Fallback to comma-separated values
+                                          return template.fieldOptions?.split(',').map((opt: string) => opt.trim()) || [];
+                                        }
+                                      })().map((option: string, optionIndex: number) => (
+                                        <option key={optionIndex} value={option}>{option}</option>
                                       ))}
                                     </Form.Select>
+                                  )}
+                                  
+                                  {template.fieldType === 'RICH_TEXT' && (
+                                    <RichTextEditor
+                                      theme="snow"
+                                      value={testResults[item.testCatalogId]?.[template.fieldName] || ''}
+                                      onChange={(value: string) => handleResultChange(item.testCatalogId, template.fieldName, value)}
+                                      placeholder={`Enter ${template.fieldName.toLowerCase()}...`}
+                                      style={{ background: 'white', minHeight: '120px' }}
+                                    />
                                   )}
                                   
                                   {template.referenceRange && (
@@ -775,13 +1001,21 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
                               ))}
                               
                               <div className="d-flex gap-2 mt-3">
-                                <Button size="sm" variant="outline-primary">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline-primary"
+                                  onClick={() => handleUploadFile(item)}
+                                >
                                   <i className="bi bi-upload me-1"></i>
-                                  Upload File
+                                  Upload/View Files
                                 </Button>
-                                <Button size="sm" variant="outline-secondary">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline-secondary"
+                                  onClick={() => handleAddNote(item)}
+                                >
                                   <i className="bi bi-plus-circle me-1"></i>
-                                  Add Note
+                                  Add/View Notes
                                 </Button>
                               </div>
                             </div>
@@ -848,6 +1082,239 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
                 Save All Results
               </>
             )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Add Note Modal */}
+      <Modal show={showNoteModal} onHide={() => setShowNoteModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Notes for {selectedTestForNote?.testName}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedTestForNote && (
+            <div className="mb-3">
+              <h6>Test: {selectedTestForNote.testName}</h6>
+              <p className="text-muted small">Add and manage notes for this diagnostic test</p>
+            </div>
+          )}
+          
+          {/* Add New Note */}
+          <Card className="mb-3">
+            <Card.Header>
+              <h6 className="mb-0">Add New Note</h6>
+            </Card.Header>
+            <Card.Body>
+              <Form.Group>
+                <Form.Label>Note</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Enter your note here..."
+                />
+              </Form.Group>
+              <div className="d-flex justify-content-end mt-2">
+                <Button 
+                  variant="primary" 
+                  size="sm"
+                  onClick={handleSaveNote} 
+                  disabled={!noteText.trim() || loadingNotes}
+                >
+                  {loadingNotes ? 'Saving...' : 'Save Note'}
+                </Button>
+              </div>
+            </Card.Body>
+          </Card>
+
+          {/* Existing Notes */}
+          <div>
+            <h6>Existing Notes ({notes.length})</h6>
+            {loadingNotes ? (
+              <div className="text-center py-3">
+                <div className="spinner-border spinner-border-sm me-2"></div>
+                Loading notes...
+              </div>
+            ) : notes.length > 0 ? (
+              <div className="list-group">
+                {notes.map((note) => (
+                  <div key={note.id} className="list-group-item">
+                    <div className="d-flex justify-content-between align-items-start">
+                      <div className="flex-grow-1">
+                        <p className="mb-1">{note.noteText}</p>
+                        <small className="text-muted">
+                          Added by {note.addedByName} on {new Date(note.addedAt).toLocaleString()}
+                        </small>
+                      </div>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => handleDeleteNote(note.id)}
+                      >
+                        <i className="bi bi-trash"></i>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-muted text-center py-3">
+                No notes added yet.
+              </div>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowNoteModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Upload File Modal */}
+      <Modal show={showFileUploadModal} onHide={() => setShowFileUploadModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Files for {selectedTestForFile?.testName}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedTestForFile && (
+            <div className="mb-3">
+              <h6>Test: {selectedTestForFile.testName}</h6>
+              <p className="text-muted small">Upload and manage files for this diagnostic test</p>
+            </div>
+          )}
+          
+          {/* Upload New Files */}
+          <Card className="mb-3">
+            <Card.Header>
+              <h6 className="mb-0">Upload New Files</h6>
+            </Card.Header>
+            <Card.Body>
+              <Form.Group>
+                <Form.Label>Select Files</Form.Label>
+                <Form.Control
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from((e.target as HTMLInputElement).files || []);
+                    setUploadedFiles(files);
+                  }}
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt"
+                />
+                <Form.Text className="text-muted">
+                  Supported formats: PDF, DOC, DOCX, JPG, PNG, GIF, TXT (Max 10MB per file)
+                </Form.Text>
+              </Form.Group>
+              {uploadedFiles.length > 0 && (
+                <div className="mt-3">
+                  <h6>Selected Files:</h6>
+                  <ul className="list-unstyled">
+                    {uploadedFiles.map((file, index) => (
+                      <li key={index} className="d-flex justify-content-between align-items-center">
+                        <span>{file.name}</span>
+                        <Badge bg="info">{(file.size / 1024 / 1024).toFixed(2)} MB</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="d-flex justify-content-end mt-2">
+                    <Button 
+                      variant="primary" 
+                      size="sm"
+                      onClick={handleSaveFiles} 
+                      disabled={uploadedFiles.length === 0 || loadingFiles}
+                    >
+                      {loadingFiles ? 'Uploading...' : 'Upload Files'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+
+          {/* Existing Files */}
+          <div>
+            <h6>Existing Files ({files.length})</h6>
+            {loadingFiles ? (
+              <div className="text-center py-3">
+                <div className="spinner-border spinner-border-sm me-2"></div>
+                Loading files...
+              </div>
+            ) : files.length > 0 ? (
+              <div className="row">
+                {files.map((file) => (
+                  <div key={file.id} className="col-md-6 mb-3">
+                    <Card>
+                      <Card.Body>
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <div className="flex-grow-1">
+                            <h6 className="mb-1 text-truncate" title={file.originalFilename}>
+                              {file.originalFilename}
+                            </h6>
+                            <small className="text-muted">
+                              {(file.fileSize / 1024 / 1024).toFixed(2)} MB • {file.contentType}
+                            </small>
+                            <br />
+                            <small className="text-muted">
+                              Uploaded by {file.uploadedByName} on {new Date(file.uploadedAt).toLocaleString()}
+                            </small>
+                          </div>
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => handleDeleteFile(file.id)}
+                          >
+                            <i className="bi bi-trash"></i>
+                          </Button>
+                        </div>
+                        
+                        {/* File Preview */}
+                        <div className="mt-2">
+                          {file.contentType.startsWith('image/') ? (
+                            <img 
+                              src={file.fileUrl} 
+                              alt={file.originalFilename}
+                              className="img-thumbnail"
+                              style={{ maxWidth: '100%', maxHeight: '150px' }}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <div className="text-center py-3 bg-light rounded">
+                              <i className="bi bi-file-earmark-text fs-1 text-muted"></i>
+                              <br />
+                              <small className="text-muted">{file.contentType}</small>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="mt-2">
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm" 
+                            href={file.fileUrl} 
+                            target="_blank"
+                          >
+                            <i className="bi bi-download me-1"></i>
+                            Download
+                          </Button>
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-muted text-center py-3">
+                No files uploaded yet.
+              </div>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowFileUploadModal(false)}>
+            Close
           </Button>
         </Modal.Footer>
       </Modal>

@@ -259,8 +259,20 @@ export const inventoryApi = {
     apiClient.get<ApiEnvelope<string[]>>('/pharmacy/inventory/locations').then(res => res.data.data),
 
   delete: (id: number) =>
-    apiClient.delete<ApiEnvelope<any>>(`/pharmacy/inventory/${id}`).then(res => res.data.data)
-};
+    apiClient.delete<ApiEnvelope<any>>(`/pharmacy/inventory/${id}`).then(res => res.data.data),
+
+  checkStockAvailability: (medicationId: number, quantity: number) =>
+    apiClient.get<ApiEnvelope<boolean>>(`/pharmacy/inventory/stock-check/${medicationId}?quantity=${quantity}`).then(res => res.data.data),
+
+          getStockLevel: (medicationId: number) =>
+            apiClient.get<ApiEnvelope<number>>(`/pharmacy/inventory/stock-level/${medicationId}`).then(res => res.data.data),
+
+          generateBatchNumber: (medicationId: number) =>
+            apiClient.get<ApiEnvelope<string>>(`/pharmacy/inventory/batch-number/generate/${medicationId}`).then(res => res.data.data),
+
+          validateBatchNumber: (batchNumber: string, excludeInventoryId?: number) =>
+            apiClient.get<ApiEnvelope<boolean>>(`/pharmacy/inventory/batch-number/validate?batchNumber=${encodeURIComponent(batchNumber)}${excludeInventoryId ? `&excludeInventoryId=${excludeInventoryId}` : ''}`).then(res => res.data.data)
+        };
 
 // Prescription API
 export const prescriptionApi = {
@@ -285,6 +297,9 @@ export const prescriptionApi = {
   create: (data: PrescriptionRequest) =>
     apiClient.post<ApiEnvelope<Prescription>>('/pharmacy/prescriptions', data).then(res => res.data.data),
 
+  update: (id: number, data: PrescriptionRequest) =>
+    apiClient.put<ApiEnvelope<Prescription>>(`/pharmacy/prescriptions/${id}`, data).then(res => res.data.data),
+
   dispense: (id: number, dispensedBy: number, notes?: string) =>
     apiClient.post<ApiEnvelope<Prescription>>(`/pharmacy/prescriptions/${id}/dispense?dispensedBy=${dispensedBy}${notes ? `&notes=${encodeURIComponent(notes)}` : ''}`).then(res => res.data.data),
 
@@ -293,4 +308,13 @@ export const prescriptionApi = {
 
   delete: (id: number) =>
     apiClient.delete<ApiEnvelope<any>>(`/pharmacy/prescriptions/${id}`).then(res => res.data.data)
+};
+
+// Queue Prescription API
+export const queuePrescriptionApi = {
+  getByQueueItem: (queueItemId: number) =>
+    apiClient.get<ApiEnvelope<Prescription[]>>(`/pharmacy/queue-prescriptions/queue-item/${queueItemId}`).then(res => res.data.data),
+
+  createForQueueItem: (queueItemId: number, data: any) =>
+    apiClient.post<ApiEnvelope<Prescription>>(`/pharmacy/queue-prescriptions/queue-item/${queueItemId}/prescription`, data).then(res => res.data.data)
 };

@@ -1,25 +1,30 @@
 import { useAuth } from '../hooks/useAuth';
 import { useRoleContext } from '../hooks/useRoleContext';
 import { apiClient } from '../services/apiClient';
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 export type PermissionMatrix = Record<string, 'UNSET' | 'ALLOWED' | 'NOT_ALLOWED'>;
 
 export function useResolvedPermissions() {
   const { user } = useAuth();
   const { activeRole } = useRoleContext();
-  const [permissions, setPermissions] = useState<PermissionMatrix>({});
-  const [loading, setLoading] = useState(true);
+  
+  const { data: permissions = {}, isLoading: loading, error, refetch } = useQuery({
+    queryKey: ['permissions', user?.username, activeRole],
+    queryFn: async (): Promise<PermissionMatrix> => {
+      const res = await apiClient.get('/permissions/resolve');
+      return res.data.permissions;
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    gcTime: 10 * 60 * 1000, // 10 minutes cache
+    retry: 3, // Retry up to 3 times on failure
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnMount: true, // Always refetch on mount
+  });
 
-  useEffect(() => {
-    if (!user) return;
-    setLoading(true);
-    apiClient.get('/permissions/resolve')
-      .then(res => setPermissions(res.data.permissions))
-      .finally(() => setLoading(false));
-  }, [user, activeRole]);
-
-  return { permissions, loading };
+  return { permissions, loading, error, refetch };
 }
 
 export function hasPermission(permissions: PermissionMatrix, code: string): boolean {

@@ -38,15 +38,30 @@ class PatientServiceTests {
     void registerPersistsPatientAndQueue() {
         CreatePatientRequest request = new CreatePatientRequest(
                 "MRN-123",
-                "Jane",
+                "John",
                 "Doe",
-                "+254700000000",
-                "jane@example.com",
-                LocalDate.of(1990, 5, 12),
-                "ID-123",
-                "FEMALE",
-                "Routine check",
-                "HIGH");
+                null,
+                null,
+                LocalDate.of(1985, 3, 25),
+                "ID-456",
+                "MALE",
+                "Fever and cough",
+                "NORMAL" ,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
 
         PatientResponse response = patientService.register("tenantA", request);
 
@@ -61,15 +76,30 @@ class PatientServiceTests {
     void registerDuplicateMrnThrowsConflict() {
         CreatePatientRequest request = new CreatePatientRequest(
                 "MRN-123",
-                "Jane",
+                "John",
                 "Doe",
                 null,
                 null,
+                LocalDate.of(1985, 3, 25),
+                "ID-456",
+                "MALE",
+                "Fever and cough",
+                "NORMAL" ,
                 null,
                 null,
                 null,
-                "Routine check",
-                null);
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
 
         patientService.register("tenantA", request);
 

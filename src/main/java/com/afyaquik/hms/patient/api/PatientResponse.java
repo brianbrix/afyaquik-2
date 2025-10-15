@@ -18,5 +18,20 @@ public record PatientResponse(
         QueueStatus currentStatus,
         QueuePriority priority,
         Instant slaDueAt,
-        String ticketNumber) {
+        String ticketNumber,
+        // Additional fields
+        String middleName,
+        String alternatePhone,
+        String address,
+        String city,
+        String state,
+        String postalCode,
+        String country,
+        String emergencyContactName,
+        String emergencyContactPhone,
+        String emergencyContactRelationship,
+        String allergies,
+        String medications,
+        String medicalHistory,
+        String notes) {
 }

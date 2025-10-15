@@ -27,6 +27,9 @@ public class DiagnosticResultDto {
     private LocalDateTime validatedAt;
     private String validationNotes;
     private List<ResultAttachmentDto> attachments;
+    private String itemNotes;
+    private List<DiagnosticNoteDto> itemNotesList;
+    private List<DiagnosticFileAttachmentDto> itemFiles;
     
     // Constructors
     public DiagnosticResultDto() {}
@@ -94,4 +97,13 @@ public class DiagnosticResultDto {
     
     public List<ResultAttachmentDto> getAttachments() { return attachments; }
     public void setAttachments(List<ResultAttachmentDto> attachments) { this.attachments = attachments; }
+    
+    public String getItemNotes() { return itemNotes; }
+    public void setItemNotes(String itemNotes) { this.itemNotes = itemNotes; }
+    
+    public List<DiagnosticNoteDto> getItemNotesList() { return itemNotesList; }
+    public void setItemNotesList(List<DiagnosticNoteDto> itemNotesList) { this.itemNotesList = itemNotesList; }
+    
+    public List<DiagnosticFileAttachmentDto> getItemFiles() { return itemFiles; }
+    public void setItemFiles(List<DiagnosticFileAttachmentDto> itemFiles) { this.itemFiles = itemFiles; }
 }

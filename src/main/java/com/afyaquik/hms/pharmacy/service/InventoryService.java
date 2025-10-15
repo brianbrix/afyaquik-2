@@ -44,6 +44,7 @@ public class InventoryService {
         mapDtoToEntity(request, inventory);
         inventory.setTenantId(tenantId);
         inventory.setMedication(medication);
+        inventory.setActive(true); // Set as active by default
 
         Inventory saved = inventoryRepository.save(inventory);
         return mapEntityToDto(saved);
@@ -55,6 +56,11 @@ public class InventoryService {
 
         if (!inventory.getTenantId().equals(tenantId)) {
             throw new IllegalStateException("Inventory not found");
+        }
+
+        // Check if inventory has been used in prescriptions
+        if (inventory.getUsedInPrescriptions() != null && inventory.getUsedInPrescriptions()) {
+            throw new IllegalStateException("Cannot edit inventory that has been used in prescriptions. Only stock adjustments are allowed.");
         }
 
         mapDtoToEntity(request, inventory);
@@ -218,6 +224,37 @@ public class InventoryService {
         inventoryRepository.save(inventory);
     }
 
+    public boolean checkStockAvailability(String tenantId, Long medicationId, Integer requiredQuantity) {
+        if (requiredQuantity == null || requiredQuantity <= 0) {
+            return true;
+        }
+
+        // Use batch-aware stock checking
+        List<Inventory> activeBatches = inventoryRepository.findActiveUnexpiredBatchesByTenantIdAndMedicationId(tenantId, medicationId);
+        
+        if (activeBatches.isEmpty()) {
+            return false;
+        }
+
+        int totalAvailableStock = activeBatches.stream()
+                .mapToInt(Inventory::getQuantityInStock)
+                .sum();
+        
+        return totalAvailableStock >= requiredQuantity;
+    }
+
+    public Integer getStockLevel(String tenantId, Long medicationId) {
+        List<Inventory> activeBatches = inventoryRepository.findActiveUnexpiredBatchesByTenantIdAndMedicationId(tenantId, medicationId);
+        
+        if (activeBatches.isEmpty()) {
+            return 0;
+        }
+
+        return activeBatches.stream()
+                .mapToInt(Inventory::getQuantityInStock)
+                .sum();
+    }
+
     private void mapDtoToEntity(InventoryDto dto, Inventory inventory) {
         inventory.setQuantityInStock(dto.getQuantityInStock());
         inventory.setMinimumStockLevel(dto.getMinimumStockLevel());
@@ -230,6 +267,7 @@ public class InventoryService {
         inventory.setSupplier(dto.getSupplier());
         inventory.setLocation(dto.getLocation());
         inventory.setNotes(dto.getNotes());
+        inventory.setActive(dto.isActive());
     }
 
     private InventoryDto mapEntityToDto(Inventory inventory) {
@@ -249,6 +287,7 @@ public class InventoryService {
         dto.setSupplier(inventory.getSupplier());
         dto.setLocation(inventory.getLocation());
         dto.setNotes(inventory.getNotes());
+        dto.setActive(inventory.isActive());
         dto.setLowStock(inventory.isLowStock());
         dto.setNeedsReorder(inventory.needsReorder());
         dto.setExpired(inventory.isExpired());

@@ -108,6 +108,31 @@ export interface DiagnosticResult {
   validatedByName?: string;
   validatedAt?: string;
   validationNotes?: string;
+  itemNotes?: string;
+  itemNotesList?: DiagnosticNote[];
+  itemFiles?: DiagnosticFileAttachment[];
+}
+
+export interface DiagnosticNote {
+  id: number;
+  diagnosticItemId: number;
+  noteText: string;
+  addedBy: string;
+  addedByName: string;
+  addedAt: string;
+}
+
+export interface DiagnosticFileAttachment {
+  id: number;
+  diagnosticItemId: number;
+  originalFilename: string;
+  objectName: string;
+  fileSize: number;
+  contentType: string;
+  fileUrl: string;
+  uploadedBy: string;
+  uploadedByName: string;
+  uploadedAt: string;
 }
 
 // API Response wrapper
@@ -264,6 +289,36 @@ export const diagnosticResultApi = {
   
   delete: (id: number) =>
     apiClient.delete<ApiEnvelope<void>>(`/diagnostics/results/${id}`).then(res => res.data.data)
+};
+
+// Diagnostic Notes API
+export const diagnosticNoteApi = {
+  create: (note: { diagnosticItemId: number; noteText: string }) =>
+    apiClient.post<ApiEnvelope<DiagnosticNote>>('/diagnostics/notes', note).then(res => res.data.data),
+  
+  getByDiagnosticItem: (diagnosticItemId: number) =>
+    apiClient.get<ApiEnvelope<DiagnosticNote[]>>(`/diagnostics/notes/diagnostic-item/${diagnosticItemId}`).then(res => res.data.data),
+  
+  delete: (noteId: number) =>
+    apiClient.delete<ApiEnvelope<void>>(`/diagnostics/notes/${noteId}`).then(res => res.data.data)
+};
+
+// Diagnostic File Attachments API
+export const diagnosticFileAttachmentApi = {
+  upload: (diagnosticItemId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('diagnosticItemId', diagnosticItemId.toString());
+    formData.append('file', file);
+    return apiClient.post<ApiEnvelope<DiagnosticFileAttachment>>('/diagnostics/files/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(res => res.data.data);
+  },
+  
+  getByDiagnosticItem: (diagnosticItemId: number) =>
+    apiClient.get<ApiEnvelope<DiagnosticFileAttachment[]>>(`/diagnostics/files/diagnostic-item/${diagnosticItemId}`).then(res => res.data.data),
+  
+  delete: (attachmentId: number) =>
+    apiClient.delete<ApiEnvelope<void>>(`/diagnostics/files/${attachmentId}`).then(res => res.data.data)
 };
 
 // Admin API

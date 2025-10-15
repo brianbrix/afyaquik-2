@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { API_BASE_URL } from "../../../services/apiClient";
 import { fetchQueueByStatus, fetchQueueTimeline, transitionQueueItem, advanceAssignQueueItem, assignQueueItem } from "../../../services/queueApi";
 import type {
   QueueAssignmentPayload,
@@ -21,6 +20,20 @@ export function useQueueList(status: QueueStatus) {
   return useQuery({
     queryKey: queueListKey(status),
     queryFn: () => fetchQueueByStatus(status)
+  });
+}
+
+export function useQueueListByRole(allowedStatuses: QueueStatus[]) {
+  return useQuery({
+    queryKey: ["queue", "role-based", allowedStatuses],
+    queryFn: async () => {
+      // Fetch queue items for all allowed statuses
+      const promises = allowedStatuses.map(status => fetchQueueByStatus(status));
+      const results = await Promise.all(promises);
+      // Flatten and return all items
+      return results.flat();
+    },
+    enabled: allowedStatuses.length > 0
   });
 }
 

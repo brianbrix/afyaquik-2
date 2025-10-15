@@ -12,6 +12,15 @@ public record QueueTransitionRequest(
         String actorId,
 
         @Size(max = 64)
+        String assigneeId,
+
+        @Size(max = 64)
+        String assigneeRole,
+
+        @Size(max = 128)
+        String assigneeDisplayName,
+
+        @Size(max = 64)
         String actorRole,
 
         @Size(max = 128)

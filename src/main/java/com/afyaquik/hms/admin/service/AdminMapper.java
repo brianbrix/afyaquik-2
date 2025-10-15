@@ -23,6 +23,6 @@ public class AdminMapper {
 
     public UserDto toDto(StaffUser u) {
         Set<RoleDto> roles = u.getRoles().stream().map(this::toDto).collect(Collectors.toSet());
-        return new UserDto(u.getId(), u.getUsername(), u.getDisplayName(), u.getEmail(), u.isEnabled(), roles);
+        return new UserDto(u.getId(), u.getUsername(), u.getDisplayName(), u.getEmail(), u.isEnabled(), roles, u.getSupervisorId(), u.getSupervisorDisplayName());
     }
 }

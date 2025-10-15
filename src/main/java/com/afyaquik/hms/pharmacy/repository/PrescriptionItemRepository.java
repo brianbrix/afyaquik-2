@@ -1,5 +1,8 @@
 package com.afyaquik.hms.pharmacy.repository;
 
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,7 +15,7 @@ import com.afyaquik.hms.pharmacy.domain.Prescription;
 import com.afyaquik.hms.pharmacy.domain.PrescriptionItem;
 
 @Repository
-public interface PrescriptionItemRepository extends JpaRepository<PrescriptionItem, Long> {
+public interface PrescriptionItemRepository extends TenantAwareRepository<PrescriptionItem, Long> {
 
     @Query("SELECT pi FROM PrescriptionItem pi WHERE pi.tenantId = :tenantId AND pi.deleted = false")
     List<PrescriptionItem> findByTenantIdAndNotDeleted(@Param("tenantId") String tenantId);

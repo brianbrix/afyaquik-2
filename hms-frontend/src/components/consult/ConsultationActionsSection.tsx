@@ -42,6 +42,13 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
   const [clinicalNotes, setClinicalNotes] = useState('');
   const [instructions, setInstructions] = useState('');
   const [urgency, setUrgency] = useState<'ROUTINE' | 'STAT' | 'EMERGENCY'>('ROUTINE');
+  
+  // Edit order state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [editClinicalNotes, setEditClinicalNotes] = useState('');
+  const [editInstructions, setEditInstructions] = useState('');
+  const [editUrgency, setEditUrgency] = useState<'ROUTINE' | 'STAT' | 'EMERGENCY'>('ROUTINE');
 
   useEffect(() => {
     setItems(initialItems);
@@ -70,9 +77,24 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
 
   const handleAddItem = (title: string, isCustom = false) => {
     if (!title.trim()) return;
+    
+    // Check for duplicate titles
+    const trimmedTitle = title.trim();
+    const existingTitles = items.map(item => item.title.toLowerCase());
+    
+    if (existingTitles.includes(trimmedTitle.toLowerCase())) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Duplicate Title',
+        text: `A consultation item with the title "${trimmedTitle}" already exists. Please choose a different title.`,
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+    
     const newItem: ConsultationItem = {
       id: Date.now() + Math.random(),
-      title,
+      title: trimmedTitle,
       details: '',
       isCustom
     };
@@ -147,16 +169,83 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
     }
   };
 
+  const handleEditOrder = (order: any) => {
+    if (order.status !== 'ORDERED') {
+      Swal.fire('Error', 'Only orders with ORDERED status can be edited', 'error');
+      return;
+    }
+    setSelectedOrder(order);
+    setEditClinicalNotes(order.clinicalNotes || '');
+    setEditInstructions('');
+    setEditUrgency(order.urgency || 'ROUTINE');
+    setShowEditModal(true);
+  };
+
+  const handleUpdateOrder = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      const updatedOrder = {
+        ...selectedOrder,
+        clinicalNotes: editClinicalNotes + (editInstructions ? `\n\nInstructions: ${editInstructions}` : ''),
+        urgency: editUrgency
+      };
+
+      await diagnosticOrderApi.update(selectedOrder.id, updatedOrder);
+      refetchOrders();
+      setShowEditModal(false);
+      setSelectedOrder(null);
+      Swal.fire('Success', 'Order updated successfully', 'success');
+    } catch (error) {
+      console.error('Failed to update order:', error);
+      Swal.fire('Error', 'Failed to update order', 'error');
+    }
+  };
+
+  const handleCancelOrder = async (orderId: number) => {
+    const result = await Swal.fire({
+      title: 'Cancel Order?',
+      text: 'Are you sure you want to cancel this diagnostic order?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, cancel it!',
+      cancelButtonText: 'No, keep it'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await diagnosticOrderApi.updateStatus(orderId, 'CANCELLED');
+        refetchOrders();
+        Swal.fire('Success', 'Order cancelled successfully', 'success');
+      } catch (error) {
+        console.error('Failed to cancel order:', error);
+        Swal.fire('Error', 'Failed to cancel order', 'error');
+      }
+    }
+  };
+
   return (
     <div className="mb-2">
       <div className="fw-semibold mb-2">Consultation Actions</div>
       <Form.Group as={Row} className="mb-2 align-items-center">
         <Col sm={6}>
-          <Form.Select onChange={e => handleAddItem(e.target.value)} defaultValue="" disabled={loadingTitles}>
+          <Form.Select 
+            onChange={e => {
+              const selectedTitle = e.target.value;
+              if (selectedTitle) {
+                handleAddItem(selectedTitle);
+                e.target.value = ""; // Reset selection
+              }
+            }} 
+            defaultValue="" 
+            disabled={loadingTitles}
+          >
             <option value="">Add from configured titles...</option>
-            {consultationTitles.map(t => (
-              <option key={t.id} value={t.title}>{t.title}</option>
-            ))}
+            {consultationTitles
+              .filter(t => !items.some(item => item.title.toLowerCase() === t.title.toLowerCase()))
+              .map(t => (
+                <option key={t.id} value={t.title}>{t.title}</option>
+              ))}
           </Form.Select>
         </Col>
         <Col sm={6}>
@@ -167,7 +256,11 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
               value={customTitle}
               onChange={e => setCustomTitle(e.target.value)}
             />
-            <Button variant="outline-primary" onClick={() => handleAddItem(customTitle, true)} disabled={!customTitle.trim()}>
+            <Button 
+              variant="outline-primary" 
+              onClick={() => handleAddItem(customTitle, true)} 
+              disabled={!customTitle.trim() || items.some(item => item.title.toLowerCase() === customTitle.trim().toLowerCase())}
+            >
               Add Custom
             </Button>
           </InputGroup>
@@ -246,10 +339,7 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
                         <Button 
                           size="sm" 
                           variant="outline-primary"
-                          onClick={() => {
-                            // TODO: Implement edit functionality
-                            console.log('Edit order:', order.id);
-                          }}
+                          onClick={() => handleEditOrder(order)}
                         >
                           <i className="bi bi-pencil"></i>
                         </Button>
@@ -258,10 +348,7 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
                         <Button 
                           size="sm" 
                           variant="outline-danger"
-                          onClick={() => {
-                            // TODO: Implement cancel functionality
-                            console.log('Cancel order:', order.id);
-                          }}
+                          onClick={() => handleCancelOrder(order.id)}
                         >
                           <i className="bi bi-x-circle"></i>
                         </Button>
@@ -392,6 +479,72 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
             disabled={selectedTests.length === 0}
           >
             Create Diagnostic Order
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Edit Order Modal */}
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Diagnostic Order</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedOrder && (
+            <Form>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label>Order Number</Form.Label>
+                    <Form.Control value={selectedOrder.orderNumber} disabled />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label>Urgency</Form.Label>
+                    <Form.Select value={editUrgency} onChange={(e) => setEditUrgency(e.target.value as any)}>
+                      <option value="ROUTINE">Routine</option>
+                      <option value="STAT">Stat</option>
+                      <option value="EMERGENCY">Emergency</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              </Row>
+              
+              <Form.Group className="mb-3">
+                <Form.Label>Clinical Notes</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={4}
+                  value={editClinicalNotes}
+                  onChange={(e) => setEditClinicalNotes(e.target.value)}
+                  placeholder="Enter clinical notes..."
+                />
+              </Form.Group>
+              
+              <Form.Group className="mb-3">
+                <Form.Label>Additional Instructions</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  value={editInstructions}
+                  onChange={(e) => setEditInstructions(e.target.value)}
+                  placeholder="Enter additional instructions..."
+                />
+              </Form.Group>
+              
+              <Alert variant="warning">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                <strong>Note:</strong> You can only edit clinical notes, instructions, and urgency level. Test selection cannot be modified.
+              </Alert>
+            </Form>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleUpdateOrder}>
+            Update Order
           </Button>
         </Modal.Footer>
       </Modal>

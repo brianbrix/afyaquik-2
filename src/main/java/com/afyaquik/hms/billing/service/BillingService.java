@@ -15,6 +15,7 @@ import com.afyaquik.hms.billing.domain.Bill;
 import com.afyaquik.hms.billing.domain.BillItem;
 import com.afyaquik.hms.billing.domain.BillStatus;
 import com.afyaquik.hms.billing.domain.Payment;
+import com.afyaquik.hms.billing.domain.PaymentMethod;
 import com.afyaquik.hms.billing.domain.PaymentStatus;
 import com.afyaquik.hms.billing.dto.BillDto;
 import com.afyaquik.hms.billing.dto.BillItemDto;
@@ -22,7 +23,9 @@ import com.afyaquik.hms.billing.dto.CreateBillItemRequest;
 import com.afyaquik.hms.billing.dto.CreateBillRequest;
 import com.afyaquik.hms.billing.dto.CreatePaymentRequest;
 import com.afyaquik.hms.billing.dto.PaymentDto;
+import com.afyaquik.hms.billing.dto.PaymentMethodDto;
 import com.afyaquik.hms.billing.repository.BillRepository;
+import com.afyaquik.hms.billing.repository.PaymentMethodRepository;
 
 /**
  * Service for billing operations.
@@ -34,9 +37,11 @@ public class BillingService {
     private static final Logger log = LoggerFactory.getLogger(BillingService.class);
 
     private final BillRepository billRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
 
-    public BillingService(BillRepository billRepository) {
+    public BillingService(BillRepository billRepository, PaymentMethodRepository paymentMethodRepository) {
         this.billRepository = billRepository;
+        this.paymentMethodRepository = paymentMethodRepository;
     }
 
     /**
@@ -108,9 +113,8 @@ public class BillingService {
      * Get bills by patient ID.
      */
     public List<BillDto> getBillsByPatient(String tenantId, Long patientId) {
-        List<Bill> bills = billRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
+        List<Bill> bills = billRepository.findByTenantIdAndPatientIdOrderByCreatedAtDesc(tenantId, patientId);
         return bills.stream()
-            .filter(bill -> bill.getTenantId().equals(tenantId))
             .map(this::toDto)
             .collect(Collectors.toList());
     }
@@ -119,9 +123,8 @@ public class BillingService {
      * Get bills by queue item ID.
      */
     public List<BillDto> getBillsByQueueItem(String tenantId, Long queueItemId) {
-        List<Bill> bills = billRepository.findByQueueItemIdOrderByCreatedAtDesc(queueItemId);
+        List<Bill> bills = billRepository.findByTenantIdAndQueueItemIdOrderByCreatedAtDesc(tenantId, queueItemId);
         return bills.stream()
-            .filter(bill -> bill.getTenantId().equals(tenantId))
             .map(this::toDto)
             .collect(Collectors.toList());
     }
@@ -138,11 +141,15 @@ public class BillingService {
             throw new RuntimeException("Bill not found");
         }
 
+        // Fetch payment method
+        PaymentMethod paymentMethod = paymentMethodRepository.findById(request.paymentMethodId())
+                .orElseThrow(() -> new RuntimeException("Payment method not found with id: " + request.paymentMethodId()));
+
         // Create payment
         Payment payment = new Payment();
         payment.setPaymentNumber(generatePaymentNumber());
         payment.setAmount(request.amount());
-        payment.setPaymentMethod(request.paymentMethod());
+        payment.setPaymentMethod(paymentMethod);
         payment.setPaymentDate(request.paymentDate());
         payment.setReferenceNumber(request.referenceNumber());
         payment.setNotes(request.notes());
@@ -253,7 +260,7 @@ public class BillingService {
             payment.getId(),
             payment.getPaymentNumber(),
             payment.getAmount(),
-            payment.getPaymentMethod(),
+            toPaymentMethodDto(payment.getPaymentMethod()),
             payment.getPaymentDate(),
             payment.getReferenceNumber(),
             payment.getNotes(),
@@ -262,5 +269,21 @@ public class BillingService {
             payment.getCreatedAt(),
             payment.getUpdatedAt()
         );
+    }
+
+    /**
+     * Convert PaymentMethod entity to DTO.
+     */
+    private PaymentMethodDto toPaymentMethodDto(PaymentMethod paymentMethod) {
+        PaymentMethodDto dto = new PaymentMethodDto();
+        dto.setId(paymentMethod.getId());
+        dto.setName(paymentMethod.getName());
+        dto.setCode(paymentMethod.getCode());
+        dto.setDescription(paymentMethod.getDescription());
+        dto.setIsActive(paymentMethod.getIsActive());
+        dto.setRequiresAuthorization(paymentMethod.getRequiresAuthorization());
+        dto.setProcessingFeePercentage(paymentMethod.getProcessingFeePercentage());
+        dto.setSortOrder(paymentMethod.getSortOrder());
+        return dto;
     }
 }

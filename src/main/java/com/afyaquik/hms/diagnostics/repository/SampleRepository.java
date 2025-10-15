@@ -1,5 +1,8 @@
 package com.afyaquik.hms.diagnostics.repository;
 
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -12,7 +15,7 @@ import com.afyaquik.hms.diagnostics.domain.Sample;
 import com.afyaquik.hms.diagnostics.domain.SampleStatus;
 
 @Repository
-public interface SampleRepository extends JpaRepository<Sample, Long> {
+public interface SampleRepository extends TenantAwareRepository<Sample, Long> {
     
     Optional<Sample> findByBarcode(String barcode);
     

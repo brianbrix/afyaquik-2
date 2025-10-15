@@ -42,7 +42,7 @@ export interface UserProfile {
 
 export const profileApi = {
   // Get current user's profile
-  getCurrent: () =>
+  getMe: () =>
     apiClient.get<ApiEnvelope<UserProfile>>('/profile/me').then(res => res.data.data),
 
   // Get all profiles (admin)

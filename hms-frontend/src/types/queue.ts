@@ -72,6 +72,10 @@ export type QueueAssignmentPayload = {
 export type QueueTransitionPayload = {
   targetStatus: QueueStatus;
   actorId?: string;
+  assigneeId?: string;
+  assigneeDisplayName?: string;
+  assigneeRole?: string;
+  assigneeDepartmentId?: string;
   actorRole?: string;
   actorDisplayName?: string;
   note?: string;

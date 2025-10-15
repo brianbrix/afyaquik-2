@@ -4,8 +4,8 @@ import { fetchUserGroups, UserGroup } from '../user-groups/userGroupApi';
 import { fetchUsers, AdminUser } from '../../../services/adminApi';
 
 // Ensure all necessary imports for React and Bootstrap components
-import React, { useState, useEffect } from 'react';
-import { Row, Col, Button, Table, Form, Spinner, Alert } from 'react-bootstrap';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Row, Col, Button, Table, Form, Spinner, Alert, InputGroup, FormControl } from 'react-bootstrap';
 import Select from 'react-select';
 import { fetchRoles, AdminRole } from '../../../services/adminApi';
 import { useResolvedPermissions, hasPermission } from '../../../hooks/usePermissions';
@@ -26,7 +26,12 @@ async function fetchMatrix(targetType: string, targetId: number): Promise<Permis
   return res.data.permissions;
 }
 async function saveAssignment(targetType: string, targetId: number, code: string, state: 'UNSET' | 'ALLOWED' | 'NOT_ALLOWED') {
-  await apiClient.post('/permissions/assignments', { targetType, targetId, permission: { code }, state });
+  await apiClient.post('/permissions/assignments/upsert', { 
+    permissionCode: code, 
+    targetType, 
+    targetId, 
+    state 
+  });
 }
 
 const TARGET_TYPES = ['USER', 'GROUP', 'ROLE'] as const;
@@ -44,6 +49,7 @@ export default function PermissionMatrixAdminPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [permissionSearch, setPermissionSearch] = useState("");
 
 
 
@@ -103,6 +109,15 @@ export default function PermissionMatrixAdminPage() {
     }
   };
 
+  // Filter permissions based on search
+  const filteredPermissions = useMemo(() => {
+    if (!permissionSearch.trim()) return permissionList;
+    return permissionList.filter(permission => 
+      permission.code.toLowerCase().includes(permissionSearch.toLowerCase()) ||
+      permission.description.toLowerCase().includes(permissionSearch.toLowerCase())
+    );
+  }, [permissionList, permissionSearch]);
+
   // Options for select
   let options: { value: number; label: string }[] = [];
   if (targetType === 'USER') options = userOptions.map((u: AdminUser) => ({ value: u.id, label: `${u.displayName} (${u.username})` }));
@@ -135,28 +150,51 @@ export default function PermissionMatrixAdminPage() {
       </Row>
       {error && <Alert variant="danger">{error}</Alert>}
       {loading ? <Spinner animation="border" /> : (
-        <Table bordered hover size="sm">
-          <thead>
-            <tr>
-              <th>Permission</th>
-              <th>Description</th>
-              <th>Unset</th>
-              <th>Allowed</th>
-              <th>Not Allowed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {permissionList.map((p: Permission) => (
-              <tr key={p.code}>
-                <td>{p.code}</td>
-                <td>{p.description}</td>
-                <td><Form.Check type="radio" name={p.code} checked={matrix[p.code] === 'UNSET'} onChange={() => handleChange(p.code, 'UNSET')} /></td>
-                <td><Form.Check type="radio" name={p.code} checked={matrix[p.code] === 'ALLOWED'} onChange={() => handleChange(p.code, 'ALLOWED')} /></td>
-                <td><Form.Check type="radio" name={p.code} checked={matrix[p.code] === 'NOT_ALLOWED'} onChange={() => handleChange(p.code, 'NOT_ALLOWED')} /></td>
+        <>
+          {targetId && (
+            <Row className="mb-3">
+              <Col md={6}>
+                <InputGroup>
+                  <InputGroup.Text>
+                    <i className="bi bi-search"></i>
+                  </InputGroup.Text>
+                  <FormControl
+                    placeholder="Search permissions..."
+                    value={permissionSearch}
+                    onChange={(e) => setPermissionSearch(e.target.value)}
+                  />
+                </InputGroup>
+              </Col>
+            </Row>
+          )}
+          <Table bordered hover size="sm">
+            <thead>
+              <tr>
+                <th>Permission</th>
+                <th>Description</th>
+                <th>Unset</th>
+                <th>Allowed</th>
+                <th>Not Allowed</th>
               </tr>
-            ))}
-          </tbody>
-        </Table>
+            </thead>
+            <tbody>
+              {filteredPermissions.map((p: Permission) => (
+                <tr key={p.code}>
+                  <td>{p.code}</td>
+                  <td>{p.description}</td>
+                  <td><Form.Check type="radio" name={p.code} checked={matrix[p.code] === 'UNSET'} onChange={() => handleChange(p.code, 'UNSET')} /></td>
+                  <td><Form.Check type="radio" name={p.code} checked={matrix[p.code] === 'ALLOWED'} onChange={() => handleChange(p.code, 'ALLOWED')} /></td>
+                  <td><Form.Check type="radio" name={p.code} checked={matrix[p.code] === 'NOT_ALLOWED'} onChange={() => handleChange(p.code, 'NOT_ALLOWED')} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          {filteredPermissions.length === 0 && permissionSearch && (
+            <div className="text-center text-muted py-3">
+              No permissions found matching "{permissionSearch}"
+            </div>
+          )}
+        </>
       )}
     </div>
   );

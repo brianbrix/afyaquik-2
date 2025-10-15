@@ -44,6 +44,9 @@ import com.afyaquik.hms.scheduling.domain.ShiftStatus;
 import com.afyaquik.hms.scheduling.domain.ShiftType;
 import com.afyaquik.hms.scheduling.domain.StaffShift;
 import com.afyaquik.hms.scheduling.repository.StaffShiftRepository;
+import com.afyaquik.hms.notification.domain.NotificationLevel;
+import com.afyaquik.hms.notification.domain.NotificationTemplate;
+import com.afyaquik.hms.notification.repository.NotificationTemplateRepository;
 
 @Component
 @Profile("!test")
@@ -78,6 +81,7 @@ public class DemoDataInitializer implements CommandLineRunner {
     private final TestCategoryRepository testCategoryRepository;
     private final TestCatalogRepository testCatalogRepository;
     private final ResultTemplateRepository resultTemplateRepository;
+    private final NotificationTemplateRepository notificationTemplateRepository;
 
     public DemoDataInitializer(
             PasswordEncoder passwordEncoder,
@@ -93,7 +97,8 @@ public class DemoDataInitializer implements CommandLineRunner {
             com.afyaquik.hms.scheduling.repository.ShiftTypeRepository shiftTypeRepository,
             TestCategoryRepository testCategoryRepository,
             TestCatalogRepository testCatalogRepository,
-            ResultTemplateRepository resultTemplateRepository) {
+            ResultTemplateRepository resultTemplateRepository,
+            NotificationTemplateRepository notificationTemplateRepository) {
         this.passwordEncoder = passwordEncoder;
         this.staffRoleRepository = staffRoleRepository;
         this.staffUserRepository = staffUserRepository;
@@ -108,6 +113,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         this.testCategoryRepository = testCategoryRepository;
         this.testCatalogRepository = testCatalogRepository;
         this.resultTemplateRepository = resultTemplateRepository;
+        this.notificationTemplateRepository = notificationTemplateRepository;
     }
 
     @Override
@@ -165,6 +171,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         seedDepartments(tenantId);
     seedForms(tenantId);
         seedDiagnostics(tenantId);
+        seedNotificationTemplates(tenantId);
 
         seedQueue(tenantId, doctor, nurse, receptionist);
 
@@ -490,5 +497,67 @@ public class DemoDataInitializer implements CommandLineRunner {
         template.setSortOrder(0);
         template.setActive(true);
         return resultTemplateRepository.save(template);
+    }
+
+    private void seedNotificationTemplates(String tenantId) {
+        if (notificationTemplateRepository.count() > 0) {
+            return; // already seeded notification templates
+        }
+        log.info("Seeding notification templates for tenant {}", tenantId);
+
+        // Queue Assignment Notification
+        NotificationTemplate queueAssigned = new NotificationTemplate();
+        queueAssigned.setTenantId(tenantId);
+        queueAssigned.setCode("QUEUE_ASSIGNED");
+        queueAssigned.setName("Queue Item Assigned");
+        queueAssigned.setLevel(NotificationLevel.INFO);
+        queueAssigned.setContent("You have been assigned to a queue item for patient {{patientName}} (Ticket: {{ticketNumber}}). Status: {{status}}");
+        queueAssigned.setVariables("patientName,ticketNumber,status");
+        queueAssigned.setEnabled(true);
+        notificationTemplateRepository.save(queueAssigned);
+
+        // Queue Status Transition Notification
+        NotificationTemplate queueAdvanced = new NotificationTemplate();
+        queueAdvanced.setTenantId(tenantId);
+        queueAdvanced.setCode("QUEUE_ADVANCED");
+        queueAdvanced.setName("Queue Item Advanced");
+        queueAdvanced.setLevel(NotificationLevel.INFO);
+        queueAdvanced.setContent("Queue item for patient {{patientName}} (Ticket: {{ticketNumber}}) has advanced from {{fromStatus}} to {{toStatus}}.");
+        queueAdvanced.setVariables("patientName,ticketNumber,fromStatus,toStatus");
+        queueAdvanced.setEnabled(true);
+        notificationTemplateRepository.save(queueAdvanced);
+
+        // Low Stock Alert Notification
+        NotificationTemplate lowStockAlert = new NotificationTemplate();
+        lowStockAlert.setTenantId(tenantId);
+        lowStockAlert.setCode("LOW_STOCK_ALERT");
+        lowStockAlert.setName("Low Stock Alert");
+        lowStockAlert.setLevel(NotificationLevel.WARNING);
+        lowStockAlert.setContent("Low stock alert for {{medicationName}}. Current stock: {{currentStock}}, Minimum required: {{minimumRequired}}, Shortage: {{shortage}}");
+        lowStockAlert.setVariables("medicationName,currentStock,minimumRequired,shortage");
+        lowStockAlert.setEnabled(true);
+        notificationTemplateRepository.save(lowStockAlert);
+
+        // Inventory Expired Notification
+        NotificationTemplate inventoryExpired = new NotificationTemplate();
+        inventoryExpired.setTenantId(tenantId);
+        inventoryExpired.setCode("INVENTORY_EXPIRED");
+        inventoryExpired.setName("Inventory Expired");
+        inventoryExpired.setLevel(NotificationLevel.ERROR);
+        inventoryExpired.setContent("Inventory batch {{batchNumber}} for {{medicationName}} has expired on {{expiryDate}}. The batch has been deactivated.");
+        inventoryExpired.setVariables("medicationName,batchNumber,expiryDate");
+        inventoryExpired.setEnabled(true);
+        notificationTemplateRepository.save(inventoryExpired);
+
+        // Inventory Expiring Warning Notification
+        NotificationTemplate inventoryExpiringWarning = new NotificationTemplate();
+        inventoryExpiringWarning.setTenantId(tenantId);
+        inventoryExpiringWarning.setCode("INVENTORY_EXPIRING_WARNING");
+        inventoryExpiringWarning.setName("Inventory Expiring Warning");
+        inventoryExpiringWarning.setLevel(NotificationLevel.WARNING);
+        inventoryExpiringWarning.setContent("Inventory batch {{batchNumber}} for {{medicationName}} is expiring in {{daysUntilExpiry}} days on {{expiryDate}}. Please take action.");
+        inventoryExpiringWarning.setVariables("medicationName,batchNumber,expiryDate,daysUntilExpiry");
+        inventoryExpiringWarning.setEnabled(true);
+        notificationTemplateRepository.save(inventoryExpiringWarning);
     }
 }

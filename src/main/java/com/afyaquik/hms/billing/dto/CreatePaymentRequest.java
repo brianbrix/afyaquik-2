@@ -15,8 +15,8 @@ public record CreatePaymentRequest(
     @NotNull(message = "Amount is required")
     BigDecimal amount,
 
-    @NotNull(message = "Payment method is required")
-    PaymentMethod paymentMethod,
+    @NotNull(message = "Payment method ID is required")
+    Long paymentMethodId,
 
     @NotNull(message = "Payment date is required")
     OffsetDateTime paymentDate,

@@ -29,20 +29,28 @@ export interface DynamicFormProps {
   fields: DynamicField[];
   values?: Record<string, unknown>;
   disabled?: boolean;
+  onChange?: (name: string, value: any) => void;
 }
 
-export function DynamicForm({ fields, values, disabled }: DynamicFormProps) {
+export function DynamicForm({ fields, values, disabled, onChange }: DynamicFormProps) {
   const baseId = useId();
   return (
     <div className="d-flex flex-column gap-3">
       {fields.map((field) => {
         const controlId = `${baseId}-${field.name}`;
+        const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+          if (onChange) {
+            onChange(field.name, e.target.value);
+          }
+        };
+
         const common = {
           name: field.name,
           required: field.required,
           disabled,
-          defaultValue: (values && values[field.name]) as any,
-          placeholder: field.placeholder
+          value: (values && values[field.name]) as any || '',
+          placeholder: field.placeholder,
+          onChange: handleChange
         };
         return (
           <Form.Group controlId={controlId} key={field.name}>
@@ -53,12 +61,8 @@ export function DynamicForm({ fields, values, disabled }: DynamicFormProps) {
               <RichTextEditor
                 value={(values && values[field.name]) as string || ''}
                 onChange={(value) => {
-                  // Handle rich text change
-                  const event = new Event('change', { bubbles: true });
-                  const target = document.getElementById(controlId) as HTMLInputElement;
-                  if (target) {
-                    target.value = value;
-                    target.dispatchEvent(event);
+                  if (onChange) {
+                    onChange(field.name, value);
                   }
                 }}
                 placeholder={field.placeholder}

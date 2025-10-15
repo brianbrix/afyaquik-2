@@ -1,17 +1,18 @@
 package com.afyaquik.hms.consultation.service;
 
-import com.afyaquik.hms.consultation.domain.ConsultationEntry;
-import com.afyaquik.hms.consultation.dto.ConsultationEntryDto;
-import com.afyaquik.hms.consultation.dto.ConsultationEntryRequest;
-import com.afyaquik.hms.consultation.repository.ConsultationEntryRepository;
-import com.afyaquik.hms.consultation.dto.BulkConsultationEntryRequest;
-import com.afyaquik.hms.queue.domain.VisitQueueItem;
-import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import com.afyaquik.hms.consultation.domain.ConsultationEntry;
+import com.afyaquik.hms.consultation.dto.BulkConsultationEntryRequest;
+import com.afyaquik.hms.consultation.dto.ConsultationEntryDto;
+import com.afyaquik.hms.consultation.dto.ConsultationEntryRequest;
+import com.afyaquik.hms.consultation.repository.ConsultationEntryRepository;
+import com.afyaquik.hms.queue.domain.VisitQueueItem;
+import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
 
 @Service
 public class ConsultationEntryService {
@@ -65,6 +66,36 @@ public class ConsultationEntryService {
                 .orElseThrow(() -> new IllegalArgumentException("Queue item not found"));
         List<ConsultationEntry> existing = entryRepository.findByQueueItemId(queueItemId);
         java.util.Map<Long, ConsultationEntry> existingMap = existing.stream().collect(Collectors.toMap(ConsultationEntry::getId, e -> e));
+        
+        // Check for duplicate titles within the request
+        java.util.Set<String> titlesInRequest = new java.util.HashSet<>();
+        java.util.List<String> duplicateTitles = new java.util.ArrayList<>();
+        
+        for (BulkConsultationEntryRequest.BulkConsultationEntryDto dto : request.getEntries()) {
+            if (dto.getId() == null) { // Only check for new entries
+                if (titlesInRequest.contains(dto.getTitle())) {
+                    duplicateTitles.add(dto.getTitle());
+                } else {
+                    titlesInRequest.add(dto.getTitle());
+                }
+            }
+        }
+        
+        if (!duplicateTitles.isEmpty()) {
+            throw new IllegalArgumentException("Duplicate titles found in request: " + String.join(", ", duplicateTitles));
+        }
+        
+        // Check for duplicates with existing entries
+        java.util.Set<String> existingTitles = existing.stream()
+                .map(ConsultationEntry::getTitle)
+                .collect(Collectors.toSet());
+        
+        for (BulkConsultationEntryRequest.BulkConsultationEntryDto dto : request.getEntries()) {
+            if (dto.getId() == null && existingTitles.contains(dto.getTitle())) {
+                throw new IllegalArgumentException("A consultation entry with title '" + dto.getTitle() + "' already exists");
+            }
+        }
+        
         List<ConsultationEntry> toSave = new java.util.ArrayList<>();
         for (BulkConsultationEntryRequest.BulkConsultationEntryDto dto : request.getEntries()) {
             ConsultationEntry entry = dto.getId() != null && existingMap.containsKey(dto.getId())

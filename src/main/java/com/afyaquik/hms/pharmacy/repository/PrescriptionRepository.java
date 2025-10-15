@@ -1,5 +1,8 @@
 package com.afyaquik.hms.pharmacy.repository;
 
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -16,7 +19,7 @@ import com.afyaquik.hms.patient.domain.Patient;
 import com.afyaquik.hms.pharmacy.domain.Prescription;
 
 @Repository
-public interface PrescriptionRepository extends JpaRepository<Prescription, Long> {
+public interface PrescriptionRepository extends TenantAwareRepository<Prescription, Long> {
 
     @Query("SELECT p FROM Prescription p WHERE p.tenantId = :tenantId AND p.deleted = false")
     List<Prescription> findByTenantIdAndNotDeleted(@Param("tenantId") String tenantId);

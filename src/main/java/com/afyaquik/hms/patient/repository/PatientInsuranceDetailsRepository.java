@@ -1,5 +1,8 @@
 package com.afyaquik.hms.patient.repository;
 
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+
 import com.afyaquik.hms.patient.model.PatientInsuranceDetails;
 import com.afyaquik.hms.patient.domain.Patient;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,7 +12,7 @@ import org.springframework.stereotype.Repository;
 
 
 @Repository
-public interface PatientInsuranceDetailsRepository extends JpaRepository<PatientInsuranceDetails, Long> {
+public interface PatientInsuranceDetailsRepository extends TenantAwareRepository<PatientInsuranceDetails, Long> {
     @EntityGraph(attributePaths = {"provider", "plan"})
     java.util.List<PatientInsuranceDetails> findAllByPatient(Patient patient);
 

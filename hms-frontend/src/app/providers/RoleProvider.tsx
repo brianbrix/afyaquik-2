@@ -1,5 +1,7 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { fetchActiveRole, updateActiveRole } from "../../services/authApi";
+import { useAuth } from "../../hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 import type { RoleKey } from "../../types/roles";
 
 export type { RoleKey } from "../../types/roles";
@@ -23,6 +25,8 @@ export function RoleProvider({
   defaultRole?: RoleKey;
   isAuthenticated?: boolean;
 }) {
+  const { logout } = useAuth();
+  const queryClient = useQueryClient();
   const resolvedRoles = useMemo<RoleKey[]>(() => {
     if (!roles || roles.length === 0) {
       return ["provider"];
@@ -31,7 +35,7 @@ export function RoleProvider({
   }, [roles]);
 
   const [activeRole, setActiveRoleState] = useState<RoleKey>(() => {
-    // Try to get role from localStorage first, then fallback to first available role
+    // Try to get role from localStorage first
     try {
       const storedRole = localStorage.getItem('activeRole');
       if (storedRole && resolvedRoles.includes(storedRole as RoleKey)) {
@@ -40,6 +44,8 @@ export function RoleProvider({
     } catch (error) {
       console.warn('Failed to read activeRole from localStorage', error);
     }
+    // If no valid role in localStorage, return first available role as temporary
+    // The bootstrap function will handle the actual role loading and logout if needed
     return resolvedRoles[0];
   });
   const [availableRoles, setAvailableRoles] = useState<RoleKey[]>(resolvedRoles);
@@ -81,6 +87,7 @@ export function RoleProvider({
             if (existingRole && resolvedRoles.includes(existingRole)) {
               roleToUse = existingRole;
               // Sync to localStorage for next time
+              console.log('Syncing role to localStorage', existingRole);
               try {
                 localStorage.setItem('activeRole', existingRole);
               } catch (error) {
@@ -92,23 +99,50 @@ export function RoleProvider({
           }
         }
         
-        if (mounted) {
-          if (roleToUse) {
-            setActiveRoleState(roleToUse);
-          } else {
-            // Fallback to default role
-            const desiredDefault = defaultRole && resolvedRoles.includes(defaultRole) ? defaultRole : resolvedRoles[0];
-            setActiveRoleState(desiredDefault);
+        // If still no role found, use the first available role as default
+        if (!roleToUse) {
+          console.warn('No active role found in localStorage or backend, using default role');
+          roleToUse = resolvedRoles[0];
+          
+          // Set this as the active role in the backend
+          try {
+            await updateActiveRole(roleToUse);
+            // Also sync to localStorage
+            try {
+              localStorage.setItem('activeRole', roleToUse);
+            } catch (error) {
+              console.warn('Failed to sync default role to localStorage', error);
+            }
+          } catch (error) {
+            console.warn('Failed to set default active role in backend:', error);
+            // Continue anyway with the default role
           }
+        }
+          
+        if (mounted) {
+          setActiveRoleState(roleToUse);
           setIsInitialized(true);
         }
       } catch (error) {
         console.error("Failed to load active role", error);
-        // On error, use default role
-        if (mounted) {
-          const desiredDefault = defaultRole && resolvedRoles.includes(defaultRole) ? defaultRole : resolvedRoles[0];
-          setActiveRoleState(desiredDefault);
+        // On error, use default role instead of logging out
+        if (mounted && resolvedRoles.length > 0) {
+          console.warn('Error loading active role, using default role');
+          const defaultRole = resolvedRoles[0];
+          setActiveRoleState(defaultRole);
           setIsInitialized(true);
+          
+          // Try to set this as the active role in the backend
+          try {
+            await updateActiveRole(defaultRole);
+            localStorage.setItem('activeRole', defaultRole);
+          } catch (backendError) {
+            console.warn('Failed to set default role in backend:', backendError);
+          }
+        } else if (mounted && resolvedRoles.length === 0) {
+          // Only logout if user has no roles at all
+          console.warn('No roles available for user, logging out');
+          logout();
         }
       }
     }
@@ -137,6 +171,8 @@ export function RoleProvider({
       
       try {
         await updateActiveRole(role);
+        // Invalidate permissions cache to trigger refetch with new role
+        queryClient.invalidateQueries({ queryKey: ['permissions'] });
       } catch (error) {
         console.error("Failed to persist active role to backend", error);
         // Don't revert on backend error - localStorage will handle persistence

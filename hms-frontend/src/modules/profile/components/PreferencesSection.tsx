@@ -1,170 +1,144 @@
-import React, { useState } from 'react';
-import { Form, Row, Col, Button, Card } from 'react-bootstrap';
-import { UserProfile } from '../../../services/profileApi';
+import React, { useState, useEffect } from 'react';
+import { Card, Form, Button, Row, Col } from 'react-bootstrap';
+import { UserProfile } from '../../../types/profile';
 
 interface PreferencesSectionProps {
-  profile: UserProfile;
-  onUpdate: (data: Partial<UserProfile>) => void;
-  isUpdating: boolean;
+  userProfile: UserProfile;
+  onSave: (data: Partial<UserProfile>) => Promise<void>;
 }
 
-export function PreferencesSection({ profile, onUpdate, isUpdating }: PreferencesSectionProps) {
-  const [formData, setFormData] = useState({
-    preferredLanguage: profile.preferredLanguage || 'en',
-    timezone: profile.timezone || 'UTC',
-    emailNotifications: profile.emailNotifications ?? true,
-    smsNotifications: profile.smsNotifications ?? false,
-    pushNotifications: profile.pushNotifications ?? true
-  });
+export function PreferencesSection({ userProfile, onSave }: PreferencesSectionProps) {
+  const [preferredLanguage, setPreferredLanguage] = useState(userProfile.preferredLanguage || '');
+  const [timezone, setTimezone] = useState(userProfile.timezone || '');
+  const [emailNotifications, setEmailNotifications] = useState(userProfile.emailNotifications ?? true);
+  const [smsNotifications, setSmsNotifications] = useState(userProfile.smsNotifications ?? false);
+  const [pushNotifications, setPushNotifications] = useState(userProfile.pushNotifications ?? false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    setPreferredLanguage(userProfile.preferredLanguage || '');
+    setTimezone(userProfile.timezone || '');
+    setEmailNotifications(userProfile.emailNotifications ?? true);
+    setSmsNotifications(userProfile.smsNotifications ?? false);
+    setPushNotifications(userProfile.pushNotifications ?? false);
+  }, [userProfile]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdate(formData);
+    setIsSaving(true);
+    try {
+      await onSave({
+        preferredLanguage,
+        timezone,
+        emailNotifications,
+        smsNotifications,
+        pushNotifications,
+      });
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
-
-  const handleChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const languages = [
-    { value: 'en', label: 'English' },
-    { value: 'es', label: 'Spanish' },
-    { value: 'fr', label: 'French' },
-    { value: 'de', label: 'German' },
-    { value: 'it', label: 'Italian' },
-    { value: 'pt', label: 'Portuguese' },
-    { value: 'zh', label: 'Chinese' },
-    { value: 'ja', label: 'Japanese' },
-    { value: 'ko', label: 'Korean' },
-    { value: 'ar', label: 'Arabic' }
-  ];
-
-  const timezones = [
-    { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
-    { value: 'America/New_York', label: 'Eastern Time (ET)' },
-    { value: 'America/Chicago', label: 'Central Time (CT)' },
-    { value: 'America/Denver', label: 'Mountain Time (MT)' },
-    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-    { value: 'Europe/London', label: 'Greenwich Mean Time (GMT)' },
-    { value: 'Europe/Paris', label: 'Central European Time (CET)' },
-    { value: 'Asia/Tokyo', label: 'Japan Standard Time (JST)' },
-    { value: 'Asia/Shanghai', label: 'China Standard Time (CST)' },
-    { value: 'Australia/Sydney', label: 'Australian Eastern Time (AET)' }
-  ];
 
   return (
-    <Card>
-      <Card.Header>
-        <h5 className="mb-0">
-          <i className="bi bi-gear me-2"></i>
-          Preferences & Settings
-        </h5>
-      </Card.Header>
+    <Card className="shadow-sm mb-4">
       <Card.Body>
+        <Card.Title className="mb-3">Preferences</Card.Title>
         <Form onSubmit={handleSubmit}>
-          <Row>
+          <Row className="mb-3">
             <Col md={6}>
-              <Form.Group className="mb-3">
+              <Form.Group controlId="preferredLanguage">
                 <Form.Label>Preferred Language</Form.Label>
                 <Form.Select
-                  value={formData.preferredLanguage}
-                  onChange={(e) => handleChange('preferredLanguage', e.target.value)}
+                  value={preferredLanguage}
+                  onChange={(e) => setPreferredLanguage(e.target.value)}
+                  disabled={!isEditing || isSaving}
                 >
-                  {languages.map(lang => (
-                    <option key={lang.value} value={lang.value}>
-                      {lang.label}
-                    </option>
-                  ))}
+                  <option value="">Select language</option>
+                  <option value="en">English</option>
+                  <option value="sw">Swahili</option>
+                  <option value="fr">French</option>
+                  <option value="es">Spanish</option>
                 </Form.Select>
               </Form.Group>
             </Col>
             <Col md={6}>
-              <Form.Group className="mb-3">
+              <Form.Group controlId="timezone">
                 <Form.Label>Timezone</Form.Label>
                 <Form.Select
-                  value={formData.timezone}
-                  onChange={(e) => handleChange('timezone', e.target.value)}
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  disabled={!isEditing || isSaving}
                 >
-                  {timezones.map(tz => (
-                    <option key={tz.value} value={tz.value}>
-                      {tz.label}
-                    </option>
-                  ))}
+                  <option value="">Select timezone</option>
+                  <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+                  <option value="Africa/Dar_es_Salaam">Africa/Dar_es_Salaam (EAT)</option>
+                  <option value="Africa/Kampala">Africa/Kampala (EAT)</option>
+                  <option value="UTC">UTC</option>
                 </Form.Select>
               </Form.Group>
             </Col>
           </Row>
 
-          <hr />
-
-          <h6 className="mb-3">
-            <i className="bi bi-bell me-2"></i>
-            Notification Preferences
-          </h6>
-
-          <Row>
-            <Col md={12}>
-              <Form.Group className="mb-3">
-                <Form.Check
-                  type="checkbox"
-                  id="emailNotifications"
-                  label="Email Notifications"
-                  checked={formData.emailNotifications}
-                  onChange={(e) => handleChange('emailNotifications', e.target.checked)}
-                  help="Receive notifications via email"
-                />
-              </Form.Group>
-            </Col>
-          </Row>
-
-          <Row>
-            <Col md={12}>
-              <Form.Group className="mb-3">
-                <Form.Check
-                  type="checkbox"
-                  id="smsNotifications"
-                  label="SMS Notifications"
-                  checked={formData.smsNotifications}
-                  onChange={(e) => handleChange('smsNotifications', e.target.checked)}
-                  help="Receive notifications via SMS (requires phone number)"
-                />
-              </Form.Group>
-            </Col>
-          </Row>
-
-          <Row>
-            <Col md={12}>
-              <Form.Group className="mb-3">
-                <Form.Check
-                  type="checkbox"
-                  id="pushNotifications"
-                  label="Push Notifications"
-                  checked={formData.pushNotifications}
-                  onChange={(e) => handleChange('pushNotifications', e.target.checked)}
-                  help="Receive push notifications in your browser"
-                />
-              </Form.Group>
-            </Col>
-          </Row>
+          <Card className="mb-3">
+            <Card.Header>
+              <h6 className="mb-0">Notification Preferences</h6>
+            </Card.Header>
+            <Card.Body>
+              <Row>
+                <Col md={4}>
+                  <Form.Group controlId="emailNotifications">
+                    <Form.Check
+                      type="checkbox"
+                      label="Email Notifications"
+                      checked={emailNotifications}
+                      onChange={(e) => setEmailNotifications(e.target.checked)}
+                      disabled={!isEditing || isSaving}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group controlId="smsNotifications">
+                    <Form.Check
+                      type="checkbox"
+                      label="SMS Notifications"
+                      checked={smsNotifications}
+                      onChange={(e) => setSmsNotifications(e.target.checked)}
+                      disabled={!isEditing || isSaving}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={4}>
+                  <Form.Group controlId="pushNotifications">
+                    <Form.Check
+                      type="checkbox"
+                      label="Push Notifications"
+                      checked={pushNotifications}
+                      onChange={(e) => setPushNotifications(e.target.checked)}
+                      disabled={!isEditing || isSaving}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+            </Card.Body>
+          </Card>
 
           <div className="d-flex justify-content-end">
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isUpdating}
-            >
-              {isUpdating ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-check-lg me-2"></i>
-                  Update Preferences
-                </>
-              )}
-            </Button>
+            {!isEditing ? (
+              <Button variant="secondary" onClick={() => setIsEditing(true)}>
+                Edit Preferences
+              </Button>
+            ) : (
+              <>
+                <Button variant="secondary" onClick={() => setIsEditing(false)} className="me-2" disabled={isSaving}>
+                  Cancel
+                </Button>
+                <Button variant="primary" type="submit" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            )}
           </div>
         </Form>
       </Card.Body>

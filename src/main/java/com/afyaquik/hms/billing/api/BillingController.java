@@ -5,6 +5,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,6 +43,7 @@ public class BillingController {
      * Create a new bill.
      */
     @PostMapping("/bills")
+    @PreAuthorize("hasPermission('MANAGE_BILLING')")
     public ResponseEntity<BillDto> createBill(@Valid @RequestBody CreateBillRequest request) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         log.info("Creating bill for patient {} in tenant {}", request.patientId(), tenantId);
@@ -54,6 +56,7 @@ public class BillingController {
      * Get bill by ID.
      */
     @GetMapping("/bills/{billId}")
+    @PreAuthorize("hasPermission('VIEW_BILLING')")
     public ResponseEntity<BillDto> getBill(@PathVariable Long billId) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         BillDto bill = billingService.getBill(tenantId, billId);
@@ -64,6 +67,7 @@ public class BillingController {
      * Get bills by patient ID.
      */
     @GetMapping("/bills/patient/{patientId}")
+    @PreAuthorize("hasPermission('VIEW_BILLING')")
     public ResponseEntity<List<BillDto>> getBillsByPatient(@PathVariable Long patientId) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         List<BillDto> bills = billingService.getBillsByPatient(tenantId, patientId);
@@ -74,6 +78,7 @@ public class BillingController {
      * Get bills by queue item ID.
      */
     @GetMapping("/bills/queue/{queueItemId}")
+    @PreAuthorize("hasPermission('VIEW_BILLING')")
     public ResponseEntity<List<BillDto>> getBillsByQueueItem(@PathVariable Long queueItemId) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         List<BillDto> bills = billingService.getBillsByQueueItem(tenantId, queueItemId);
@@ -84,6 +89,7 @@ public class BillingController {
      * Add payment to bill.
      */
     @PostMapping("/bills/{billId}/payments")
+    @PreAuthorize("hasPermission('MANAGE_BILLING')")
     public ResponseEntity<BillDto> addPayment(
             @PathVariable Long billId,
             @Valid @RequestBody CreatePaymentRequest request) {
@@ -98,6 +104,7 @@ public class BillingController {
      * Update bill status.
      */
     @PatchMapping("/bills/{billId}/status")
+    @PreAuthorize("hasPermission('MANAGE_BILLING')")
     public ResponseEntity<BillDto> updateBillStatus(
             @PathVariable Long billId,
             @RequestParam BillStatus status) {
@@ -112,6 +119,7 @@ public class BillingController {
      * Get payment methods.
      */
     @GetMapping("/payment-methods")
+    @PreAuthorize("hasPermission('VIEW_BILLING')")
     public ResponseEntity<List<String>> getPaymentMethods() {
         List<String> methods = List.of(
             "CASH", "CARD", "BANK_TRANSFER", "MOBILE_MONEY", "INSURANCE", "CHEQUE", "OTHER"
@@ -123,6 +131,7 @@ public class BillingController {
      * Get bill statuses.
      */
     @GetMapping("/bill-statuses")
+    @PreAuthorize("hasPermission('VIEW_BILLING')")
     public ResponseEntity<List<String>> getBillStatuses() {
         List<String> statuses = List.of(
             "DRAFT", "SENT", "PAID", "PARTIALLY_PAID", "OVERDUE", "CANCELLED", "REFUNDED"
