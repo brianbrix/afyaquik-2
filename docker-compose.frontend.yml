@@ -33,10 +33,6 @@ services:
     volumes:
       - ./hms-frontend/nginx.conf:/etc/nginx/nginx.conf:ro
 
-    # ❌ DO NOT expose host ports when using Traefik
-    # ports:
-    #   - "8080:80"
-
 networks:
   hms-network:
     driver: bridge
