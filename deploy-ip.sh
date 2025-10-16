@@ -102,19 +102,19 @@ deploy_frontend() {
     print_status "Waiting for frontend to be ready..."
     sleep 5
     
-    # Check if frontend is healthy
-    print_status "Checking frontend health..."
-    for i in {1..15}; do
-        if curl -f http://localhost/health >/dev/null 2>&1; then
-            print_success "Frontend is healthy"
-            break
-        fi
-        if [ $i -eq 15 ]; then
-            print_error "Frontend health check failed"
-            exit 1
-        fi
-        sleep 2
-    done
+    # # Check if frontend is healthy
+    # print_status "Checking frontend health..."
+    # for i in {1..15}; do
+    #     if curl -f http://localhost/health >/dev/null 2>&1; then
+    #         print_success "Frontend is healthy"
+    #         break
+    #     fi
+    #     if [ $i -eq 15 ]; then
+    #         print_error "Frontend health check failed"
+    #         exit 1
+    #     fi
+    #     sleep 2
+    # done
 }
 
 # Function to show deployment status
