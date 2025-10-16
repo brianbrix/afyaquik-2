@@ -22,8 +22,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.hms-backend.rule=Host(`152.53.164.124`) && PathPrefix(`/hms/api`)"
-#      - "traefik.http.routers.hms-backend.entrypoints=websecure"
-#      - "traefik.http.routers.hms-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.hms-backend.entrypoints=websecure"
+      - "traefik.http.routers.hms-backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.hms-backend.loadbalancer.server.port=8080"
       - "traefik.http.middlewares.hms-backend-stripprefix.stripprefix.prefixes=/hms/api"
       - "traefik.http.routers.hms-backend.middlewares=hms-backend-stripprefix"
@@ -34,6 +34,11 @@ services:
     volumes:
       - hms-uploads:/app/uploads
       - hms-logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   hms-db:
     image: postgres:15-alpine
@@ -50,7 +55,7 @@ services:
       - ./init-scripts:/docker-entrypoint-initdb.d
     restart: unless-stopped
     ports:
-      - "5434:5432"  # Exposed for debugging, remove in production
+      - "127.0.0.1:5434:5432"
 
   hms-redis:
     image: redis:7-alpine
@@ -75,8 +80,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
 
 networks:
   hms-network:
