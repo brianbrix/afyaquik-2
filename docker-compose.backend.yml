@@ -19,14 +19,8 @@ services:
     networks:
       - hms-network
       - traefik_proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.hms-backend.rule=Host(`your-domain.com`) && PathPrefix(`/hms/api`)"
-#      - "traefik.http.routers.hms-backend.entrypoints=websecure"
-#      - "traefik.http.routers.hms-backend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.hms-backend.loadbalancer.server.port=8080"
-      - "traefik.http.middlewares.hms-backend-stripprefix.stripprefix.prefixes=/hms/api"
-      - "traefik.http.routers.hms-backend.middlewares=hms-backend-stripprefix"
+    ports:
+      - 8080:8080
     depends_on:
       - hms-db
       - hms-redis

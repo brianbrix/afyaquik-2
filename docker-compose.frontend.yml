@@ -8,27 +8,13 @@ services:
     container_name: hms-frontend
     environment:
       - NODE_ENV=production
-      - VITE_API_BASE_URL=/hms/api/v1
+      - VITE_API_BASE_URL=http://hms-backend:8080/api/v1
       - VITE_APP_TITLE=AfyaQuik HMS
     networks:
       - hms-network
       - traefik_proxy
-    labels:
-      - "traefik.enable=true"
-
-      # Router definition (route /hms on your server IP)
-      - "traefik.http.routers.hms-frontend.rule=Host(`152.53.164.124`) && PathPrefix(`/hms`)"
-
-      # Use http entrypoint (if you have https, uncomment the next two lines)
-      # - "traefik.http.routers.hms-frontend.entrypoints=websecure"
-      # - "traefik.http.routers.hms-frontend.tls.certresolver=letsencrypt"
-
-      # Internal service port (inside container)
-      - "traefik.http.services.hms-frontend.loadbalancer.server.port=80"
-
-      # Remove the /hms prefix before passing to Nginx
-      # - "traefik.http.middlewares.hms-frontend-stripprefix.stripprefix.prefixes=/hms"
-      # - "traefik.http.routers.hms-frontend.middlewares=hms-frontend-stripprefix"
+    ports:
+      - 80:80
     restart: unless-stopped
     volumes:
       - ./hms-frontend/nginx.conf:/etc/nginx/nginx.conf:ro
