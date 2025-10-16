@@ -1,8 +1,10 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react-swc";
+const isDocker = process.env.VITE_DOCKER === 'true'
 
 export default defineConfig({
   plugins: [react()],
+  base: isDocker ? '/hms/' : '/',
   define: {
     global: 'window'
   },

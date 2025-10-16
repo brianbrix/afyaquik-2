@@ -13,8 +13,22 @@ services:
     networks:
       - hms-network
       - traefik_proxy
-    ports:
-      - 80:80
+    labels:
+      - "traefik.enable=true"
+
+      # Router definition (route /hms on your server IP)
+      - "traefik.http.routers.hms-frontend.rule=Host(`152.53.164.124`) && PathPrefix(`/hms`)"
+
+      # Use http entrypoint (if you have https, uncomment the next two lines)
+      # - "traefik.http.routers.hms-frontend.entrypoints=websecure"
+      # - "traefik.http.routers.hms-frontend.tls.certresolver=letsencrypt"
+
+      # Internal service port (inside container)
+      - "traefik.http.services.hms-frontend.loadbalancer.server.port=80"
+
+      # Remove the /hms prefix before passing to Nginx
+      # - "traefik.http.middlewares.hms-frontend-stripprefix.stripprefix.prefixes=/hms"
+      # - "traefik.http.routers.hms-frontend.middlewares=hms-frontend-stripprefix"
     restart: unless-stopped
     volumes:
       - ./hms-frontend/nginx.conf:/etc/nginx/nginx.conf:ro
