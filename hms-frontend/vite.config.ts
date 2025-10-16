@@ -9,6 +9,9 @@ export default defineConfig({
   build: {
     target: "es2022"
   },
+  esbuild: {
+    logOverride: { 'this-is-undefined-in-esm': 'silent' }
+  },
   server: {
     port: 5173,
     open: true
