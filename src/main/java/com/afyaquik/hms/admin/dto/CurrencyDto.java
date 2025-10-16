@@ -105,3 +105,4 @@ public class CurrencyDto {
         this.updatedAt = updatedAt;
     }
 }
+

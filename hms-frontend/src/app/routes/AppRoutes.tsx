@@ -31,6 +31,7 @@ import { BillingItemCategoriesAdminPage } from "../../modules/admin/pages/Billin
 import { CurrencyManagementPage } from "../../modules/admin/pages/CurrencyManagementPage";
 import { AnalyticsPage } from "../../modules/admin/pages/AnalyticsPage";
 import { AuditLogsPage } from "../../modules/admin/pages/AuditLogsPage";
+import { MedicationManagementPage } from "../../modules/admin/pages/MedicationManagementPage";
 import { TeamManagementPage } from "../../modules/team/pages/TeamManagementPage";
 import { TimeOffRequestPage } from "../../modules/timeoff/pages/TimeOffRequestPage";
 import InventoryPage from "../../modules/inventory/pages/InventoryPage";
@@ -77,6 +78,7 @@ export function AppRoutes() {
           <Route path="currencies" element={<CurrencyManagementPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />
+          <Route path="medications" element={<MedicationManagementPage />} />
           <Route path="inventory" element={<InventoryPage />} />
         </Route>
       </Route>

@@ -83,12 +83,7 @@ export function AppLayout() {
                           Medications
                         </Dropdown.Item>
                         )}
-                        {CAN_MANAGE_PHARMACY_INVENTORY && (
-                        <Dropdown.Item as={NavLink} to="/pharmacy/inventory" className="d-flex align-items-center">
-                          <i className="bi bi-boxes me-2"></i>
-                          General Inventory
-                        </Dropdown.Item>
-                        )}
+                  
                         {CAN_MANAGE_PHARMACY_INVENTORY && (
                         <Dropdown.Item as={NavLink} to="/pharmacy/medication-inventory" className="d-flex align-items-center">
                           <i className="bi bi-capsule me-2"></i>
@@ -104,7 +99,7 @@ export function AppLayout() {
                       </Dropdown.Menu>
                     </Dropdown>
                     )}
-                    {CAN_SEE_BILLING && (
+                    {/* {CAN_SEE_BILLING && (
                     <Dropdown>
                       <Dropdown.Toggle as={Nav.Link} variant="link" className="text-white text-decoration-none d-flex align-items-center">
                         <i className="bi bi-currency-dollar me-1"></i>
@@ -121,7 +116,7 @@ export function AppLayout() {
                         </Dropdown.Item>
                       </Dropdown.Menu>
                     </Dropdown>
-                    )}
+                    )} */}
                     
                     {flagEnabled('admin-ui') && (
                       <Nav.Link as={NavLink} to="/admin" className="d-flex align-items-center">

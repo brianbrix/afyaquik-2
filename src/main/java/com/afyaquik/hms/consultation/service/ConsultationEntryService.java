@@ -7,10 +7,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.afyaquik.hms.consultation.domain.ConsultationEntry;
+import com.afyaquik.hms.consultation.domain.ConsultationTitle;
 import com.afyaquik.hms.consultation.dto.BulkConsultationEntryRequest;
 import com.afyaquik.hms.consultation.dto.ConsultationEntryDto;
 import com.afyaquik.hms.consultation.dto.ConsultationEntryRequest;
 import com.afyaquik.hms.consultation.repository.ConsultationEntryRepository;
+import com.afyaquik.hms.consultation.repository.ConsultationTitleRepository;
 import com.afyaquik.hms.queue.domain.VisitQueueItem;
 import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
 
@@ -18,10 +20,12 @@ import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
 public class ConsultationEntryService {
     private final ConsultationEntryRepository entryRepository;
     private final VisitQueueItemRepository queueItemRepository;
+    private final ConsultationTitleRepository consultationTitleRepository;
 
-    public ConsultationEntryService(ConsultationEntryRepository entryRepository, VisitQueueItemRepository queueItemRepository) {
+    public ConsultationEntryService(ConsultationEntryRepository entryRepository, VisitQueueItemRepository queueItemRepository, ConsultationTitleRepository consultationTitleRepository) {
         this.entryRepository = entryRepository;
         this.queueItemRepository = queueItemRepository;
+        this.consultationTitleRepository = consultationTitleRepository;
     }
 
     @Transactional(readOnly = true)
@@ -41,6 +45,19 @@ public class ConsultationEntryService {
         entry.setTitle(request.getTitle());
         entry.setDetails(request.getDetails());
         entry.setCreatedBy(createdBy);
+        
+        // Link to consultation title if provided
+        if (request.getConsultationTitleId() != null) {
+            ConsultationTitle consultationTitle = consultationTitleRepository.findById(request.getConsultationTitleId())
+                    .orElseThrow(() -> new IllegalArgumentException("Consultation title not found"));
+            entry.setConsultationTitle(consultationTitle);
+            entry.setIsCustom(false);
+        } else {
+            entry.setIsCustom(true);
+        }
+        
+        entry.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
+        
         ConsultationEntry saved = entryRepository.save(entry);
         return toDto(saved);
     }
@@ -105,6 +122,19 @@ public class ConsultationEntryService {
             entry.setTenantId(queueItem.getTenantId());
             entry.setTitle(dto.getTitle());
             entry.setDetails(dto.getDetails());
+            
+            // Handle consultation title linking
+            if (dto.getConsultationTitleId() != null) {
+                ConsultationTitle consultationTitle = consultationTitleRepository.findById(dto.getConsultationTitleId())
+                        .orElse(null);
+                entry.setConsultationTitle(consultationTitle);
+                entry.setIsCustom(false);
+            } else {
+                entry.setIsCustom(true);
+            }
+            
+            entry.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
+            
             toSave.add(entry);
         }
         List<ConsultationEntry> saved = entryRepository.saveAll(toSave);
@@ -121,12 +151,24 @@ public class ConsultationEntryService {
     }
 
     private ConsultationEntryDto toDto(ConsultationEntry entry) {
-        return new ConsultationEntryDto(
+        ConsultationEntryDto dto = new ConsultationEntryDto(
                 entry.getId(),
                 entry.getTitle(),
                 entry.getDetails(),
                 entry.getCreatedBy(),
                 entry.getCreatedAt()
         );
+        
+        // Add hierarchy information if consultation title is linked
+        if (entry.getConsultationTitle() != null) {
+            dto.setConsultationTitleId(entry.getConsultationTitle().getId());
+            dto.setConsultationTitleName(entry.getConsultationTitle().getTitle());
+            dto.setConsultationTitleLevel(entry.getConsultationTitle().getLevel());
+        }
+        
+        dto.setIsCustom(entry.getIsCustom());
+        dto.setSortOrder(entry.getSortOrder());
+        
+        return dto;
     }
 }

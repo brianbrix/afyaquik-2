@@ -17,9 +17,10 @@ interface TriageActionsSectionProps {
   onChange?: (items: TriageItem[]) => void;
   onSubmit?: (items: TriageItem[]) => void | Promise<void>;
   loading?: boolean;
+  isReadonly?: boolean;
 }
 
-export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ triageTitles, initialItems = [], onChange, onSubmit, loading }) => {
+export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ triageTitles, initialItems = [], onChange, onSubmit, loading, isReadonly = false }) => {
   const [items, setItems] = useState<TriageItem[]>(initialItems);
   // Sync items state with initialItems prop
   React.useEffect(() => {
@@ -99,11 +100,12 @@ export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ tria
               placeholder="Custom title..."
               value={customTitle}
               onChange={e => setCustomTitle(e.target.value)}
+              disabled={isReadonly}
             />
             <Button 
               variant="outline-primary" 
               onClick={() => handleAddItem(customTitle, true)} 
-              disabled={!customTitle.trim() || items.some(item => item.title.toLowerCase() === customTitle.trim().toLowerCase())}
+              disabled={isReadonly || !customTitle.trim() || items.some(item => item.title.toLowerCase() === customTitle.trim().toLowerCase())}
             >
               Add Custom
             </Button>
@@ -115,7 +117,7 @@ export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ tria
         <div key={item.id} className="border rounded p-2 mb-2 bg-light">
           <div className="d-flex justify-content-between align-items-center mb-1">
             <span className="fw-semibold">{item.title}</span>
-            <Button size="sm" variant="outline-danger" onClick={() => handleRemoveItem(item.id)}>
+            <Button size="sm" variant="outline-danger" onClick={() => handleRemoveItem(item.id)} disabled={isReadonly}>
               Remove
             </Button>
           </div>
@@ -125,6 +127,7 @@ export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ tria
             onChange={val => handleDetailsChange(item.id, val)}
             placeholder="Enter details..."
             style={{ background: 'white' }}
+            readOnly={isReadonly}
           />
         </div>
       ))}
@@ -137,7 +140,7 @@ export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ tria
             await onSubmit(items);
             setSubmitting(false);
           }}
-          disabled={submitting || loading}
+          disabled={isReadonly || submitting || loading}
         >
           {submitting || loading ? 'Submitting...' : 'Submit'}
         </Button>

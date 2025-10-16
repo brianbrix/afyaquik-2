@@ -83,3 +83,4 @@ public class CurrencySeeder implements CommandLineRunner {
         log.info("Successfully seeded default currencies for tenant: {}", tenantId);
     }
 }
+

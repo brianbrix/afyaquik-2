@@ -92,3 +92,4 @@ public class CurrencyRequest {
         this.isActive = isActive;
     }
 }
+

@@ -46,3 +46,4 @@ public interface CurrencyRepository extends JpaRepository<Currency, Long> {
     @Query("SELECT c FROM Currency c WHERE c.tenantId = :tenantId AND c.deleted = false ORDER BY c.isDefault DESC, c.name ASC")
     List<Currency> findByTenantIdOrderByDefaultAndName(@Param("tenantId") String tenantId);
 }
+

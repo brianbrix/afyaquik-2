@@ -10,6 +10,7 @@ import { FinancialAnalyticsCard } from '../components/FinancialAnalyticsCard';
 import { DepartmentAnalyticsCard } from '../components/DepartmentAnalyticsCard';
 import { TimeBasedAnalyticsCard } from '../components/TimeBasedAnalyticsCard';
 import { PerformanceMetricsCard } from '../components/PerformanceMetricsCard';
+import { ShiftsAnalyticsCard } from '../components/ShiftsAnalyticsCard';
 import { DateRangePicker } from '../components/DateRangePicker';
 
 export function AnalyticsPage() {
@@ -143,6 +144,14 @@ export function AnalyticsPage() {
             <Row className="g-4">
               <Col xs={12}>
                 <TimeBasedAnalyticsCard data={analytics.timeBasedAnalytics || {}} />
+              </Col>
+            </Row>
+          </Tab>
+
+          <Tab eventKey="shifts" title="Shifts">
+            <Row className="g-4">
+              <Col xs={12}>
+                <ShiftsAnalyticsCard data={analytics.shiftsAnalytics || {}} />
               </Col>
             </Row>
           </Tab>

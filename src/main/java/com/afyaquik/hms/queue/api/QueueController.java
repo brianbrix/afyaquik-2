@@ -1,14 +1,8 @@
 package com.afyaquik.hms.queue.api;
 
-import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
-import com.afyaquik.hms.queue.domain.QueueStatus;
-import com.afyaquik.hms.common.web.ApiResponse;
-import com.afyaquik.hms.queue.dto.QueueSummary;
-import com.afyaquik.hms.queue.dto.QueueTimelineEntryResponse;
-import com.afyaquik.hms.queue.service.QueueService;
-import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Locale;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +14,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.afyaquik.hms.common.web.ApiResponse;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+import com.afyaquik.hms.queue.domain.QueueStatus;
+import com.afyaquik.hms.queue.dto.QueueSummary;
+import com.afyaquik.hms.queue.dto.QueueTimelineEntryResponse;
+import com.afyaquik.hms.queue.service.QueueReadonlyService;
+import com.afyaquik.hms.queue.service.QueueService;
+
+import jakarta.validation.Valid;
+
 
 
 @RestController
@@ -27,9 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class QueueController {
 
     private final QueueService queueService;
+    private final QueueReadonlyService queueReadonlyService;
 
-    public QueueController(QueueService queueService) {
+    public QueueController(QueueService queueService, QueueReadonlyService queueReadonlyService) {
         this.queueService = queueService;
+        this.queueReadonlyService = queueReadonlyService;
     }
 
     @PostMapping("/checkin")
@@ -157,6 +163,12 @@ public class QueueController {
             @PathVariable Long queueItemId) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return ApiResponse.success(queueService.getTimeline(tenantId, queueItemId));
+    }
+
+    @GetMapping("/{queueItemId}/readonly")
+    public ApiResponse<Boolean> isReadonly(@PathVariable Long queueItemId) {
+        boolean isReadonly = queueReadonlyService.isQueueItemReadonly(queueItemId);
+        return ApiResponse.success(isReadonly);
     }
 
     // Real-time updates now provided via WebSocket STOMP topics (/topic/queue.{tenantId}).

@@ -115,12 +115,7 @@ export function MedicationsPage() {
         <Col>
           <h2>Medications</h2>
         </Col>
-        <Col xs="auto">
-          <Button variant="primary" onClick={() => setShowForm(true)}>
-            <i className="bi bi-plus me-2"></i>
-            Add Medication
-          </Button>
-        </Col>
+      
       </Row>
 
       <Card className="mb-4">
@@ -173,7 +168,7 @@ export function MedicationsPage() {
                   <th>Strength</th>
                   <th>Unit Price</th>
                   <th>Status</th>
-                  <th>Actions</th>
+               
                 </tr>
               </thead>
               <tbody>
@@ -197,24 +192,7 @@ export function MedicationsPage() {
                         {medication.requiresPrescription && <Badge bg="info">Rx Required</Badge>}
                       </div>
                     </td>
-                    <td>
-                      <div className="d-flex gap-1">
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
-                          onClick={() => handleEdit(medication)}
-                        >
-                          <i className="bi bi-pencil-square"></i>
-                        </Button>
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => handleDelete(medication)}
-                        >
-                          <i className="bi bi-trash"></i>
-                        </Button>
-                      </div>
-                    </td>
+                   
                   </tr>
                 ))}
               </tbody>

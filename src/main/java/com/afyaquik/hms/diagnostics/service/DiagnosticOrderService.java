@@ -26,11 +26,14 @@ public class DiagnosticOrderService {
     
     private final DiagnosticOrderRepository diagnosticOrderRepository;
     private final TestCatalogRepository testCatalogRepository;
+    private final DiagnosticBillingService diagnosticBillingService;
     
     public DiagnosticOrderService(DiagnosticOrderRepository diagnosticOrderRepository, 
-                                 TestCatalogRepository testCatalogRepository) {
+                                 TestCatalogRepository testCatalogRepository,
+                                 DiagnosticBillingService diagnosticBillingService) {
         this.diagnosticOrderRepository = diagnosticOrderRepository;
         this.testCatalogRepository = testCatalogRepository;
+        this.diagnosticBillingService = diagnosticBillingService;
     }
     
     public DiagnosticOrderDto createDiagnosticOrder(CreateDiagnosticOrderRequest request, 
@@ -116,12 +119,18 @@ public class DiagnosticOrderService {
         DiagnosticOrder order = diagnosticOrderRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Diagnostic order not found: " + id));
         
+        DiagnosticOrderStatus previousStatus = order.getStatus();
         order.setStatus(status);
         
         if (status == DiagnosticOrderStatus.COMPLETED) {
             order.setCompletedAt(LocalDateTime.now());
+            // Add diagnostic items to bill when order is completed
+            diagnosticBillingService.addDiagnosticItemsToBill(id);
         } else if (status == DiagnosticOrderStatus.CANCELLED) {
             order.setCancelledAt(LocalDateTime.now());
+        } else if (previousStatus == DiagnosticOrderStatus.COMPLETED && status != DiagnosticOrderStatus.COMPLETED) {
+            // Remove diagnostic items from bill when order is reopened (status changed from COMPLETED to something else)
+            diagnosticBillingService.removeDiagnosticItemsFromBill(id);
         }
         
         DiagnosticOrder savedOrder = diagnosticOrderRepository.save(order);

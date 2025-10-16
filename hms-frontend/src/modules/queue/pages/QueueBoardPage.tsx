@@ -1,6 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { isQueueItemReadonly } from '../../../services/queueApi';
 import { TriageActionsSection } from '../../../components/triage/TriageActionsSection';
 import { ConsultationActionsSection } from '../../../components/consult/ConsultationActionsSection';
 import { PharmacyActionsSection } from '../../../components/pharmacy/PharmacyActionsSection';
@@ -229,6 +230,7 @@ export function QueueBoardPage() {
   const [selectedItemForNotes, setSelectedItemForNotes] = useState<QueueSummary | null>(null);
   const [showDiagnosticResultsModal, setShowDiagnosticResultsModal] = useState(false);
   const [selectedItemForResults, setSelectedItemForResults] = useState<QueueSummary | null>(null);
+  const [isReadonly, setIsReadonly] = useState(false);
 
   // Matrix: { [roleKey]: Set<QueueStatus> }
   const [statusMatrix, setStatusMatrix] = useState<Record<string, Set<string>>>({});
@@ -265,6 +267,17 @@ export function QueueBoardPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRole, statusMatrix]);
+
+  // Check readonly status when activeItem changes
+  useEffect(() => {
+    if (activeItem?.id) {
+      isQueueItemReadonly(activeItem.id)
+        .then(setIsReadonly)
+        .catch(() => setIsReadonly(false));
+    } else {
+      setIsReadonly(false);
+    }
+  }, [activeItem?.id]);
 
   // Get allowed statuses for the current role
   const allowedStatuses = useMemo(() => {
@@ -612,7 +625,14 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                         <td className="fw-semibold">{item.ticketNumber}</td>
                         <td>{item.patientName}</td>
                         <td>{item.visitReason}</td>
-                        <td><QueueStatusBadge status={item.status} /></td>
+                        <td>
+                          <QueueStatusBadge status={item.status} />
+                          {isReadonly && (
+                            <Badge bg="secondary" className="ms-1" title="This queue item is readonly (closed and fully paid)">
+                              Readonly
+                            </Badge>
+                          )}
+                        </td>
                         <td><Badge bg={priorityVariant(item.priority)}>{item.priority}</Badge></td>
                         <td>{item.currentAssigneeId || "Unassigned"}</td>
                         <td>{item.departmentId ?? "—"}</td>
@@ -653,6 +673,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                 size="sm"
                                 variant="outline-primary"
                                 onClick={() => handleOpenModal(item, 'advanceAssign')}
+                                disabled={isReadonly}
                               >
                                 Advance & Assign
                               </Button>
@@ -661,6 +682,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                 size="sm"
                                 variant="outline-primary"
                                 onClick={() => handleOpenModal(item, 'assign')}
+                                disabled={isReadonly}
                               >
                                 Assign
                               </Button>
@@ -669,6 +691,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                               size="sm"
                               variant="outline-success"
                               onClick={() => handleOpenModal(item, 'transition')}
+                              disabled={isReadonly}
                             >
                               Transition
                             </Button>
@@ -716,6 +739,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                           }))}
                                           // onAdd, onUpdate, onDelete removed
                                           loading={loading}
+                                          isReadonly={isReadonly}
                                           onSubmit={async (items) => {
                                             try {
                                               // Only send changed items, and use bulk API
@@ -772,11 +796,16 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                     id: e.id,
                                     title: e.title,
                                     details: e.details,
-                                    isCustom: false
+                                    isCustom: e.isCustom || false,
+                                    consultationTitleId: e.consultationTitleId,
+                                    consultationTitleName: e.consultationTitleName,
+                                    consultationTitleLevel: e.consultationTitleLevel,
+                                    sortOrder: e.sortOrder
                                   }))}
                                   loading={loading}
                                   queueItemId={item.id}
                                   patientId={item.patientId}
+                                  isReadonly={isReadonly}
                                   onSubmit={async (items) => {
                                     try {
                                       // Use bulk API for upsert and delete
@@ -830,10 +859,9 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                   </div>
                                 ) : (
                                   <PharmacyActionsSection
-                                    initialItems={[]}
-                                    loading={false}
                                     queueItemId={item.id}
                                     patientId={item.patientId}
+                                    isReadonly={isReadonly}
                                     onSubmit={async (items) => {
                                       // Pharmacy actions are handled internally by PharmacyActionsSection
                                       // This includes prescription management, dispensing, and stock operations
@@ -862,6 +890,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                   <DiagnosticsActionsSection
                                     queueItemId={item.id}
                                     patientId={item.patientId}
+                                    isReadonly={isReadonly}
                                   />
                                 )}
                               </div>
@@ -886,6 +915,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                                     queueItemId={item.id}
                                     patientId={item.patientId}
                                     patientName={item.patientName}
+                                    isReadonly={isReadonly}
                                   />
                                 )}
                               </div>
@@ -921,6 +951,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
           transitionMutation.isError ? transitionMutation.error?.message ?? "Failed to transition" : null
         }
         onSubmit={handleTransitionSubmit}
+        activeRole={activeRole}
       />
 
       <TimelineModal
@@ -1126,8 +1157,9 @@ function TransitionModal({
   queueItem,
   isSubmitting,
   error,
-  onSubmit
-}: { show: boolean; onHide: () => void; queueItem: QueueSummary | null; isSubmitting: boolean; error: string | null; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; }) {
+  onSubmit,
+  activeRole
+}: { show: boolean; onHide: () => void; queueItem: QueueSummary | null; isSubmitting: boolean; error: string | null; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void; activeRole: string; }) {
   const nextStatuses = queueItem ? allowedTransitions[queueItem.status] ?? [] : [];
   const [selectedAssignee, setSelectedAssignee] = useState<StaffDirectoryEntry | null>(null);
   const [roleQuery, setRoleQuery] = useState("");
@@ -1144,17 +1176,25 @@ function TransitionModal({
     enabled: show
   });
 
-  // Auto-select current user as assignee when transitioning to status containing "IN"
+  // Initialize status and auto-select current user as assignee when transitioning to status containing "IN"
   React.useEffect(() => {
-    if (show && user && selectedStatus && selectedStatus.includes("IN")) {
-      const currentUser = staffData.find(s => s.username === user.username);
-      if (currentUser) {
-        setSelectedAssignee(currentUser);
-        setRoleQuery(currentUser.roles[0] || '');
-        setDeptQuery(currentUser.departments[0] || '');
-        // Auto-assigned current user for IN status
-      } else {
-        console.warn('Current user not found in staff directory:', user.username);
+    if (show && user) {
+      // Initialize with first available status if none selected
+      if (!selectedStatus && nextStatuses.length > 0) {
+        setSelectedStatus(nextStatuses[0]);
+      }
+      
+      // Auto-select current user for IN status
+      if (selectedStatus && selectedStatus.includes("IN")) {
+        const currentUser = staffData.find(s => s.username === user.username);
+        if (currentUser) {
+          setSelectedAssignee(currentUser);
+          setRoleQuery(activeRole || '');
+          setDeptQuery(currentUser.departments[0] || '');
+          // Auto-assigned current user for IN status with active role
+        } else {
+          console.warn('Current user not found in staff directory:', user.username);
+        }
       }
     } else if (!show) {
       setSelectedAssignee(null);
@@ -1162,7 +1202,7 @@ function TransitionModal({
       setDeptQuery("");
       setSelectedStatus("");
     }
-  }, [show, user, selectedStatus, staffData]);
+  }, [show, user, selectedStatus, staffData, nextStatuses]);
 
   // Filter staff based on selected status and role matrix
   const filteredStaff = useMemo(() => {

@@ -26,6 +26,7 @@ interface ConsultationActionsSectionProps {
   loading?: boolean;
   queueItemId?: number;
   patientId?: number;
+  isReadonly?: boolean;
 }
 
 export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProps> = ({ 
@@ -34,11 +35,17 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
   onSubmit, 
   loading,
   queueItemId,
-  patientId
+  patientId,
+  isReadonly = false
 }) => {
   const [items, setItems] = useState<ConsultationItem[]>(initialItems);
   const [customTitle, setCustomTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Sync items with initialItems when they change (e.g., when data is loaded from DB)
+  useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
   
   // Hierarchical title selection state
   const [selectedLevel1, setSelectedLevel1] = useState<ConsultationTitle | null>(null);
@@ -141,27 +148,69 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
     setShowCustomInput(true);
   };
 
+  const findDuplicateItem = (title: string) => {
+    return items.find(item => item.title === title);
+  };
+
+  const scrollToItem = (itemId: number) => {
+    // Find the item element and scroll to it
+    const itemElement = document.querySelector(`[data-consultation-item-id="${itemId}"]`);
+    if (itemElement) {
+      itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Add a temporary highlight effect
+      itemElement.classList.add('border-warning', 'bg-warning-subtle');
+      setTimeout(() => {
+        itemElement.classList.remove('border-warning', 'bg-warning-subtle');
+      }, 3000);
+    }
+  };
+
   const handleCustomTitleSubmit = () => {
     if (!customTitle.trim()) return;
     
-    const fullTitle = buildFullTitle();
     const isNote = shouldShowRichText();
+    const displayPath = buildDisplayPath();
+    const fullTitle = isNote ? displayPath : buildFullTitle();
+    
+    // Check for duplicate title
+    const existingItem = findDuplicateItem(fullTitle);
+    if (existingItem) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Item Already Exists',
+        text: `A consultation item with the title "${fullTitle}" already exists. Navigating to the existing item.`,
+        confirmButtonText: 'Go to Item',
+        showCancelButton: true,
+        cancelButtonText: 'Cancel'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          scrollToItem(existingItem.id);
+        }
+      });
+      return;
+    }
     
     const newItem: ConsultationItem = {
       id: Date.now(),
-      title: isNote ? fullTitle : fullTitle,
+      title: fullTitle,
       details: isNote ? customTitle : '',
       isCustom: true,
       consultationTitleId: selectedLevel3?.id || selectedLevel2?.id || selectedLevel1?.id,
       consultationTitleName: selectedLevel3?.title || selectedLevel2?.title || selectedLevel1?.title,
       consultationTitleLevel: selectedLevel3?.level || selectedLevel2?.level || selectedLevel1?.level,
-      sortOrder: items.length
+      sortOrder: 0
     };
     
-    setItems([...items, newItem]);
+    // Update sort orders of existing items and add new item at the top
+    const updatedItems = items.map((item, index) => ({
+      ...item,
+      sortOrder: index + 1
+    }));
+    const finalItems = [newItem, ...updatedItems];
+    setItems(finalItems);
     setCustomTitle('');
     resetSelection();
-    onChange?.(items);
+    onChange?.(finalItems);
   };
 
   const buildFullTitle = () => {
@@ -170,6 +219,14 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
     if (selectedLevel2) parts.push(selectedLevel2.title);
     if (selectedLevel3) parts.push(selectedLevel3.title);
     if (customTitle.trim()) parts.push(customTitle.trim());
+    return parts.join(' > ');
+  };
+
+  const buildDisplayPath = () => {
+    const parts = [];
+    if (selectedLevel1) parts.push(selectedLevel1.title);
+    if (selectedLevel2) parts.push(selectedLevel2.title);
+    if (selectedLevel3) parts.push(selectedLevel3.title);
     return parts.join(' > ');
   };
 
@@ -191,9 +248,25 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
 
   const shouldShowRichText = () => {
     // Show RichText if we have a selected level but no children available
-    if (selectedLevel1 && level2Titles.length === 0 && !selectedLevel2) return true;
-    if (selectedLevel2 && level3Titles.length === 0 && !selectedLevel3) return true;
-    if (selectedLevel3) return true;
+    let shouldShow = false;
+    if (selectedLevel1 && level2Titles.length === 0 && !selectedLevel2) shouldShow = true;
+    if (selectedLevel2 && level3Titles.length === 0 && !selectedLevel3) shouldShow = true;
+    if (selectedLevel3) shouldShow = true;
+    
+    // Don't show if there's already a duplicate title
+    if (shouldShow) {
+      const displayPath = buildDisplayPath();
+      const existingItem = findDuplicateItem(displayPath);
+      if (existingItem) {
+        return false; // Don't show RichText if duplicate exists
+      }
+    }
+    
+    return shouldShow;
+  };
+
+  const shouldShowCustomTitleOption = () => {
+    // This function is no longer used - we go directly to RichText
     return false;
   };
 
@@ -210,10 +283,11 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
   }, [selectedLevel1, selectedLevel2, selectedLevel3, level2Titles.length, level3Titles.length]);
 
   const shouldShowCustomTitleInput = () => {
-    // Show custom title input only when we have children but want to add more
-    if (selectedLevel1 && level2Titles.length > 0 && !selectedLevel2) return false;
-    if (selectedLevel2 && level3Titles.length > 0 && !selectedLevel3) return false;
-    return showCustomInput && canAddCustom() && !shouldShowRichText();
+    // Don't show if we should show RichText (no children case)
+    if (shouldShowRichText()) return false;
+    
+    // Show custom title input when user explicitly wants to add custom and we can add custom
+    return showCustomInput && canAddCustom();
   };
 
 
@@ -424,7 +498,7 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
           dosageInstructions: currentPrescription.dosage || '',
           frequency: currentPrescription.frequency || '',
           durationDays: currentPrescription.duration ? parseInt(currentPrescription.duration) : undefined,
-          unitPrice: undefined, // Will be set by backend from medication price
+          unitPrice: 0, // Will be set by backend from medication price
           notes: currentPrescription.instructions || ''
         }]
       };
@@ -761,27 +835,67 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
             </div>
           )}
 
-          {/* RichText Field - Show when no children available */}
+          {/* Duplicate Title Warning - Show when RichText would show but duplicate exists */}
+          {(() => {
+            // Check if we would show RichText but there's a duplicate
+            let wouldShowRichText = false;
+            if (selectedLevel1 && level2Titles.length === 0 && !selectedLevel2) wouldShowRichText = true;
+            if (selectedLevel2 && level3Titles.length === 0 && !selectedLevel3) wouldShowRichText = true;
+            if (selectedLevel3) wouldShowRichText = true;
+            
+            if (wouldShowRichText) {
+              const displayPath = buildDisplayPath();
+              const existingItem = findDuplicateItem(displayPath);
+              if (existingItem) {
+                return (
+                  <div className="mb-3">
+                    <div className="border rounded p-3 bg-warning-subtle border-warning">
+                      <div className="d-flex align-items-center mb-2">
+                        <i className="bi bi-exclamation-triangle text-warning me-2"></i>
+                        <strong className="text-warning">Item Already Exists</strong>
+                      </div>
+                      <div className="mb-2">
+                        <strong>Selected Path:</strong> {displayPath}
+                      </div>
+                      <div className="text-muted small mb-3">
+                        A consultation item with this title already exists. You can edit the existing item or select a different path.
+                      </div>
+                      <Button 
+                        variant="outline-warning" 
+                        size="sm"
+                        onClick={() => scrollToItem(existingItem.id)}
+                      >
+                        <i className="bi bi-arrow-right me-1"></i>
+                        Go to Existing Item
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+            }
+            return null;
+          })()}
+
+          {/* RichText Field - Show directly when no children available */}
           {shouldShowRichText() && (
             <div className="mb-3">
-              <Form.Label>Add Consultation Note</Form.Label>
               <div className="border rounded p-3 bg-light">
-                <div className="mb-2">
-                  <strong>Selected Path:</strong> {buildFullTitle()}
+                <div className="mb-3">
+                  <strong>Selected Path:</strong> {buildDisplayPath()}
                 </div>
-                <Form.Control
-                  as="textarea"
-                  rows={4}
-                  placeholder="Enter your consultation notes here..."
+                <Form.Label>Add Consultation Note</Form.Label>
+                <RichTextEditor
+                  theme="snow"
                   value={customTitle}
-                  onChange={(e) => setCustomTitle(e.target.value)}
+                  onChange={setCustomTitle}
+                  placeholder="Enter your consultation notes here..."
                 />
                 <div className="mt-2 d-flex justify-content-end">
                   <Button 
                     variant="success" 
                     size="sm"
                     onClick={handleCustomTitleSubmit}
-                    disabled={!customTitle.trim()}
+                    disabled={isReadonly || !customTitle.trim()}
                   >
                     <i className="bi bi-plus me-1"></i>
                     Add Note
@@ -791,30 +905,37 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
             </div>
           )}
 
-          {/* Custom Title Input */}
+          {/* Custom Title Input - Only show when there are children but user wants to add custom */}
           {shouldShowCustomTitleInput() && (
             <div className="mb-3">
-              <Form.Label>Custom Title</Form.Label>
-              <InputGroup>
-                <Form.Control
-                  type="text"
-                  placeholder="Enter custom title..."
-                  value={customTitle}
-                  onChange={e => setCustomTitle(e.target.value)}
-                />
-                <Button 
-                  variant="primary" 
-                  onClick={handleCustomTitleSubmit}
-                  disabled={!customTitle.trim()}
-                >
-                  Add Title
-                </Button>
-              </InputGroup>
-              <Form.Text className="text-muted">
-                Full title: {buildFullTitle()}
-              </Form.Text>
+              <div className="border rounded p-3 bg-light">
+                <div className="mb-3">
+                  <strong>Selected Path:</strong> {buildDisplayPath()}
+                </div>
+                <Form.Label>Add Custom Title</Form.Label>
+                <InputGroup>
+                  <Form.Control
+                    type="text"
+                    placeholder="Enter custom title (will be a sibling to current selection)"
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                  />
+                  <Button 
+                    variant="primary" 
+                    onClick={handleCustomTitleSubmit}
+                    disabled={isReadonly || !customTitle.trim()}
+                  >
+                    Add Custom Title
+                  </Button>
+                </InputGroup>
+                <Form.Text className="text-muted">
+                  This will create a new consultation title at the same level as the current selection.
+                </Form.Text>
+              </div>
             </div>
           )}
+
+          {/* Duplicate section removed */}
 
           {/* Navigation Buttons */}
           <div className="d-flex gap-2">
@@ -861,10 +982,10 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
       </Card>
       {items.length === 0 && <div className="text-muted small mb-2">No consultation items added yet.</div>}
       {items.map((item, idx) => (
-        <div key={item.id} className="border rounded p-2 mb-2 bg-light">
+        <div key={item.id} data-consultation-item-id={item.id} className="border rounded p-2 mb-2 bg-light">
           <div className="d-flex justify-content-between align-items-center mb-1">
             <span className="fw-semibold">{item.title}</span>
-            <Button size="sm" variant="outline-danger" onClick={() => handleRemoveItem(item.id)}>
+            <Button size="sm" variant="outline-danger" onClick={() => handleRemoveItem(item.id)} disabled={isReadonly}>
               Remove
             </Button>
           </div>
@@ -874,6 +995,7 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
             onChange={val => handleDetailsChange(item.id, val)}
             placeholder="Enter details..."
             style={{ background: 'white' }}
+            readOnly={isReadonly}
           />
         </div>
       ))}
@@ -1060,7 +1182,7 @@ export const ConsultationActionsSection: React.FC<ConsultationActionsSectionProp
             await onSubmit(items);
             setSubmitting(false);
           }}
-          disabled={submitting || loading}
+          disabled={isReadonly || submitting || loading}
         >
           {submitting || loading ? 'Submitting...' : 'Submit'}
         </Button>

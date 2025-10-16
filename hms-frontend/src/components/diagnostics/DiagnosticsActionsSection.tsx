@@ -10,11 +10,13 @@ import { useAuth } from '../../hooks/useAuth';
 interface DiagnosticsActionsSectionProps {
   queueItemId?: number;
   patientId?: number;
+  isReadonly?: boolean;
 }
 
 export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps> = ({ 
   queueItemId,
-  patientId
+  patientId,
+  isReadonly = false
 }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -911,6 +913,26 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
                   <h6 className="mb-3">Test Results</h6>
                   {selectedOrderForResults.diagnosticItems.map((item: any, index: number) => {
                     const itemTemplates = templates.filter((template: any) => template.testCatalogId === item.testCatalogId);
+                    
+                    // Get the status to display - check if there are results for this item
+                    const getDisplayStatus = () => {
+                      // Find results for this diagnostic item
+                      const itemResults = results.filter((result: any) => result.diagnosticItemId === item.id);
+                      
+                      if (itemResults.length > 0) {
+                        // If there are results, use the most recent result status
+                        const latestResult = itemResults.sort((a: any, b: any) => 
+                          new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime()
+                        )[0];
+                        return latestResult.status;
+                      }
+                      
+                      // If no results, use the item status
+                      return item.status;
+                    };
+                    
+                    const displayStatus = getDisplayStatus();
+                    
                     return (
                       <Card key={index} className="mb-3">
                         <Card.Body>
@@ -919,8 +941,8 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
                               <h6 className="mb-1">{item.testName}</h6>
                               <small className="text-muted">{item.testType} • {item.department}</small>
                             </div>
-                            <Badge bg={item.status === 'PENDING' ? 'secondary' : item.status === 'IN_PROGRESS' ? 'warning' : item.status === 'COMPLETED' ? 'primary' : item.status === 'VALIDATED' ? 'success' : item.status === 'REJECTED' ? 'danger' : item.status === 'CANCELLED' ? 'dark' : 'secondary'}>
-                              {item.status}
+                            <Badge bg={displayStatus === 'PENDING' ? 'secondary' : displayStatus === 'IN_PROGRESS' ? 'warning' : displayStatus === 'COMPLETED' ? 'primary' : displayStatus === 'VALIDATED' ? 'success' : displayStatus === 'REJECTED' ? 'danger' : displayStatus === 'CANCELLED' ? 'dark' : 'secondary'}>
+                              {displayStatus}
                             </Badge>
                           </div>
                           
@@ -1030,7 +1052,7 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
                             </div>
                           )}
                           
-                          {item.status === 'COMPLETED' && (
+                          {displayStatus === 'COMPLETED' && (
                             <div className="mt-2">
                               <div className="bg-light p-2 rounded">
                                 <small className="text-muted">Results completed - awaiting validation</small>
@@ -1038,7 +1060,7 @@ export const DiagnosticsActionsSection: React.FC<DiagnosticsActionsSectionProps>
                             </div>
                           )}
                           
-                          {item.status === 'VALIDATED' && (
+                          {displayStatus === 'VALIDATED' && (
                             <div className="mt-2">
                               <div className="bg-success bg-opacity-10 p-2 rounded">
                                 <small className="text-success">Results validated and finalized</small>

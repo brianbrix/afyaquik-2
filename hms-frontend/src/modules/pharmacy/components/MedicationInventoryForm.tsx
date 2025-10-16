@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, Row, Col, Alert } from 'react-bootstrap';
 import { Inventory, InventoryRequest, Medication, inventoryApi } from '../../../services/pharmacyApi';
+import { useResolvedPermissions, hasPermission } from '../../../hooks/usePermissions';
 import Swal from 'sweetalert2';
 
 interface MedicationInventoryFormProps {
@@ -18,6 +19,10 @@ export function MedicationInventoryForm({
   onCancel,
   isSubmitting = false
 }: MedicationInventoryFormProps) {
+  const { permissions } = useResolvedPermissions();
+  
+  // Check if user has permission to manage medication costs
+  const canManageCosts = hasPermission(permissions, 'MANAGE_MEDICATION_COSTS');
   const [formData, setFormData] = useState<InventoryRequest & { medicationId?: number }>({
     quantityInStock: 0,
     minimumStockLevel: 0,
@@ -128,7 +133,7 @@ export function MedicationInventoryForm({
       }
     }
 
-    if (!formData.batchNumber.trim()) {
+    if (!formData.batchNumber?.trim()) {
       newErrors.batchNumber = 'Batch number is required';
     } else {
     
@@ -183,7 +188,7 @@ export function MedicationInventoryForm({
               <option value="">Select a medication</option>
               {medications.map(med => (
                 <option key={med.id} value={med.id}>
-                  {med.name} ({med.code})
+                  {med.name} ({med.medicationCode})
                 </option>
               ))}
             </Form.Select>
@@ -278,23 +283,25 @@ export function MedicationInventoryForm({
             </Form.Control.Feedback>
           </Form.Group>
         </Col>
-        <Col md={4}>
-          <Form.Group>
-            <Form.Label>Unit Cost</Form.Label>
-            <Form.Control
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.unitCost || ''}
-              onChange={(e) => handleChange('unitCost', e.target.value ? Number(e.target.value) : undefined)}
-              isInvalid={!!errors.unitCost}
-              placeholder="0.00"
-            />
-            <Form.Control.Feedback type="invalid">
-              {errors.unitCost}
-            </Form.Control.Feedback>
-          </Form.Group>
-        </Col>
+        {canManageCosts && (
+          <Col md={4}>
+            <Form.Group>
+              <Form.Label>Unit Cost</Form.Label>
+              <Form.Control
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.unitCost || ''}
+                onChange={(e) => handleChange('unitCost', e.target.value ? Number(e.target.value) : undefined)}
+                isInvalid={!!errors.unitCost}
+                placeholder="0.00"
+              />
+              <Form.Control.Feedback type="invalid">
+                {errors.unitCost}
+              </Form.Control.Feedback>
+            </Form.Group>
+          </Col>
+        )}
       </Row>
 
       <Row className="mb-3">

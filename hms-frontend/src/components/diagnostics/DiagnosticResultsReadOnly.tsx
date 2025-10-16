@@ -195,6 +195,22 @@ export const DiagnosticResultsReadOnly: React.FC<DiagnosticResultsReadOnlyProps>
         const itemNotes = getNotesForItem(item.id);
         const itemFiles = getFilesForItem(item.id);
 
+        // Get the status to display - check if there are results for this item
+        const getDisplayStatus = () => {
+          if (itemResults.length > 0) {
+            // If there are results, use the most recent result status
+            const latestResult = itemResults.sort((a: any, b: any) => 
+              new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime()
+            )[0];
+            return latestResult.status;
+          }
+          
+          // If no results, use the item status
+          return item.status;
+        };
+        
+        const displayStatus = getDisplayStatus();
+
         return (
           <Card key={item.id} className="mb-4">
             <Card.Header>
@@ -206,8 +222,8 @@ export const DiagnosticResultsReadOnly: React.FC<DiagnosticResultsReadOnlyProps>
                   </small>
                 </div>
                 <div className="d-flex gap-2">
-                  <Badge bg={item.status === 'COMPLETED' ? 'success' : item.status === 'VALIDATED' ? 'primary' : 'warning'}>
-                    {item.status}
+                  <Badge bg={displayStatus === 'COMPLETED' ? 'success' : displayStatus === 'VALIDATED' ? 'primary' : 'warning'}>
+                    {displayStatus}
                   </Badge>
                   {itemNotes.length > 0 && (
                     <Button

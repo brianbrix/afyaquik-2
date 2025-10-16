@@ -31,3 +31,4 @@ ALTER TABLE currencies ADD CONSTRAINT check_decimal_places CHECK (decimal_places
 
 -- Add check constraint for currency code format
 ALTER TABLE currencies ADD CONSTRAINT check_currency_code CHECK (LENGTH(code) = 3 AND code ~ '^[A-Z]{3}$');
+

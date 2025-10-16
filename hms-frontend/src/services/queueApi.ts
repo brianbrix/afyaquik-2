@@ -8,6 +8,16 @@ export async function fetchQueueItemById(queueItemId: number): Promise<QueueItem
   }
 }
 
+// Check if a queue item is in readonly mode
+export async function isQueueItemReadonly(queueItemId: number): Promise<boolean> {
+  try {
+    const response = await apiClient.get(`/queue/${queueItemId}/readonly`);
+    return response.data?.data ?? response.data ?? false;
+  } catch {
+    return false;
+  }
+}
+
 import { apiClient } from "./apiClient";
 import type {
   QueueAssignmentPayload,

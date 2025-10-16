@@ -121,9 +121,7 @@ export function LoginPage() {
                     {isAuthenticating ? "Signing in..." : "Sign in"}
                   </Button>
                 </Form>
-                <p className="text-muted mt-4 mb-0 small">
-                  Tip: use tenant <code>tenantA</code> and username <code>reception</code> to log in with seeded data.
-                </p>
+        
               </Card.Body>
             </Card>
           </Col>

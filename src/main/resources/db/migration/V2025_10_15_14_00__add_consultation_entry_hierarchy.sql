@@ -1,8 +1,14 @@
 -- Add hierarchy columns to consultation_entries table
 ALTER TABLE consultation_entries 
 ADD COLUMN IF NOT EXISTS consultation_title_id BIGINT,
-ADD COLUMN IF NOT EXISTS is_custom BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+
+-- Update existing rows to have default values
+UPDATE consultation_entries SET is_custom = FALSE WHERE is_custom IS NULL;
+
+-- Now make the column NOT NULL
+ALTER TABLE consultation_entries ALTER COLUMN is_custom SET NOT NULL;
 
 -- Add foreign key constraint for consultation_title_id
 ALTER TABLE consultation_entries 

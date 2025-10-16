@@ -2,10 +2,37 @@ import React, { useState, useMemo } from 'react';
 import { Button, Card, Col, Form, InputGroup, Row, Table, Badge, Modal, Alert, Spinner } from 'react-bootstrap';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryApi, medicationApi, Inventory, InventoryRequest, Medication } from '../../../services/pharmacyApi';
+import { useResolvedPermissions, hasPermission } from '../../../hooks/usePermissions';
 import Swal from 'sweetalert2';
 import { MedicationInventoryForm } from '../components/MedicationInventoryForm';
 
 export function MedicationInventoryPage() {
+  const { permissions, loading: permissionsLoading } = useResolvedPermissions();
+  
+  // Check if user has permission to manage medication inventory
+  const canManageInventory = hasPermission(permissions, 'MANAGE_MEDICATION_INVENTORY');
+  
+  // Show loading while permissions are being fetched
+  if (permissionsLoading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
+        <Spinner animation="border" />
+      </div>
+    );
+  }
+  
+  // Restrict access - only users with MANAGE_MEDICATION_INVENTORY permission can access inventory
+  if (!canManageInventory) {
+    return (
+      <div className="container-fluid">
+        <Alert variant="danger" className="mt-4">
+          <Alert.Heading>Access Denied</Alert.Heading>
+          <p>You do not have permission to access medication inventory. Please contact your administrator.</p>
+        </Alert>
+      </div>
+    );
+  }
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingInventory, setEditingInventory] = useState<Inventory | null>(null);

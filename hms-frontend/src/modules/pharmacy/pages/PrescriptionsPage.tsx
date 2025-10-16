@@ -216,12 +216,7 @@ export function PrescriptionsPage() {
         <Col>
           <h2>Prescriptions</h2>
         </Col>
-        <Col xs="auto">
-          <Button variant="primary" onClick={() => setShowForm(true)}>
-            <i className="bi bi-plus me-2"></i>
-            New Prescription
-          </Button>
-        </Col>
+ 
       </Row>
 
       <Card className="mb-4">

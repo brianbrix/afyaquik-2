@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import RichTextEditor from '../shared/RichTextEditor';
 import { Button, Form, Row, Col, InputGroup, Card, Badge, Modal, Table } from 'react-bootstrap';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { medicationApi, prescriptionApi, queuePrescriptionApi, inventoryApi, type Medication } from '../../services/pharmacyApi';
+import { fetchPharmacyActions, bulkUpsertPharmacyActions } from '../../services/pharmacyActionsApi';
 import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 
@@ -39,6 +40,7 @@ interface PharmacyActionsSectionProps {
   loading?: boolean;
   queueItemId?: number; // Add queue item ID for prescription association
   patientId?: number; // Add patient ID for prescription association
+  isReadonly?: boolean;
 }
 
 const PHARMACY_TITLES = [
@@ -72,10 +74,11 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
   onSubmit, 
   loading,
   queueItemId,
-  patientId
+  patientId,
+  isReadonly = false
 }) => {
   const { user } = useAuth();
-  const [items, setItems] = useState<PharmacyItem[]>(initialItems);
+  const [items, setItems] = useState<PharmacyItem[]>([]);
   const [customTitle, setCustomTitle] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<PharmacyItem['category']>('medication');
   const [submitting, setSubmitting] = useState(false);
@@ -85,6 +88,17 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
   const [selectedPrescriptions, setSelectedPrescriptions] = useState<number[]>([]);
   const [showDispenseModal, setShowDispenseModal] = useState(false);
   const [dispenseQuantities, setDispenseQuantities] = useState<Record<number, number>>({});
+  
+  // Prescription creation state
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [newPrescription, setNewPrescription] = useState({
+    medicationId: 0,
+    dosage: '',
+    frequency: '',
+    duration: '',
+    instructions: '',
+    quantity: 1
+  });
   
   // Fetch medications for prescription
   const { data: medications = [], isLoading: medicationsLoading } = useQuery({
@@ -97,6 +111,24 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
     queryKey: ['queue-prescriptions', queueItemId],
     queryFn: () => queuePrescriptionApi.getByQueueItem(queueItemId!),
     enabled: !!queueItemId,
+  });
+
+  // Fetch existing pharmacy actions for this queue item (for initial load only)
+  const { data: existingPharmacyActions = [], isLoading: pharmacyActionsLoading } = useQuery({
+    queryKey: ['pharmacy-actions', queueItemId],
+    queryFn: () => fetchPharmacyActions(queueItemId!),
+    enabled: !!queueItemId,
+  });
+
+  const queryClient = useQueryClient();
+
+  // Only bulk upsert mutation is needed for saving all items at once
+
+  const bulkUpsertMutation = useMutation({
+    mutationFn: (actions: any[]) => bulkUpsertPharmacyActions(queueItemId!, actions),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pharmacy-actions', queueItemId] });
+    }
   });
 
   // Transform existing prescriptions to the format expected by the component
@@ -129,17 +161,44 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
     }
   }, [existingPrescriptions]);
 
-  // Sync items state with initialItems prop
+  // Load existing pharmacy actions only once on mount
   React.useEffect(() => {
-    setItems(initialItems);
-  }, [initialItems]);
+    if (existingPharmacyActions && existingPharmacyActions.length > 0 && items.length === 0) {
+      const transformedActions: PharmacyItem[] = existingPharmacyActions.map((action: any) => ({
+        id: action.id,
+        title: action.title,
+        details: action.details,
+        isCustom: action.isCustom || false,
+        category: action.category as PharmacyItem['category']
+      }));
+      setItems(transformedActions);
+    }
+  }, [existingPharmacyActions]); // Only run when existingPharmacyActions changes
+
+  // Note: Pharmacy actions are now managed locally like Triage
+  // They are only saved to backend when user clicks "Submit Pharmacy Actions"
+  // This allows users to add/edit/remove items before committing to backend
 
   const handleAddItem = (title: string, category: PharmacyItem['category'] = 'medication', isCustom = false) => {
     if (!title.trim()) return;
     
+    // Check for duplicate titles
+    const trimmedTitle = title.trim();
+    const existingTitles = items.map(item => item.title.toLowerCase());
+    
+    if (existingTitles.includes(trimmedTitle.toLowerCase())) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Duplicate Title',
+        text: `A pharmacy action with the title "${trimmedTitle}" already exists. Please choose a different title.`,
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+    
     const newItem: PharmacyItem = {
       id: Date.now() + Math.random(),
-      title,
+      title: trimmedTitle,
       details: '',
       isCustom,
       category
@@ -276,6 +335,66 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
     }
   };
 
+  const handleCreatePrescription = async () => {
+    if (!newPrescription.medicationId || !queueItemId || !patientId) {
+      Swal.fire('Error', 'Please select a medication and ensure patient and queue item are available', 'error');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      const prescriptionData = {
+        prescriptionNumber: `PRES-${Date.now()}`,
+        patientId,
+        prescribedById: user?.id || 1,
+        prescriptionDate: new Date().toISOString(),
+        notes: newPrescription.instructions,
+        items: [{
+          medicationId: newPrescription.medicationId,
+          dosageInstructions: newPrescription.dosage,
+          frequency: newPrescription.frequency,
+          durationDays: parseInt(newPrescription.duration) || 0,
+          notes: newPrescription.instructions,
+          quantityPrescribed: newPrescription.quantity
+        }]
+      };
+
+      await prescriptionApi.create(prescriptionData);
+      
+      // Reset form
+      setNewPrescription({
+        medicationId: 0,
+        dosage: '',
+        frequency: '',
+        duration: '',
+        instructions: '',
+        quantity: 1
+      });
+      setShowPrescriptionModal(false);
+      
+      // Refetch prescriptions
+      refetchPrescriptions();
+      
+      Swal.fire('Success', 'Prescription created successfully', 'success');
+    } catch (error: any) {
+      console.error('Failed to create prescription:', error);
+      
+      let errorMessage = 'Failed to create prescription';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.map((err: any) => err.message || err).join(', ');
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Swal.fire('Error', errorMessage, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDING': return 'warning';
@@ -317,19 +436,28 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
         <Card className="mb-3">
           <Card.Header className="d-flex justify-content-between align-items-center">
             <h6 className="mb-0">Prescriptions</h6>
-            {prescriptions.length > 0 && (
-              <div className="d-flex gap-2">
+            <div className="d-flex gap-2">
+              <Button 
+                size="sm" 
+                variant="success"
+                onClick={() => setShowPrescriptionModal(true)}
+                disabled={isReadonly || !queueItemId || !patientId}
+              >
+                <i className="bi bi-plus-circle me-1"></i>
+                Create Prescription
+              </Button>
+              {prescriptions.length > 0 && (
                 <Button 
                   size="sm" 
                   variant="outline-primary"
                   onClick={() => setShowDispenseModal(true)}
-                  disabled={selectedPrescriptions.length === 0}
+                  disabled={isReadonly || selectedPrescriptions.length === 0}
                 >
                   <i className="bi bi-check-square me-1"></i>
                   Dispense Selected ({selectedPrescriptions.length})
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </Card.Header>
           <Card.Body>
             {prescriptionsLoading ? (
@@ -485,7 +613,7 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
           <Button 
             variant="outline-secondary" 
             onClick={() => handleAddItem(customTitle, selectedCategory, true)}
-            disabled={!customTitle.trim() || submitting || loading}
+            disabled={isReadonly || !customTitle.trim() || submitting || loading}
           >
             Add
           </Button>
@@ -512,7 +640,7 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
                     variant="outline-danger"
                     size="sm"
                     onClick={() => handleRemoveItem(item.id)}
-                    disabled={submitting || loading}
+                    disabled={isReadonly || submitting || loading}
                   >
                     <i className="bi bi-trash"></i>
                   </Button>
@@ -523,6 +651,7 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
                   placeholder="Add details..."
                   theme="snow"
                   style={{ background: 'white' }}
+                  readOnly={isReadonly}
                 />
               </Card.Body>
             </Card>
@@ -534,14 +663,29 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
         <Button
           variant="success"
           onClick={async () => {
+            if (!queueItemId) {
+              Swal.fire('Error', 'Queue item ID is required to save pharmacy actions', 'error');
+              return;
+            }
+
             setSubmitting(true);
             try {
-              // Pharmacy actions are handled internally (prescriptions, dispensing, etc.)
-              // The action items are just for tracking what was done
               if (items.length > 0) {
+                // Save all pharmacy actions to backend
+                const actionsToSave = items.map((item, index) => ({
+                  id: item.id, // Include ID for existing items
+                  title: item.title,
+                  details: item.details,
+                  category: item.category,
+                  isCustom: item.isCustom,
+                  sortOrder: index
+                }));
+
+                await bulkUpsertMutation.mutateAsync(actionsToSave);
+                
                 Swal.fire({
-                  title: 'Pharmacy Actions Completed',
-                  text: `${items.length} pharmacy action(s) have been recorded. All prescriptions and dispensing operations have been processed.`,
+                  title: 'Pharmacy Actions Saved',
+                  text: `${items.length} pharmacy action(s) have been saved successfully.`,
                   icon: 'success',
                   confirmButtonText: 'OK'
                 });
@@ -560,15 +704,121 @@ export const PharmacyActionsSection: React.FC<PharmacyActionsSectionProps> = ({
               
               // Call the parent onSubmit if provided
               await onSubmit?.(items);
+            } catch (error) {
+              console.error('Failed to save pharmacy actions:', error);
+              Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to save pharmacy actions. Please try again.'
+              });
             } finally {
               setSubmitting(false);
             }
           }}
-          disabled={submitting || loading}
+          disabled={isReadonly || submitting || loading}
         >
           {submitting || loading ? 'Submitting...' : 'Submit Pharmacy Actions'}
         </Button>
       </div>
+
+      {/* Create Prescription Modal */}
+      <Modal show={showPrescriptionModal} onHide={() => setShowPrescriptionModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Create New Prescription</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Label>Medication *</Form.Label>
+                <Form.Select
+                  value={newPrescription.medicationId}
+                  onChange={(e) => setNewPrescription(prev => ({ ...prev, medicationId: parseInt(e.target.value) }))}
+                  required
+                >
+                  <option value={0}>Select medication...</option>
+                  {medications.map(med => (
+                    <option key={med.id} value={med.id}>
+                      {med.name} - {med.dosageForm || 'N/A'}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+              <Col md={6}>
+                <Form.Label>Quantity *</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="1"
+                  value={newPrescription.quantity}
+                  onChange={(e) => setNewPrescription(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                  required
+                />
+              </Col>
+            </Row>
+            
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Label>Dosage *</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="e.g., 500mg, 2 tablets"
+                  value={newPrescription.dosage}
+                  onChange={(e) => setNewPrescription(prev => ({ ...prev, dosage: e.target.value }))}
+                  required
+                />
+              </Col>
+              <Col md={6}>
+                <Form.Label>Frequency *</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="e.g., Twice daily, Every 8 hours"
+                  value={newPrescription.frequency}
+                  onChange={(e) => setNewPrescription(prev => ({ ...prev, frequency: e.target.value }))}
+                  required
+                />
+              </Col>
+            </Row>
+            
+            <Row className="mb-3">
+              <Col md={6}>
+                <Form.Label>Duration (days) *</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="1"
+                  placeholder="e.g., 7"
+                  value={newPrescription.duration}
+                  onChange={(e) => setNewPrescription(prev => ({ ...prev, duration: e.target.value }))}
+                  required
+                />
+              </Col>
+            </Row>
+            
+            <Form.Group className="mb-3">
+              <Form.Label>Instructions</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Additional instructions for the patient..."
+                value={newPrescription.instructions}
+                onChange={(e) => setNewPrescription(prev => ({ ...prev, instructions: e.target.value }))}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowPrescriptionModal(false)}>
+            Cancel
+          </Button>
+          <Button 
+            variant="success" 
+            onClick={handleCreatePrescription}
+            disabled={submitting || !newPrescription.medicationId || !newPrescription.dosage || !newPrescription.frequency || !newPrescription.duration}
+          >
+            <i className="bi bi-plus-circle me-1"></i>
+            Create Prescription
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Dispense Modal */}
       <Modal show={showDispenseModal} onHide={() => setShowDispenseModal(false)} size="lg">

@@ -15,6 +15,7 @@ interface BillingActionsSectionProps {
   queueItemId: number;
   patientId: number;
   patientName?: string;
+  isReadonly?: boolean;
 }
 
 interface Bill {
@@ -95,11 +96,11 @@ interface BillingItem {
 }
 
 
-export function BillingActionsSection({ queueItemId, patientId, patientName }: BillingActionsSectionProps) {
+export function BillingActionsSection({ queueItemId, patientId, patientName, isReadonly = false }: BillingActionsSectionProps) {
   const { formatCurrency } = useCurrency();
   const [showCreateBill, setShowCreateBill] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  // Discount functionality removed as per requirements
   const [showPaymentManagementModal, setShowPaymentManagementModal] = useState(false);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [showEditItemModal, setShowEditItemModal] = useState(false);
@@ -112,7 +113,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
     description: '',
     quantity: 1,
     unitPrice: 0,
-    category: 'CONSULTATION'
+    category: 'DIAGNOSTICS' // Default to Diagnostics category for test prices
   });
   const [editBillItem, setEditBillItem] = useState({
     description: '',
@@ -122,7 +123,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
     notes: ''
   });
   const [selectedBillingItem, setSelectedBillingItem] = useState<BillingItem | null>(null);
-  const [isCustomItem, setIsCustomItem] = useState(false);
+  // Custom item creation removed - only predefined items allowed
   const [newPayment, setNewPayment] = useState({
     amount: 0,
     paymentMethodId: 0,
@@ -130,11 +131,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
     notes: '',
     paymentDate: new Date().toISOString().split('T')[0] // Default to today
   });
-  const [newDiscount, setNewDiscount] = useState({
-    description: '',
-    type: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED',
-    value: 0
-  });
+  // Discount state removed as per requirements
 
   // Print refs
   const invoicePrintRef = useRef<HTMLDivElement>(null);
@@ -278,22 +275,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
     }
   });
 
-  // Add discount mutation
-  const addDiscountMutation = useMutation({
-    mutationFn: async ({ billId, discount }: { billId: number; discount: any }) => {
-      const res = await apiClient.post(`/billing/bills/${billId}/discounts`, discount);
-      return res.data?.data ?? res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bills', queueItemId] });
-      setShowDiscountModal(false);
-      setNewDiscount({ description: '', type: 'PERCENTAGE', value: 0 });
-      Swal.fire({ icon: 'success', title: 'Discount applied', timer: 1500, showConfirmButton: false });
-    },
-    onError: (error: any) => {
-      Swal.fire({ icon: 'error', title: 'Error', text: error?.message || 'Failed to apply discount' });
-    }
-  });
+  // Discount mutation removed as per requirements
 
   const handleCreateBill = async () => {
     if (!newBillItem.description.trim()) {
@@ -625,46 +607,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
                   </div>
                 )}
 
-                {bill.discounts && Array.isArray(bill.discounts) && bill.discounts.length > 0 && (
-                  <div className="mb-3">
-                    <h6>Discounts Applied</h6>
-                    <Table size="sm">
-                      <thead>
-                        <tr>
-                          <th>Description</th>
-                          <th>Type</th>
-                          <th>Value</th>
-                          <th>Amount</th>
-                          <th>Applied By</th>
-                          <th>Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bill.discounts.map(discount => (
-                          <tr key={discount.id}>
-                            <td>{discount.description}</td>
-                            <td>
-                              <Badge bg="info">
-                                {discount.type === 'PERCENTAGE' ? 'Percentage' : 'Fixed Amount'}
-                              </Badge>
-                            </td>
-                            <td>
-                              {discount.type === 'PERCENTAGE' 
-                                ? `${discount.value}%` 
-                                : formatCurrency(discount.value)
-                              }
-                            </td>
-                            <td className="text-success">
-                              -{formatCurrency(discount.amount || 0)}
-                            </td>
-                            <td>{discount.appliedBy}</td>
-                            <td>{new Date(discount.appliedAt).toLocaleDateString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  </div>
-                )}
+                {/* Discount functionality removed as per requirements */}
 
                 <div className="d-flex gap-2 flex-wrap">
                   {bill.status !== 'PAID' && bill.status !== 'CANCELLED' && (
@@ -673,7 +616,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
                       variant="outline-primary"
                       onClick={() => {
                         setSelectedBill(bill);
-                        setNewBillItem({ description: '', quantity: 1, unitPrice: 0, category: 'CONSULTATION' });
+                        setNewBillItem({ description: '', quantity: 1, unitPrice: 0, category: 'DIAGNOSTICS' });
                         setShowAddItemModal(true);
                       }}
                     >
@@ -723,20 +666,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
                       Cancel Bill
                     </Button>
                   )}
-                  {bill.status !== 'PAID' && bill.status !== 'CANCELLED' && (
-                    <Button 
-                      size="sm" 
-                      variant="outline-warning"
-                      onClick={() => {
-                        setSelectedBill(bill);
-                        setNewDiscount({ description: '', type: 'PERCENTAGE', value: 0 });
-                        setShowDiscountModal(true);
-                      }}
-                    >
-                      <i className="bi bi-percent me-1"></i>
-                      Apply Discount
-                    </Button>
-                  )}
+                  {/* Discount button removed as per requirements */}
                   {bill.status === 'PENDING' && (
                     <>
                       <Button 
@@ -773,7 +703,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
       <Modal show={showCreateBill} onHide={() => {
         setShowCreateBill(false);
         setSelectedBillingItem(null);
-        setIsCustomItem(false);
+        // Custom item state removed
         setNewBillItem({ description: '', quantity: 1, unitPrice: 0, category: 'CONSULTATION' });
       }} size="lg">
         <Modal.Header closeButton>
@@ -789,80 +719,38 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
           </Form.Group>
 
           <div className="mb-3">
-            <Form.Check
-              type="radio"
-              id="select-existing-bill"
-              name="billItemType"
-              label="Select from existing billing items"
-              checked={!isCustomItem}
-              onChange={() => setIsCustomItem(false)}
-            />
-            <Form.Check
-              type="radio"
-              id="create-custom-bill"
-              name="billItemType"
-              label="Create custom item"
-              checked={isCustomItem}
-              onChange={() => setIsCustomItem(true)}
-            />
+            <Form.Group className="mb-3">
+              <Form.Label>Select Billing Item</Form.Label>
+              <Form.Select
+                value={selectedBillingItem?.id || ''}
+                onChange={(e) => {
+                  const itemId = Number(e.target.value);
+                  const item = billingItems.find(i => i.id === itemId);
+                  setSelectedBillingItem(item || null);
+                  if (item) {
+                    setNewBillItem({
+                      ...newBillItem,
+                      description: item.description,
+                      unitPrice: item.unitPrice,
+                      category: item.serviceCategory
+                    });
+                  }
+                }}
+              >
+                <option value="">Select a billing item</option>
+                {billingItems.map(item => (
+                  <option key={item.id} value={item.id}>
+                    {item.itemCode} - {item.description} ({formatCurrency(item.unitPrice)})
+                  </option>
+                ))}
+              </Form.Select>
+              <Form.Text className="text-muted">
+                Only predefined billing items can be added. Contact administrator to add new items.
+              </Form.Text>
+            </Form.Group>
           </div>
 
-          {!isCustomItem ? (
-            <div>
-              <Form.Group className="mb-3">
-                <Form.Label>Select Billing Item</Form.Label>
-                <Form.Select
-                  value={selectedBillingItem?.id || ''}
-                  onChange={(e) => {
-                    const itemId = Number(e.target.value);
-                    const item = billingItems.find(i => i.id === itemId);
-                    setSelectedBillingItem(item || null);
-                    if (item) {
-                      setNewBillItem({
-                        ...newBillItem,
-                        description: item.description,
-                        unitPrice: item.unitPrice,
-                        category: item.serviceCategory
-                      });
-                    }
-                  }}
-                >
-                  <option value="">Select a billing item</option>
-                  {billingItems.map(item => (
-                    <option key={item.id} value={item.id}>
-                      {item.itemCode} - {item.description} ({formatCurrency(item.unitPrice)})
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-            </div>
-          ) : (
-            <div>
-              <Form.Group className="mb-3">
-                <Form.Label>Item Description *</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={newBillItem.description}
-                  onChange={(e) => setNewBillItem({ ...newBillItem, description: e.target.value })}
-                  placeholder="Enter item description"
-                  required
-                />
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label>Category</Form.Label>
-                <Form.Select
-                  value={newBillItem.category}
-                  onChange={(e) => setNewBillItem({ ...newBillItem, category: e.target.value })}
-                >
-                  {billingCategories.map((category: any) => (
-                    <option key={category.id} value={category.categoryName}>
-                      {category.categoryName}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-            </div>
-          )}
+          {/* Custom item creation removed - only predefined items allowed */}
 
           <Row>
             <Col md={4}>
@@ -908,7 +796,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
           <Button variant="secondary" onClick={() => {
             setShowCreateBill(false);
             setSelectedBillingItem(null);
-            setIsCustomItem(false);
+            // Custom item state removed
             setNewBillItem({ description: '', quantity: 1, unitPrice: 0, category: 'CONSULTATION' });
           }}>
             Cancel
@@ -934,80 +822,34 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
               </div>
               <div className="modal-body">
                 <div className="mb-3">
-                  <Form.Check
-                    type="radio"
-                    id="select-existing"
-                    name="itemType"
-                    label="Select from existing billing items"
-                    checked={!isCustomItem}
-                    onChange={() => setIsCustomItem(false)}
-                  />
-                  <Form.Check
-                    type="radio"
-                    id="create-custom"
-                    name="itemType"
-                    label="Create custom item"
-                    checked={isCustomItem}
-                    onChange={() => setIsCustomItem(true)}
-                  />
+                  <Form.Label>Select Billing Item</Form.Label>
+                  <Form.Select
+                    value={selectedBillingItem?.id || ''}
+                    onChange={(e) => {
+                      const itemId = Number(e.target.value);
+                      const item = billingItems.find(i => i.id === itemId);
+                      setSelectedBillingItem(item || null);
+                      if (item) {
+                        setNewBillItem({
+                          ...newBillItem,
+                          description: item.description,
+                          unitPrice: item.unitPrice,
+                          category: item.serviceCategory
+                        });
+                      }
+                    }}
+                  >
+                    <option value="">Select a billing item</option>
+                    {billingItems.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.itemCode} - {item.description} ({formatCurrency(item.unitPrice)})
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Text className="text-muted">
+                    Only predefined billing items can be added. Contact administrator to add new items.
+                  </Form.Text>
                 </div>
-
-                {!isCustomItem ? (
-                  <div>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Select Billing Item</Form.Label>
-                      <Form.Select
-                        value={selectedBillingItem?.id || ''}
-                        onChange={(e) => {
-                          const itemId = Number(e.target.value);
-                          const item = billingItems.find(i => i.id === itemId);
-                          setSelectedBillingItem(item || null);
-                          if (item) {
-                            setNewBillItem({
-                              ...newBillItem,
-                              description: item.description,
-                              unitPrice: item.unitPrice,
-                              category: item.serviceCategory
-                            });
-                          }
-                        }}
-                      >
-                        <option value="">Select a billing item</option>
-                        {billingItems.map(item => (
-                          <option key={item.id} value={item.id}>
-                            {item.itemCode} - {item.description} ({formatCurrency(item.unitPrice)})
-                          </option>
-                        ))}
-                      </Form.Select>
-                    </Form.Group>
-                  </div>
-                ) : (
-                  <div>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Description *</Form.Label>
-                      <Form.Control
-                        type="text"
-                        value={newBillItem.description}
-                        onChange={(e) => setNewBillItem({ ...newBillItem, description: e.target.value })}
-                        placeholder="Enter item description"
-                        required
-                      />
-                    </Form.Group>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Category</Form.Label>
-                      <Form.Select
-                        value={newBillItem.category}
-                        onChange={(e) => setNewBillItem({ ...newBillItem, category: e.target.value })}
-                      >
-                        {billingCategories.map((category: any) => (
-                          <option key={category.id} value={category.categoryName}>
-                            {category.categoryName}
-                          </option>
-                        ))}
-                      </Form.Select>
-                    </Form.Group>
-                  </div>
-                )}
 
                 <Row>
                   <Col md={4}>
@@ -1129,79 +971,7 @@ export function BillingActionsSection({ queueItemId, patientId, patientName }: B
         </div>
       )}
 
-      {/* Apply Discount Modal */}
-      {showDiscountModal && selectedBill && (
-        <div className="modal d-block" style={{ background: 'rgba(0,0,0,0.4)' }}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Apply Discount to Bill #{selectedBill.billNumber}</h5>
-                <button type="button" className="btn-close" onClick={() => setShowDiscountModal(false)} />
-              </div>
-              <div className="modal-body">
-                <Form onSubmit={(e) => {
-                  e.preventDefault();
-                  addDiscountMutation.mutate({
-                    billId: selectedBill.id,
-                    discount: {
-                      description: newDiscount.description,
-                      type: newDiscount.type,
-                      discountValue: newDiscount.value
-                    }
-                  });
-                }}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Description</Form.Label>
-                    <Form.Control
-                      value={newDiscount.description}
-                      onChange={(e) => setNewDiscount({ ...newDiscount, description: e.target.value })}
-                      placeholder="e.g., Senior citizen discount"
-                      required
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Discount Type</Form.Label>
-                    <Form.Select
-                      value={newDiscount.type}
-                      onChange={(e) => setNewDiscount({ ...newDiscount, type: e.target.value as 'PERCENTAGE' | 'FIXED' })}
-                    >
-                      <option value="PERCENTAGE">Percentage</option>
-                      <option value="FIXED">Fixed Amount</option>
-                    </Form.Select>
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      {newDiscount.type === 'PERCENTAGE' ? 'Percentage (%)' : 'Amount ($)'}
-                    </Form.Label>
-                    <Form.Control
-                      type="number"
-                      value={newDiscount.value}
-                      onChange={(e) => setNewDiscount({ ...newDiscount, value: Number(e.target.value) })}
-                      min="0"
-                      max={newDiscount.type === 'PERCENTAGE' ? 100 : selectedBill.subtotalAmount}
-                      step={newDiscount.type === 'PERCENTAGE' ? 1 : 0.01}
-                      required
-                    />
-                    {newDiscount.type === 'PERCENTAGE' && newDiscount.value > 0 && (
-                      <small className="text-muted">
-                        Discount amount: {formatCurrency((selectedBill.subtotalAmount || 0) * (newDiscount.value || 0) / 100)}
-                      </small>
-                    )}
-                  </Form.Group>
-                  <div className="d-flex gap-2">
-                    <Button type="button" variant="secondary" onClick={() => setShowDiscountModal(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" variant="warning" disabled={addDiscountMutation.isPending}>
-                      {addDiscountMutation.isPending ? <Spinner animation="border" size="sm" /> : 'Apply Discount'}
-                    </Button>
-                  </div>
-                </Form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Discount modal removed as per requirements */}
 
       {/* Invoice Modal */}
       {selectedBill && (

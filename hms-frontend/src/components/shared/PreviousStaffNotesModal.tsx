@@ -25,6 +25,11 @@ interface ConsultationEntry {
   details: string;
   createdAt: string;
   createdBy: string;
+  consultationTitleId?: number;
+  consultationTitleName?: string;
+  consultationTitleLevel?: number;
+  isCustom?: boolean;
+  sortOrder?: number;
 }
 
 interface PrescriptionEntry {
@@ -266,6 +271,107 @@ export const PreviousStaffNotesModal: React.FC<PreviousStaffNotesModalProps> = (
     );
   };
 
+  const renderConsultationEntriesHierarchically = (entries: ConsultationEntry[]) => {
+    if (loading) {
+      return (
+        <div className="text-center py-4">
+          <Spinner animation="border" size="sm" />
+          <div className="mt-2">Loading consultation notes...</div>
+        </div>
+      );
+    }
+
+    if (entries.length === 0) {
+      return (
+        <div className="text-muted text-center py-4">
+          <i className="bi bi-clipboard-x me-2"></i>
+          No consultation notes found
+        </div>
+      );
+    }
+
+    // Group entries by consultation title hierarchy
+    const groupedEntries = entries.reduce((groups, entry) => {
+      const key = entry.consultationTitleId || 'custom';
+      if (!groups[key]) {
+        groups[key] = {
+          title: entry.consultationTitleName || 'Custom Notes',
+          level: entry.consultationTitleLevel || 0,
+          entries: []
+        };
+      }
+      groups[key].entries.push(entry);
+      return groups;
+    }, {} as Record<string, { title: string; level: number; entries: ConsultationEntry[] }>);
+
+    // Sort groups by level and title
+    const sortedGroups = Object.values(groupedEntries).sort((a, b) => {
+      if (a.level !== b.level) return a.level - b.level;
+      return a.title.localeCompare(b.title);
+    });
+
+    return (
+      <div className="space-y-4">
+        {sortedGroups.map((group, groupIndex) => (
+          <div key={groupIndex} className="consultation-group">
+            <div className="d-flex align-items-center mb-3">
+              <div className="flex-grow-1">
+                <h6 className="mb-1 text-primary">
+                  <i className={`bi bi-${group.level === 1 ? 'folder' : group.level === 2 ? 'folder2' : 'folder2-open'} me-2`}></i>
+                  {group.title}
+                </h6>
+                <small className="text-muted">
+                  Level {group.level} • {group.entries.length} {group.entries.length === 1 ? 'entry' : 'entries'}
+                </small>
+              </div>
+            </div>
+            
+            <div className="ms-4">
+              {group.entries
+                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                .map((entry, entryIndex) => (
+                <Card key={entry.id} className="mb-3 border-start border-primary border-3">
+                  <Card.Header className="py-2 d-flex justify-content-between align-items-center bg-light">
+                    <div>
+                      <Badge bg="primary" className="me-2">Consultation</Badge>
+                      <strong>{entry.title}</strong>
+                      {entry.isCustom && (
+                        <Badge bg="secondary" className="ms-2">Custom</Badge>
+                      )}
+                    </div>
+                    <small className="text-muted">
+                      {formatDate(entry.createdAt)}
+                    </small>
+                  </Card.Header>
+                  <Card.Body className="py-3">
+                    <div 
+                      className="previous-notes-content"
+                      dangerouslySetInnerHTML={{ __html: entry.details }}
+                      style={{
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        border: '1px solid #e9ecef',
+                        borderRadius: '4px',
+                        padding: '8px',
+                        backgroundColor: '#f8f9fa'
+                      }}
+                    />
+                    <div className="mt-2">
+                      <small className="text-muted">
+                        <i className="bi bi-person me-1"></i>
+                        Created by: {entry.createdBy}
+                      </small>
+                    </div>
+                  </Card.Body>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
       <style>{`
@@ -367,7 +473,7 @@ export const PreviousStaffNotesModal: React.FC<PreviousStaffNotesModalProps> = (
                   Medical consultation and treatment decisions made by healthcare providers.
                 </p>
               </div>
-              {renderEntries(consultationEntries, 'Consultation')}
+              {renderConsultationEntriesHierarchically(consultationEntries)}
             </div>
           </Tab>
           

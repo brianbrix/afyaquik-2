@@ -16,11 +16,22 @@ public class BulkConsultationEntryRequest {
         private Long id;
         private String title;
         private String details;
+        private Long consultationTitleId;
+        private Integer sortOrder;
+        
         public Long getId() { return id; }
         public void setId(Long id) { this.id = id; }
+        
         public String getTitle() { return title; }
         public void setTitle(String title) { this.title = title; }
+        
         public String getDetails() { return details; }
         public void setDetails(String details) { this.details = details; }
+        
+        public Long getConsultationTitleId() { return consultationTitleId; }
+        public void setConsultationTitleId(Long consultationTitleId) { this.consultationTitleId = consultationTitleId; }
+        
+        public Integer getSortOrder() { return sortOrder; }
+        public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
     }
 }

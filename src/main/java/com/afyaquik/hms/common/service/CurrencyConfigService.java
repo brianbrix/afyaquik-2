@@ -92,3 +92,4 @@ public class CurrencyConfigService {
         return (symbol != null ? symbol : "$") + String.format(pattern, amount);
     }
 }
+

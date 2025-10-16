@@ -55,3 +55,4 @@ export const currencyApi = {
   setDefaultCurrency: (id: number) =>
     apiClient.post<ApiEnvelope<Currency>>(`/admin/currencies/${id}/set-default`).then(res => res.data.data)
 };
+

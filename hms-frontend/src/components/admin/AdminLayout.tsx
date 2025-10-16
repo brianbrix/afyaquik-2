@@ -140,6 +140,10 @@ export const AdminLayout: React.FC = () => {
               Inventory Management
             </h6>
             <div className="d-flex flex-column gap-1">
+              <NavLink to="medications" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-capsule me-2"></i>
+                Medications
+              </NavLink>
               <NavLink to="inventory" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
                 <i className="bi bi-boxes me-2"></i>
                 Inventory Items

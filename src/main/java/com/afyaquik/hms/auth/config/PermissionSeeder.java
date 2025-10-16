@@ -91,7 +91,8 @@ public class PermissionSeeder {
                 new Permission("VIEW_ANALYTICS", "View analytics"),
                 new Permission("VIEW_AUDIT_LOGS", "View audit logs"),
                 new Permission("VIEW_ADMIN_SETTINGS", "View admin settings"),
-                new Permission("MANAGE_ADMIN_SETTINGS", "Manage admin settings")
+                new Permission("MANAGE_ADMIN_SETTINGS", "Manage admin settings"),
+                new Permission("MANAGE_MEDICATIONS", "Manage medications")
             );
             for (Permission p : permissions) {
                 p.setTenantId("clinic-a");

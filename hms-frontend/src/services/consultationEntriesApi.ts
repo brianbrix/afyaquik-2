@@ -25,6 +25,11 @@ export interface ConsultationEntryDto {
   details: string;
   createdBy?: string;
   createdAt?: string;
+  consultationTitleId?: number;
+  consultationTitleName?: string;
+  consultationTitleLevel?: number;
+  isCustom?: boolean;
+  sortOrder?: number;
 }
 
 export interface ConsultationEntryRequest {

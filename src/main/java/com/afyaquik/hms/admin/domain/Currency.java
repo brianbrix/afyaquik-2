@@ -89,3 +89,4 @@ public class Currency extends BaseEntity {
         this.isActive = isActive;
     }
 }
+
