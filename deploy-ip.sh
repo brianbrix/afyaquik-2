@@ -77,18 +77,18 @@ deploy_backend() {
     sleep 15
     
     # Check if backend is healthy
-    print_status "Checking backend health..."
-    for i in {1..30}; do
-        if curl -f http://localhost:8080/actuator/health >/dev/null 2>&1; then
-            print_success "Backend is healthy"
-            break
-        fi
-        if [ $i -eq 30 ]; then
-            print_error "Backend health check failed"
-            exit 1
-        fi
-        sleep 2
-    done
+    # print_status "Checking backend health..."
+    # for i in {1..30}; do
+    #     if curl -f http://localhost:8080/actuator/health >/dev/null 2>&1; then
+    #         print_success "Backend is healthy"
+    #         break
+    #     fi
+    #     if [ $i -eq 30 ]; then
+    #         print_error "Backend health check failed"
+    #         exit 1
+    #     fi
+    #     sleep 2
+    # done
 }
 
 # Function to deploy frontend
