@@ -1,77 +1,85 @@
 import React, { useState } from 'react';
-import { Container, Row, Col, Card, Button, Form, Alert } from 'react-bootstrap';
-import { reportsApi, ReportRequest, ReportResponse } from '../../../services/reportsApi';
-import { ReportGenerator } from '../components/ReportGenerator';
-import { ReportViewer } from '../components/ReportViewer';
-import { ReportFilters } from '../components/ReportFilters';
+import { Container, Row, Col, Card, Button, Alert, Spinner } from 'react-bootstrap';
+import { useQuery } from '@tanstack/react-query';
+import { reportsApi } from '../../../services/reportsApi';
 import { ReportTypes } from '../components/ReportTypes';
+import { ReportFilters } from '../components/ReportFilters';
+import { ReportViewer } from '../components/ReportViewer';
 
-export function ReportsPage() {
+export function ReportsDashboard() {
   const [selectedReportType, setSelectedReportType] = useState<string>('');
-  const [reportRequest, setReportRequest] = useState<ReportRequest>({
+  const [reportRequest, setReportRequest] = useState({
     reportType: '',
     format: 'JSON',
     includeCharts: true
   });
-  const [generatedReport, setGeneratedReport] = useState<ReportResponse | null>(null);
+  const [generatedReport, setGeneratedReport] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Use default report types directly - no API call needed
-  const reportTypes = [
-    'PATIENT', 'FINANCIAL', 'OPERATIONAL', 'SYSTEM', 
-    'BILLING', 'QUEUE', 'USER_ACTIVITY', 'DEPARTMENT'
-  ];
+  // Fetch dashboard metrics
+  const { data: dashboardMetrics, isLoading: dashboardLoading } = useQuery({
+    queryKey: ['dashboardMetrics'],
+    queryFn: reportsApi.getDashboardMetrics,
+    refetchInterval: 30000
+  });
 
+  // Fetch report types
+  const { data: reportTypes, isLoading: typesLoading } = useQuery({
+    queryKey: ['reportTypes'],
+    queryFn: reportsApi.getReportTypes
+  });
 
   const handleReportTypeChange = (reportType: string) => {
     setSelectedReportType(reportType);
     setReportRequest(prev => ({ ...prev, reportType }));
   };
 
-  const handleFiltersChange = (filters: Partial<ReportRequest>) => {
+  const handleFiltersChange = (filters: any) => {
     setReportRequest(prev => ({ ...prev, ...filters }));
   };
 
   const generateReport = async () => {
-    if (!selectedReportType) {
-      return;
-    }
+    if (!selectedReportType) return;
 
     setIsGenerating(true);
     try {
-      let response: ReportResponse;
+      // Ensure reportType is set in the request
+      const requestWithType = { ...reportRequest, reportType: selectedReportType };
+      
+      // Debug: Log the request being sent
+      console.log('Generating report with request:', requestWithType);
+      
+      let response;
       
       switch (selectedReportType) {
         case 'PATIENT':
-          response = await reportsApi.generatePatientReport(reportRequest);
+          response = await reportsApi.generatePatientReport(requestWithType);
           break;
         case 'FINANCIAL':
-          response = await reportsApi.generateFinancialReport(reportRequest);
+          response = await reportsApi.generateFinancialReport(requestWithType);
           break;
         case 'OPERATIONAL':
-          response = await reportsApi.generateOperationalReport(reportRequest);
+          response = await reportsApi.generateOperationalReport(requestWithType);
           break;
         case 'SYSTEM':
-          response = await reportsApi.generateSystemReport(reportRequest);
+          response = await reportsApi.generateSystemReport(requestWithType);
+          break;
+        case 'BILLING':
+          response = await reportsApi.generateBillingReport(requestWithType);
+          break;
+        case 'QUEUE':
+          response = await reportsApi.generateQueueReport(requestWithType);
+          break;
+        case 'USER_ACTIVITY':
+          response = await reportsApi.generateUserActivityReport(requestWithType);
           break;
         default:
           throw new Error('Invalid report type');
       }
       
       setGeneratedReport(response);
-      setError(null); // Clear any previous errors
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error generating report:', error);
-      
-      // Show user-friendly error message
-      const errorMessage = error?.response?.status === 403 
-        ? 'Access denied. You don\'t have permission to generate this report.'
-        : error?.response?.status === 401
-        ? 'Authentication required. Please log in to generate reports.'
-        : error?.message || 'Failed to generate report. Please try again.';
-      
-      setError(errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -84,7 +92,6 @@ export function ReportsPage() {
       const exportRequest = { ...reportRequest, format };
       const response = await reportsApi.exportReport(exportRequest);
       
-      // Download the file
       if (response.downloadUrl) {
         const blob = await reportsApi.downloadReport(response.reportId);
         const url = window.URL.createObjectURL(blob);
@@ -94,42 +101,65 @@ export function ReportsPage() {
         link.click();
         window.URL.revokeObjectURL(url);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error exporting report:', error);
-      
-      // Show user-friendly error message
-      const errorMessage = error?.response?.status === 403 
-        ? 'Access denied. You don\'t have permission to export reports.'
-        : error?.response?.status === 401
-        ? 'Authentication required. Please log in to export reports.'
-        : error?.message || 'Failed to export report. Please try again.';
-      
-      setError(errorMessage);
     }
   };
 
-  // No loading or error handling needed - reportTypes is always available
+  if (dashboardLoading || typesLoading) {
+    return (
+      <div className="text-center py-5">
+        <Spinner animation="border" size="sm" />
+        <p className="mt-3">Loading reports dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <Container fluid className="py-4">
       <Row>
         <Col>
-          <h2 className="mb-4">Reports & Analytics</h2>
+          <h2 className="mb-4">Reports & Analytics Dashboard</h2>
         </Col>
       </Row>
 
-      {/* Error Display */}
-      {error && (
+      {/* Quick Stats */}
+      {dashboardMetrics && (
         <Row className="mb-4">
-          <Col>
-            <Alert variant="danger" dismissible onClose={() => setError(null)}>
-              <Alert.Heading>Error</Alert.Heading>
-              <p>{error}</p>
-            </Alert>
+          <Col md={3}>
+            <Card className="text-center">
+              <Card.Body>
+                <h3 className="text-primary">{dashboardMetrics.summary.totalPatients || 0}</h3>
+                <p className="text-muted mb-0">Total Patients</p>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col md={3}>
+            <Card className="text-center">
+              <Card.Body>
+                <h3 className="text-success">${dashboardMetrics.summary.totalAmount || 0}</h3>
+                <p className="text-muted mb-0">Total Revenue</p>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col md={3}>
+            <Card className="text-center">
+              <Card.Body>
+                <h3 className="text-info">{dashboardMetrics.summary.totalUsers || 0}</h3>
+                <p className="text-muted mb-0">Active Users</p>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col md={3}>
+            <Card className="text-center">
+              <Card.Body>
+                <h3 className="text-warning">{dashboardMetrics.summary.totalBills || 0}</h3>
+                <p className="text-muted mb-0">Total Bills</p>
+              </Card.Body>
+            </Card>
           </Col>
         </Row>
       )}
-
 
       <Row>
         {/* Report Generator */}
@@ -140,7 +170,7 @@ export function ReportsPage() {
             </Card.Header>
             <Card.Body>
               <ReportTypes
-                reportTypes={reportTypes}
+                reportTypes={reportTypes || []}
                 selectedType={selectedReportType}
                 onTypeChange={handleReportTypeChange}
               />

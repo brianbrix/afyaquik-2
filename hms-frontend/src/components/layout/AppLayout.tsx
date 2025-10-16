@@ -20,6 +20,7 @@ export function AppLayout() {
   const CAN_MANAGE_PHARMACY_INVENTORY = hasPermission(permissions as PermissionMatrix, 'MANAGE_PHARMACY_INVENTORY');
   const CAN_MANAGE_PRESCRIPTIONS = hasPermission(permissions as PermissionMatrix, 'MANAGE_PRESCRIPTIONS');
   const CAN_SEE_BILLING = hasPermission(permissions as PermissionMatrix, 'VIEW_BILLING');
+  const CAN_VIEW_REPORTS = hasPermission(permissions as PermissionMatrix, 'VIEW_REPORTS');
 
   const { data: flags } = useFeatureFlags();
   const isAdmin = user?.roles?.some((r: any) => (typeof r === 'string' ? (r === 'ADMIN' || r === 'ROLE_ADMIN') : (r.roleKey === 'ADMIN' || r.roleKey === 'ROLE_ADMIN')));
@@ -66,10 +67,12 @@ export function AppLayout() {
                       <i className="bi bi-calendar3 me-1"></i>
                       <span className="d-none d-md-inline">Scheduling</span>
                     </Nav.Link>
+                    {CAN_VIEW_REPORTS && (
                     <Nav.Link as={NavLink} to="/reports" className="d-flex align-items-center">
                       <i className="bi bi-graph-up me-1"></i>
                       <span className="d-none d-md-inline">Reports</span>
                     </Nav.Link>
+                    )}
                     {CAN_SEE_PHARMACY && (
                     <Dropdown>
                       <Dropdown.Toggle as={Nav.Link} variant="link" className="text-white text-decoration-none d-flex align-items-center">

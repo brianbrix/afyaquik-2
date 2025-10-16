@@ -1,14 +1,13 @@
 package com.afyaquik.hms.auth.config;
 
-import com.afyaquik.hms.auth.domain.Permission;
-import com.afyaquik.hms.auth.repository.PermissionRepository;
-import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+import java.util.List;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.List;
+import com.afyaquik.hms.auth.domain.Permission;
+import com.afyaquik.hms.auth.repository.PermissionRepository;
 
 @Configuration
 public class PermissionSeeder {
@@ -19,6 +18,8 @@ public class PermissionSeeder {
                 new Permission("CREATE_PATIENT", "Create a new patient record"),
                 new Permission("EDIT_PATIENT", "Edit patient details"),
                 new Permission("VIEW_PATIENT", "View patient details"),
+                new Permission("VIEW_PATIENT_REPORTS", "View patient reports"),
+                new Permission("VIEW_PATIENTS", "View patients"),
                 new Permission("DELETE_PATIENT", "Delete a patient record"),
                 new Permission("MERGE_PATIENT", "Merge duplicate patient records"),
                 new Permission("MANAGE_SHIFTS", "Manage staff shifts"),
@@ -92,7 +93,9 @@ public class PermissionSeeder {
                 new Permission("VIEW_AUDIT_LOGS", "View audit logs"),
                 new Permission("VIEW_ADMIN_SETTINGS", "View admin settings"),
                 new Permission("MANAGE_ADMIN_SETTINGS", "Manage admin settings"),
-                new Permission("MANAGE_MEDICATIONS", "Manage medications")
+                new Permission("MANAGE_MEDICATIONS", "Manage medications"),
+                new Permission("VIEW_ALL_CLOSED_QUEUE_ITEMS", "View all closed queue items"),
+                new Permission("VIEW_OPERATIONS", "View operations")
             );
             for (Permission p : permissions) {
                 p.setTenantId("clinic-a");

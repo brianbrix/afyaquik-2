@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.afyaquik.hms.auth.security.CustomPermissionEvaluator;
 import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.queue.domain.QueueStatus;
@@ -32,10 +33,12 @@ public class QueueController {
 
     private final QueueService queueService;
     private final QueueReadonlyService queueReadonlyService;
+    private final CustomPermissionEvaluator customPermissionEvaluator;
 
-    public QueueController(QueueService queueService, QueueReadonlyService queueReadonlyService) {
+    public QueueController(QueueService queueService, QueueReadonlyService queueReadonlyService, CustomPermissionEvaluator customPermissionEvaluator) {
         this.queueService = queueService;
         this.queueReadonlyService = queueReadonlyService;
+        this.customPermissionEvaluator = customPermissionEvaluator;
     }
 
     @PostMapping("/checkin")
@@ -79,8 +82,10 @@ public class QueueController {
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         String username = auth != null ? auth.getName() : null;
         boolean isReception = false;
+        boolean canViewAllClosedQueueItems = false;
         if (auth != null && auth.getAuthorities() != null) {
-            isReception = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_RECEPTION") || a.getAuthority().equals("RECEPTION"));
+            isReception = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_RECEPTION") || a.getAuthority().equals("RECEPTION") || a.getAuthority().equals("ROLE_RECEPTIONIST") || a.getAuthority().equals("RECEPTIONIST"));
+            canViewAllClosedQueueItems = customPermissionEvaluator.hasPermission(auth, null, "VIEW_ALL_CLOSED_QUEUE_ITEMS");
         }
         
         // Parse dates if provided
@@ -105,17 +110,25 @@ public class QueueController {
         
         // Use date filtering if dates are provided
         if (startInstant != null && endInstant != null) {
+            if (canViewAllClosedQueueItems && queueStatus == QueueStatus.CLOSED) {
+                return ApiResponse.success(queueService.listByStatusAndDate(tenantId, QueueStatus.CLOSED, startInstant, endInstant));
+            } else {
             if (isReception) {
                 return ApiResponse.success(queueService.listByStatusAndDate(tenantId, queueStatus, startInstant, endInstant));
             } else {
                 return ApiResponse.success(queueService.listByStatusAndAssigneeAndDate(tenantId, queueStatus, username, startInstant, endInstant));
             }
+        }
         } else {
             // Use original methods without date filtering
+            if (canViewAllClosedQueueItems && queueStatus == QueueStatus.CLOSED) {
+                return ApiResponse.success(queueService.listByStatus(tenantId, QueueStatus.CLOSED));
+            } else {
             if (isReception) {
                 return ApiResponse.success(queueService.listByStatus(tenantId, queueStatus));
             } else {
                 return ApiResponse.success(queueService.listByStatusAndAssignee(tenantId, queueStatus, username));
+            }
             }
         }
     }
