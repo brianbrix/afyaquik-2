@@ -22,7 +22,10 @@ services:
       - "traefik.http.middlewares.hms-frontend-stripprefix.stripprefix.prefixes=/hms"
       - "traefik.http.routers.hms-frontend.middlewares=hms-frontend-stripprefix"
     restart: unless-stopped
-
+    volumes:
+      - ./hms-frontend/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
 networks:
   hms-network:
     driver: bridge
