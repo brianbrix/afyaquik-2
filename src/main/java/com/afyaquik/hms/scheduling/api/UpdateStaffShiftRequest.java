@@ -1,6 +1,6 @@
 package com.afyaquik.hms.scheduling.api;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 import com.afyaquik.hms.scheduling.domain.ShiftStatus;
 
@@ -14,8 +14,8 @@ public record UpdateStaffShiftRequest(
 	Long roleId,
 	Long departmentId,
 
-	OffsetDateTime startsAt,
-	OffsetDateTime endsAt,
+	LocalDateTime startsAt,
+	LocalDateTime endsAt,
 
 	@Size(max = 512)
 	String notes,

@@ -95,7 +95,10 @@ public class PermissionSeeder {
                 new Permission("MANAGE_ADMIN_SETTINGS", "Manage admin settings"),
                 new Permission("MANAGE_MEDICATIONS", "Manage medications"),
                 new Permission("VIEW_ALL_CLOSED_QUEUE_ITEMS", "View all closed queue items"),
-                new Permission("VIEW_OPERATIONS", "View operations")
+                new Permission("VIEW_OPERATIONS", "View operations"),
+                new Permission("VIEW_ALL_APPOINTMENTS", "View all appointments"),
+                new Permission("CREATE_APPOINTMENT", "Create an appointment"),
+                new Permission("EDIT_APPOINTMENT", "Edit appointment details")
             );
             for (Permission p : permissions) {
                 p.setTenantId("clinic-a");

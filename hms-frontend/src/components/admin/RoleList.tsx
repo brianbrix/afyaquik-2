@@ -88,9 +88,5 @@ export const RoleList: React.FC = () => {
 export const RoleListWithFormDemo = () => (
   <div className="d-flex flex-column gap-4">
     <RoleList />
-    <div>
-      <h6 className="mb-2">Dynamic Form Schema (patient-intake)</h6>
-      <DynamicFormSample formKey="patient-intake" />
-    </div>
   </div>
 );

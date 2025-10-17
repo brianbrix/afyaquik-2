@@ -1,8 +1,7 @@
 
 package com.afyaquik.hms.scheduling.domain;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
+import java.time.LocalDateTime;
 
 import com.afyaquik.hms.auth.domain.Department;
 import com.afyaquik.hms.auth.domain.StaffRole;
@@ -48,10 +47,10 @@ public class StaffShift extends BaseEntity {
 	private ShiftStatus status = ShiftStatus.SCHEDULED;
 
 	@Column(name = "starts_at", nullable = false)
-	private OffsetDateTime startsAt;
+	private LocalDateTime startsAt;
 
 	@Column(name = "ends_at", nullable = false)
-	private OffsetDateTime endsAt;
+	private LocalDateTime endsAt;
 
 	@Column(name = "notes", length = 512)
 	private String notes;
@@ -61,6 +60,12 @@ public class StaffShift extends BaseEntity {
 
 	@Column(name = "is_recurring", nullable = false)
 	private boolean isRecurring = false;
+
+	@Column(name = "checked_in_at")
+	private LocalDateTime checkedInAt;
+
+	@Column(name = "checked_out_at")
+	private LocalDateTime checkedOutAt;
 
 	public StaffUser getStaffUser() {
 		return staffUser;
@@ -102,28 +107,20 @@ public class StaffShift extends BaseEntity {
 		this.status = status;
 	}
 
-	public OffsetDateTime getStartsAt() {
+	public LocalDateTime getStartsAt() {
 		return startsAt;
 	}
 
-	public void setStartsAt(OffsetDateTime startsAt) {
-		if (startsAt != null) {
-			this.startsAt = startsAt.withOffsetSameInstant(ZoneId.of("Africa/Nairobi").getRules().getOffset(startsAt.toInstant()));
-		} else {
-			this.startsAt = null;
-		}
+	public void setStartsAt(LocalDateTime startsAt) {
+		this.startsAt = startsAt;
 	}
 
-	public OffsetDateTime getEndsAt() {
+	public LocalDateTime getEndsAt() {
 		return endsAt;
 	}
 
-	public void setEndsAt(OffsetDateTime endsAt) {
-		if (endsAt != null) {
-			this.endsAt = endsAt.withOffsetSameInstant(ZoneId.of("Africa/Nairobi").getRules().getOffset(endsAt.toInstant()));
-		} else {
-			this.endsAt = null;
-		}
+	public void setEndsAt(LocalDateTime endsAt) {
+		this.endsAt = endsAt;
 	}
 
 	public String getNotes() {
@@ -148,5 +145,21 @@ public class StaffShift extends BaseEntity {
 
 	public void setRecurring(boolean isRecurring) {
 		this.isRecurring = isRecurring;
+	}
+
+	public LocalDateTime getCheckedInAt() {
+		return checkedInAt;
+	}
+
+	public void setCheckedInAt(LocalDateTime checkedInAt) {
+		this.checkedInAt = checkedInAt;
+	}
+
+	public LocalDateTime getCheckedOutAt() {
+		return checkedOutAt;
+	}
+
+	public void setCheckedOutAt(LocalDateTime checkedOutAt) {
+		this.checkedOutAt = checkedOutAt;
 	}
 }

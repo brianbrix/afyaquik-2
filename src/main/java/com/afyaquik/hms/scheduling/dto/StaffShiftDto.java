@@ -1,6 +1,6 @@
 package com.afyaquik.hms.scheduling.dto;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 import com.afyaquik.hms.scheduling.domain.ShiftStatus;
 
@@ -19,8 +19,8 @@ public record StaffShiftDto(
 	Long shiftTypeId,
 	String shiftTypeName,
 	ShiftStatus status,
-	OffsetDateTime startsAt,
-	OffsetDateTime endsAt,
+	LocalDateTime startsAt,
+	LocalDateTime endsAt,
 	String notes,
 	String handoverNotes,
 	boolean isRecurring

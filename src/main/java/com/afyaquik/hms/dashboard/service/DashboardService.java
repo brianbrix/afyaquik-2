@@ -124,7 +124,7 @@ public class DashboardService {
 
     private String getTodayShiftStatus(Long userId, OffsetDateTime startOfDay, OffsetDateTime endOfDay) {
         // Check if user has a shift today
-        var todayShifts = staffShiftRepository.findByStaffUserIdAndStartsAtBetween(userId, startOfDay, endOfDay);
+        var todayShifts = staffShiftRepository.findByStaffUserIdAndStartsAtBetween(userId, startOfDay.toLocalDateTime(), endOfDay.toLocalDateTime());
         
         if (todayShifts.isEmpty()) {
             return "NO_SHIFT";
@@ -135,7 +135,7 @@ public class DashboardService {
     }
 
     private boolean isUserOnShift(Long userId, OffsetDateTime startOfDay, OffsetDateTime endOfDay) {
-        var todayShifts = staffShiftRepository.findByStaffUserIdAndStartsAtBetween(userId, startOfDay, endOfDay);
+        var todayShifts = staffShiftRepository.findByStaffUserIdAndStartsAtBetween(userId, startOfDay.toLocalDateTime(), endOfDay.toLocalDateTime());
         
         if (todayShifts.isEmpty()) {
             return false;

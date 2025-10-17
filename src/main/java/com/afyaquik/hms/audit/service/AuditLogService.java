@@ -354,7 +354,7 @@ public class AuditLogService {
         auditLog.setIpAddress(auditLogDto.getIpAddress());
         auditLog.setUserAgent(auditLogDto.getUserAgent());
         auditLog.setSessionId(auditLogDto.getSessionId());
-        auditLog.setTimestamp(auditLogDto.getTimestamp());
+        auditLog.setTimestamp(auditLogDto.getTimestamp().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
         auditLog.setStatus(auditLogDto.getStatus());
         auditLog.setErrorMessage(auditLogDto.getErrorMessage());
         auditLog.setDurationMs(auditLogDto.getDurationMs());
@@ -408,7 +408,7 @@ public class AuditLogService {
                 .ipAddress(auditLog.getIpAddress())
                 .userAgent(auditLog.getUserAgent())
                 .sessionId(auditLog.getSessionId())
-                .timestamp(auditLog.getTimestamp())
+                .timestamp(auditLog.getTimestamp().atZone(java.time.ZoneId.systemDefault()).toInstant())
                 .status(auditLog.getStatus())
                 .errorMessage(auditLog.getErrorMessage())
                 .durationMs(auditLog.getDurationMs())

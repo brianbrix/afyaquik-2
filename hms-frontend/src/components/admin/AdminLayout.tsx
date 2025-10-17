@@ -74,6 +74,26 @@ export const AdminLayout: React.FC = () => {
                 <i className="bi bi-bell me-2"></i>
                 Notifications
               </NavLink>
+              <NavLink to="form-configuration" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-form me-2"></i>
+                Form Configuration
+              </NavLink>
+              <NavLink to="system-settings" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-gear-fill me-2"></i>
+                System Settings
+              </NavLink>
+              <NavLink to="super-admin" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-shield-check me-2"></i>
+                Super Admin
+              </NavLink>
+              <NavLink to="tenant-management" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-building me-2"></i>
+                Tenant Management
+              </NavLink>
+              <NavLink to="system-health" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-heart-pulse me-2"></i>
+                System Health
+              </NavLink>
             </div>
           </div>
 
@@ -122,10 +142,7 @@ export const AdminLayout: React.FC = () => {
                 <i className="bi bi-tags me-2"></i>
                 Billing Categories
               </NavLink>
-              <NavLink to="currencies" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
-                <i className="bi bi-currency-exchange me-2"></i>
-                Currencies
-              </NavLink>
+              {/* Currency management moved to System Settings */}
               <NavLink to="insurance" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
                 <i className="bi bi-shield-check me-2"></i>
                 Insurance

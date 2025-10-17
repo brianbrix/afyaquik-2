@@ -42,14 +42,21 @@ public class SecurityConfig {
         .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/super-admin/auth/login").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/v1/super-admin/auth/login").permitAll()
             .requestMatchers(HttpMethod.GET, "/actuator/**").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/settings ").permitAll()
             // Allow websocket handshake + SockJS info/endpoints (authentication will be enforced at message level if needed)
             .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(HttpMethod.GET,"/api/v1/admin/triage-titles**").authenticated()
                 .requestMatchers(HttpMethod.GET,"/api/v1/admin/consultation-titles/**").authenticated()
                 .requestMatchers(HttpMethod.GET,"/api/v1/admin/queue-status-role-matrix**").authenticated()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                // Super admin endpoints - require SUPER_ADMIN role (but exclude login)
+                .requestMatchers("/api/v1/super-admin/users/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/v1/super-admin/tenants/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/v1/super-admin/health/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/v1/super-admin/auth/me").hasRole("SUPER_ADMIN")
                 // Allow any authenticated user to access queue endpoints
             .requestMatchers("/api/v1/queue/**").authenticated()
             // Allow unauthenticated access to theme (branding on login page); keep features authenticated

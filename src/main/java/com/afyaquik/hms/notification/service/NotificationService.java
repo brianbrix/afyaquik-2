@@ -122,7 +122,7 @@ public class NotificationService {
         notification.setContent(rendered);
         notification.setChannel(channel);
         notification.setRead(false);
-        notification.setSentAt(java.time.Instant.now());
+        notification.setSentAt(java.time.LocalDateTime.now());
         notificationRepository.save(notification);
         // Publish over websocket
         notificationEventPublisher.publish(notification);

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { Form, Row, Col, Card, Button, Alert } from 'react-bootstrap';
+import { Form, Row, Col, Card, Button, Alert, Spinner } from 'react-bootstrap';
 import { DynamicForm, DynamicField } from './DynamicForm';
+import { formConfigApi, FormFieldConfig } from '../../services/formConfigApi';
+import { generateRandomMrn } from '../../utils/mrn';
+import Swal from 'sweetalert2';
 
 interface PatientRegistrationFormProps {
   onCancel: () => void;
@@ -15,6 +18,14 @@ export const PatientRegistrationForm = forwardRef<any, PatientRegistrationFormPr
   const [formData, setFormData] = useState<any>(initialData || {});
   const [activeSection, setActiveSection] = useState('basic');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [formConfig, setFormConfig] = useState<FormFieldConfig[]>([]);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  // Load form configuration
+  useEffect(() => {
+    loadFormConfiguration();
+  }, []);
 
   // Update formData when initialData changes
   useEffect(() => {
@@ -22,6 +33,74 @@ export const PatientRegistrationForm = forwardRef<any, PatientRegistrationFormPr
       setFormData(initialData);
     }
   }, [initialData]);
+
+  const loadFormConfiguration = async () => {
+    try {
+      setConfigLoading(true);
+      setConfigError(null);
+      const config = await formConfigApi.getEnabledFields('PATIENT');
+      setFormConfig(config);
+    } catch (err) {
+      console.error('Error loading form config:', err);
+      setConfigError('Failed to load form configuration');
+      // Fallback to default fields if config fails
+      setFormConfig([]);
+    } finally {
+      setConfigLoading(false);
+    }
+  };
+
+  // Convert FormFieldConfig to DynamicField
+  const convertToDynamicField = (config: FormFieldConfig): DynamicField => {
+    const baseField: DynamicField = {
+      name: config.fieldKey,
+      label: config.fieldLabel,
+      type: config.fieldType as any,
+      required: config.isRequired,
+      placeholder: `Enter ${config.fieldLabel.toLowerCase()}`
+    };
+
+    if (config.fieldType === 'select' && config.fieldOptions) {
+      try {
+        const options = JSON.parse(config.fieldOptions);
+        return {
+          ...baseField,
+          type: 'select',
+          options: options.options || [],
+          dependsOn: options.dependsOn // For cascading selects
+        } as DynamicField;
+      } catch (err) {
+        console.error('Error parsing field options:', err);
+        return baseField;
+      }
+    }
+
+    // Handle auto-generation for MRN field
+    if (config.fieldKey === 'medicalRecordNumber' && config.fieldOptions) {
+      try {
+        const options = JSON.parse(config.fieldOptions);
+        if (options.autoGenerate) {
+          return {
+            ...baseField,
+            placeholder: options.placeholder || 'Leave blank to auto-generate',
+            helpText: 'Leave blank to auto-generate a Medical Record Number'
+          };
+        }
+      } catch (err) {
+        console.error('Error parsing MRN field options:', err);
+      }
+    }
+
+    return baseField;
+  };
+
+  // Get fields by section
+  const getFieldsBySection = (section: string) => {
+    return formConfig
+      .filter(config => config.section === section)
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map(convertToDynamicField);
+  };
 
   // Smooth section transition function
   const handleSectionChange = (newSection: string) => {
@@ -54,7 +133,28 @@ export const PatientRegistrationForm = forwardRef<any, PatientRegistrationFormPr
 
   // Expose form data to parent component when used in modal
   useImperativeHandle(ref, () => ({
-    getFormData: () => formData,
+    getFormData: async () => {
+      // Auto-generate MRN if not provided with confirmation
+      const processedData = { ...formData };
+      if (!processedData.medicalRecordNumber || processedData.medicalRecordNumber.trim() === '') {
+        const result = await Swal.fire({
+          title: 'Generate MRN?',
+          text: 'No MRN was entered. A random Medical Record Number will be assigned to this patient.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Yes, generate',
+          cancelButtonText: 'Cancel',
+          focusCancel: true
+        });
+        
+        if (!result.isConfirmed) {
+          throw new Error('MRN generation cancelled by user');
+        }
+        
+        processedData.medicalRecordNumber = generateRandomMrn('MRN');
+      }
+      return processedData;
+    },
     validateForm: () => {
       const requiredFields = ['firstName', 'lastName'];
       const missingFields = requiredFields.filter(field => !formData[field]);
@@ -70,6 +170,29 @@ export const PatientRegistrationForm = forwardRef<any, PatientRegistrationFormPr
     }
   }), [formData]);
 
+  // Show loading state while configuration is loading
+  if (configLoading) {
+    return (
+      <div className="text-center py-5">
+        <Spinner animation="border" size="sm" />
+        <p className="mt-3">Loading form configuration...</p>
+      </div>
+    );
+  }
+
+  // Show error state if configuration failed
+  if (configError) {
+    return (
+      <Alert variant="warning">
+        <Alert.Heading>Form Configuration Error</Alert.Heading>
+        <p>{configError}</p>
+        <Button variant="outline-primary" size="sm" onClick={loadFormConfiguration}>
+          Retry
+        </Button>
+      </Alert>
+    );
+  }
+
   const sections = [
     { id: 'basic', title: 'Basic Information', icon: 'bi-person' },
     { id: 'contact', title: 'Contact Details', icon: 'bi-telephone' },
@@ -79,34 +202,12 @@ export const PatientRegistrationForm = forwardRef<any, PatientRegistrationFormPr
     { id: 'visit', title: 'Visit Details', icon: 'bi-clipboard-check' }
   ];
 
-  const basicFields: DynamicField[] = [
-    { name: "medicalRecordNumber", label: "Medical Record Number (MRN)", type: "text", required: false, placeholder: "Leave blank to auto-generate", helpText: "Unique identifier for the patient" },
-    { name: "firstName", label: "First Name", type: "text", required: true, placeholder: "Enter patient's first name" },
-    { name: "lastName", label: "Last Name", type: "text", required: true, placeholder: "Enter patient's last name" },
-    { name: "middleName", label: "Middle Name", type: "text", placeholder: "Enter middle name (optional)" },
-    { name: "dateOfBirth", label: "Date of Birth", type: "date", required: true },
-    { name: "nationalId", label: "National ID/Passport", type: "text", placeholder: "Enter national ID or passport number" },
-    { name: "gender", label: "Gender", type: "select", required: true, options: [
-      { value: "FEMALE", label: "Female" },
-      { value: "MALE", label: "Male" },
-      { value: "OTHER", label: "Other" },
-      { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" }
-    ]}
-  ];
+  // Get dynamic fields from configuration
+  const basicFields = getFieldsBySection('personal_info');
 
-  const contactFields: DynamicField[] = [
-    { name: "phone", label: "Primary Phone", type: "text", required: true, placeholder: "+254 700 000 000" },
-    { name: "alternatePhone", label: "Alternate Phone", type: "text", placeholder: "+254 700 000 000" },
-    { name: "email", label: "Email Address", type: "text", placeholder: "patient@example.com" }
-  ];
+  const contactFields = getFieldsBySection('contact_info');
 
-  const addressFields: DynamicField[] = [
-    { name: "address", label: "Address", type: "textarea", placeholder: "Enter full address" },
-    { name: "city", label: "City", type: "text", placeholder: "Enter city" },
-    { name: "state", label: "State/Province", type: "text", placeholder: "Enter state or province" },
-    { name: "postalCode", label: "Postal Code", type: "text", placeholder: "Enter postal code" },
-    { name: "country", label: "Country", type: "text", placeholder: "Enter country" }
-  ];
+  const addressFields = getFieldsBySection('contact_info'); // Address fields are part of contact info
 
   const emergencyFields: DynamicField[] = [
     { name: "emergencyContactName", label: "Emergency Contact Name", type: "text", placeholder: "Full name of emergency contact" },
@@ -121,11 +222,7 @@ export const PatientRegistrationForm = forwardRef<any, PatientRegistrationFormPr
     ]}
   ];
 
-  const medicalFields: DynamicField[] = [
-    { name: "allergies", label: "Known Allergies", type: "textarea", placeholder: "List any known allergies or adverse reactions" },
-    { name: "medications", label: "Current Medications", type: "textarea", placeholder: "List current medications and dosages" },
-    { name: "medicalHistory", label: "Medical History", type: "textarea", placeholder: "Relevant medical history and conditions" }
-  ];
+  const medicalFields = getFieldsBySection('medical_info');
 
   const visitFields: DynamicField[] = [
     { name: "visitReason", label: "Reason for Visit", type: "textarea", required: true, placeholder: "Describe the reason for this visit" },

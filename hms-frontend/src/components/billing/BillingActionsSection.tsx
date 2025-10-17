@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useReactToPrint } from 'react-to-print';
 import { apiClient } from '../../services/apiClient';
 import { billingApi } from '../../services/billingApi';
-import { useCurrency } from '../../hooks/useCurrency';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { InvoiceViewer } from './InvoiceViewer';
 import { ReceiptViewer } from './ReceiptViewer';
 import { PrintableInvoice } from './PrintableInvoice';
@@ -97,7 +97,7 @@ interface BillingItem {
 
 
 export function BillingActionsSection({ queueItemId, patientId, patientName, isReadonly = false }: BillingActionsSectionProps) {
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useSystemSettings();
   const [showCreateBill, setShowCreateBill] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   // Discount functionality removed as per requirements

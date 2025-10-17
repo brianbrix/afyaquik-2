@@ -1,5 +1,5 @@
 import React from 'react';
-import { useCurrency } from '../../hooks/useCurrency';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import './PrintableInvoice.css';
 
 interface PrintableInvoiceProps {
@@ -41,7 +41,7 @@ interface PrintableInvoiceProps {
 }
 
 export const PrintableInvoice = React.forwardRef<HTMLDivElement, PrintableInvoiceProps>(({ bill }, ref) => {
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useSystemSettings();
   
   // Debug logging
   console.log('PrintableInvoice received bill:', bill);

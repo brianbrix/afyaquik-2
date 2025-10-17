@@ -1,1 +1,1 @@
-export * from "./pages/SchedulingCalendarPage";
+export { ShiftCalendar } from './components/ShiftCalendar';

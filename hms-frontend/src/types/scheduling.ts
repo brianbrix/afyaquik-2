@@ -28,12 +28,15 @@ export const SHIFT_STATUS_LABELS: Record<ShiftStatus, string> = {
 		departmentId: number;
 		departmentName: string;
 		shiftType: number;
+		shiftTypeName?: string;
 		status: ShiftStatus;
-		startsAt: string;
-		endsAt: string;
+		startsAt: string; // LocalDateTime as ISO string (e.g., "2024-01-15T08:00:00")
+		endsAt: string;   // LocalDateTime as ISO string (e.g., "2024-01-15T16:00:00")
 		notes?: string | null;
 		handoverNotes?: string | null;
 		isRecurring: boolean;
+		checkedInAt?: string | null; // LocalDateTime as ISO string
+		checkedOutAt?: string | null; // LocalDateTime as ISO string
 	};
 
 

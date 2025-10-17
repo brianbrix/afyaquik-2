@@ -1,6 +1,8 @@
 package com.afyaquik.hms.common.domain;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
@@ -35,7 +37,7 @@ public abstract class BaseEntity {
     private boolean deleted = false;
 
     @Column(name = "deleted_at")
-    private Instant deletedAt;
+    private LocalDateTime deletedAt;
 
     @Column(name = "created_by", length = 255)
     private String createdBy;
@@ -87,14 +89,14 @@ public abstract class BaseEntity {
         return deleted;
     }
 
-    public Instant getDeletedAt() {
+    public LocalDateTime getDeletedAt() {
         return deletedAt;
     }
 
     public void softDelete() {
         if (!this.deleted) {
             this.deleted = true;
-            this.deletedAt = Instant.now();
+            this.deletedAt = LocalDateTime.now();
             this.updatedBy = getCurrentUser();
         }
     }

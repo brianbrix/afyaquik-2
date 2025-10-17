@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Table, Badge, Button, Alert, Spinner, Card, Row, Col } from 'react-bootstrap';
 import { useQuery } from '@tanstack/react-query';
 import { prescriptionAuditApi, PrescriptionAudit } from '../../services/prescriptionAuditApi';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 
 interface PrescriptionAuditTrailProps {
   show: boolean;
@@ -55,9 +56,7 @@ export const PrescriptionAuditTrail: React.FC<PrescriptionAuditTrailProps> = ({
     return variants[status] || 'secondary';
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
+  const { formatDateTime } = useSystemSettings();
 
   const handleViewDetails = (audit: PrescriptionAudit) => {
     setSelectedAudit(audit);

@@ -1,6 +1,6 @@
 package com.afyaquik.hms.scheduling.api;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -19,10 +19,10 @@ public record CreateStaffShiftRequest(
 	Long shiftTypeId,
 
 	@NotNull(message = "Shift start time is required")
-	OffsetDateTime startsAt,
+	LocalDateTime startsAt,
 
 	@NotNull(message = "Shift end time is required")
-	OffsetDateTime endsAt,
+	LocalDateTime endsAt,
 
 	@Size(max = 512)
 	String notes,

@@ -1,7 +1,6 @@
 package com.afyaquik.hms.scheduling.service;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,8 +79,8 @@ class StaffSchedulingServiceTest {
     existingShift.setDepartment(department);
     existingShift.setShiftType(shiftType);
     existingShift.setStatus(ShiftStatus.SCHEDULED);
-    existingShift.setStartsAt(OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC));
-    existingShift.setEndsAt(OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC));
+    existingShift.setStartsAt(LocalDateTime.of(2025, 10, 9, 8, 0, 0));
+    existingShift.setEndsAt(LocalDateTime.of(2025, 10, 9, 14, 0, 0));
     ReflectionTestUtils.setField(existingShift, "id", 42L);
     }
 

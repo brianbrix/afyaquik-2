@@ -7,7 +7,6 @@ import { DynamicForm, type DynamicField } from "../../../components/forms/Dynami
 import { PatientRegistrationForm } from "../../../components/forms/PatientRegistrationForm";
 import { useCreatePatient, usePatients } from "../../../services/patientApi";
 import Swal from 'sweetalert2';
-import { generateRandomMrn } from '../../../utils/mrn';
 import { useResolvedPermissions, hasPermission } from '../../../hooks/usePermissions';
 import { createQueueForPatient, fetchPatientQueue } from '../../../services/patientQueueApi';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -552,7 +551,14 @@ export function PatientsPage() {
             return;
           }
 
-          const payload = patientFormRef.current.getFormData();
+          // Get form data with MRN auto-generation confirmation
+          let payload;
+          try {
+            payload = await patientFormRef.current.getFormData();
+          } catch (error) {
+            // User cancelled MRN generation
+            return;
+          }
           
           // Validate form using the form's validation method
           const validation = patientFormRef.current.validateForm();
@@ -565,21 +571,6 @@ export function PatientsPage() {
               confirmButtonText: 'OK'
             });
             return;
-          }
-
-          // If MRN missing, confirm auto-generation
-          if (!payload.medicalRecordNumber) {
-            const result = await Swal.fire({
-              title: 'Generate MRN?',
-              text: 'No MRN was entered. A random Medical Record Number will be assigned to this patient.',
-              icon: 'question',
-              showCancelButton: true,
-              confirmButtonText: 'Yes, generate',
-              cancelButtonText: 'Cancel',
-              focusCancel: true
-            });
-            if (!result.isConfirmed) return; // abort submission
-            payload.medicalRecordNumber = generateRandomMrn('MRN');
           }
 
           createMutation.mutate(payload, {

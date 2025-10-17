@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Swal from 'sweetalert2';
 import type { FormEvent } from "react";
-import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from "react-bootstrap";
+import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table, Tabs, Tab } from "react-bootstrap";
 import { FilterBar, type FilterBarValues, type FilterFieldConfig } from "../../../components/shared/FilterBar";
 import { FormModal } from "../../../components/shared/FormModal";
 import { PageHeader } from "../../../components/shared/PageHeader";
@@ -18,6 +18,7 @@ import { toNairobiIsoString } from "../../../utils/timezone";
 
 import { useShiftTypes } from "../../../hooks/useShiftTypes";
 import type { ShiftType as ShiftTypeModel } from "../../../types/shiftType";
+import { ShiftCalendar } from "../components/ShiftCalendar";
 import { log } from "console";
 
 type ModalType = "create" | "edit" | "swap-request" | "swap-approve" | null;
@@ -398,7 +399,15 @@ function dateOnlyToIso(val: string,end=false){
   const [y,m,d] = val.split('-').map(Number);
   if(!y||!m||!d) return undefined;
   const dt = new Date(y, m-1, d, end?23:0, end?59:0, end?59:0, end?999:0);
-  return toNairobiIsoString(dt);
+  
+  // Format date without timezone information for backend compatibility
+  const year = dt.getFullYear();
+  const month = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  const hours = String(dt.getHours()).padStart(2, '0');
+  const minutes = String(dt.getMinutes()).padStart(2, '0');
+  const seconds = String(dt.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 function mapFilters(values: FilterBarValues, activeRole?: number | string, rolesList?: RoleDefinition[]): StaffShiftFilters {
   const f: StaffShiftFilters = {};
@@ -487,6 +496,7 @@ export function SchedulingCalendarPage(){
   },[filterValues]);
   const [modal,setModal] = useState<ModalType>(null);
   const [selected,setSelected] = useState<StaffShift|null>(null);
+  const [viewType, setViewType] = useState<'table' | 'calendar'>('table');
   // Permissions and user context
   const { permissions } = useResolvedPermissions();
   const { user } = useAuth();
@@ -588,38 +598,62 @@ export function SchedulingCalendarPage(){
       <Card.Body className="d-flex flex-column gap-3">
         <FilterBar fields={filterFields} values={filterValues} onChange={setFilterValues} onReset={()=>setFilterValues({...BASE_FILTER_VALUES})} />
         {isError && <Alert variant="danger" className="mb-0">Unable to load shifts. Try again.</Alert>}
-        <div className="table-responsive">
-          <Table hover responsive className="align-middle mb-0">
-            <thead><tr><th>Staff</th><th>Role</th><th>Department</th><th>Shift</th><th>Status</th><th className="text-end">Actions</th></tr></thead>
-            <tbody>
-              {isLoading ? <tr><td colSpan={6} className="text-center py-4"><Spinner animation="border" role="status" /></td></tr> : !filtered.length ? <tr><td colSpan={6} className="text-center py-4 text-muted">{EMPTY}</td></tr> : filtered.map(s => <tr key={s.id}>
-                <td><div className="fw-semibold">{providerLabel(s)}</div><div className="text-muted small">{s.staffUserId}</div></td>
-                <td>{s.roleName}</td>
-                <td>{s.departmentName}</td>
-                <td>
-                  <div className="fw-semibold">{formatTimeRangeWithUtcDate(s)}</div>
-                  {s.isRecurring && (
-                    <div className="text-info small">
-                      <i className="bi bi-arrow-repeat me-1"></i>Recurring
-                    </div>
-                  )}
-                </td>
-                <td><Badge bg={statusVariant(s.status)}>{SHIFT_STATUS_LABELS[s.status]}</Badge></td>
-                <td className="text-end">
-                  <div className="d-flex gap-2 justify-content-end">
-                    {(canManageShifts || (user && user.id === s.staffUserId)) && (
-                      <Button size="sm" variant="outline-primary" onClick={()=>open('edit', s)}>Edit</Button>
-                    )}
-                    {(canManageShifts || (user && user.id === s.staffUserId)) && (
-                    <Button size="sm" variant="outline-secondary" onClick={()=>open('swap-request', s)}>Request swap</Button>
-                    )}
-                    {userCanApprove && <Button size="sm" variant="outline-success" disabled={s.status!== 'SWAP_REQUESTED'} onClick={()=>open('swap-approve', s)}>Approve swap</Button>}
-                  </div>
-                </td>
-              </tr>)}
-            </tbody>
-          </Table>
-        </div>
+        
+        <Tabs
+          activeKey={viewType}
+          onSelect={(k) => setViewType(k as 'table' | 'calendar')}
+          className="mb-3"
+        >
+          <Tab eventKey="table" title="Table View">
+            <div className="table-responsive">
+              <Table hover responsive className="align-middle mb-0">
+                <thead><tr><th>Staff</th><th>Role</th><th>Department</th><th>Shift</th><th>Status</th><th className="text-end">Actions</th></tr></thead>
+                <tbody>
+                  {isLoading ? <tr><td colSpan={6} className="text-center py-4"><Spinner animation="border" role="status" /></td></tr> : !filtered.length ? <tr><td colSpan={6} className="text-center py-4 text-muted">{EMPTY}</td></tr> : filtered.map(s => <tr key={s.id}>
+                    <td><div className="fw-semibold">{providerLabel(s)}</div><div className="text-muted small">{s.staffUserId}</div></td>
+                    <td>{s.roleName}</td>
+                    <td>{s.departmentName}</td>
+                    <td>
+                      <div className="fw-semibold">{formatTimeRangeWithUtcDate(s)}</div>
+                      {s.isRecurring && (
+                        <div className="text-info small">
+                          <i className="bi bi-arrow-repeat me-1"></i>Recurring
+                        </div>
+                      )}
+                    </td>
+                    <td><Badge bg={statusVariant(s.status)}>{SHIFT_STATUS_LABELS[s.status]}</Badge></td>
+                    <td className="text-end">
+                      <div className="d-flex gap-2 justify-content-end">
+                        {(canManageShifts || (user && user.id === s.staffUserId)) && (
+                          <Button size="sm" variant="outline-primary" onClick={()=>open('edit', s)}>Edit</Button>
+                        )}
+                        {(canManageShifts || (user && user.id === s.staffUserId)) && (
+                        <Button size="sm" variant="outline-secondary" onClick={()=>open('swap-request', s)}>Request swap</Button>
+                        )}
+                        {userCanApprove && <Button size="sm" variant="outline-success" disabled={s.status!== 'SWAP_REQUESTED'} onClick={()=>open('swap-approve', s)}>Approve swap</Button>}
+                      </div>
+                    </td>
+                  </tr>)}
+                </tbody>
+              </Table>
+            </div>
+          </Tab>
+          <Tab eventKey="calendar" title="Calendar View">
+            <ShiftCalendar
+              staffUserId={applied.staffUserId}
+              departmentId={applied.departmentId}
+              roleId={applied.roleId}
+              onShiftClick={(shift) => {
+                setSelected(shift);
+                open('edit', shift);
+              }}
+              onDateClick={(date) => {
+                // Optional: Handle date clicks
+                console.log('Date clicked:', date);
+              }}
+            />
+          </Tab>
+        </Tabs>
       </Card.Body>
     </Card>
   <ShiftCreateModal show={modal==='create'} onHide={close} onSubmit={onCreate} isSubmitting={createShift.isPending} error={createShift.isError? createShift.error: undefined} defaultRole={typeof activeRole === 'number' ? activeRole : 0} roles={rolesQuery.data ?? []} departments={deptsQuery.data ?? []} shiftTypes={shiftTypes} shiftTypesError={shiftTypesError} />

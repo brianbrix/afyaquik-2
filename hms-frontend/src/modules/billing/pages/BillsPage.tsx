@@ -5,6 +5,7 @@ import { FormModal } from '../../../components/shared/FormModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { billingApi, Bill, BillStatus, BILL_STATUS_LABELS } from '../../../services/billingApi';
 import { useAuth } from '../../../hooks/useAuth';
+import { useSystemSettings } from '../../../hooks/useSystemSettings';
 import Swal from 'sweetalert2';
 
 export function BillsPage() {
@@ -48,16 +49,7 @@ export function BillsPage() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES'
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  const { formatCurrency, formatDate } = useSystemSettings();
 
   const handleCreateBill = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

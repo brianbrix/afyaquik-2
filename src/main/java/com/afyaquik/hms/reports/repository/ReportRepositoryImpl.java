@@ -22,25 +22,7 @@ public class ReportRepositoryImpl implements ReportRepository {
     @Autowired
     private EntityManager entityManager;
 
-    /**
-     * Helper method to convert LocalDate to Instant for database queries.
-     */
-    private java.time.Instant toInstant(LocalDate localDate) {
-        if (localDate == null) {
-            return null;
-        }
-        return localDate.atStartOfDay(ZoneOffset.UTC).toInstant();
-    }
-
-    /**
-     * Helper method to convert LocalDate to end of day Instant for database queries.
-     */
-    private java.time.Instant toEndOfDayInstant(LocalDate localDate) {
-        if (localDate == null) {
-            return null;
-        }
-        return localDate.atTime(23, 59, 59, 999_999_999).atZone(ZoneOffset.UTC).toInstant();
-    }
+    // No conversion methods needed since we're using LocalDate directly
 
     @Override
     public List<PatientReport> getPatientReportData(String tenantId, LocalDate startDate, LocalDate endDate) {
@@ -70,13 +52,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -99,13 +81,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -124,13 +106,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -149,13 +131,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -175,13 +157,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -200,13 +182,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -224,13 +206,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -263,13 +245,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -291,13 +273,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -318,13 +300,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -363,13 +345,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -390,8 +372,8 @@ public class ReportRepositoryImpl implements ReportRepository {
         Query query = entityManager.createQuery(jpql);
         query.setParameter("tenantId", tenantId);
         query.setParameter("username", username);
-        query.setParameter("startDate", toInstant(startDate));
-        query.setParameter("endDate", toEndOfDayInstant(endDate));
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
         
         return query.getResultList();
     }
@@ -406,8 +388,8 @@ public class ReportRepositoryImpl implements ReportRepository {
         Query query = entityManager.createQuery(jpql);
         query.setParameter("tenantId", tenantId);
         query.setParameter("username", username);
-        query.setParameter("startDate", toInstant(startDate));
-        query.setParameter("endDate", toEndOfDayInstant(endDate));
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
         
         Object result = query.getSingleResult();
         return result != null ? ((Number) result).doubleValue() : 0.0;
@@ -423,8 +405,8 @@ public class ReportRepositoryImpl implements ReportRepository {
         Query query = entityManager.createQuery(jpql);
         query.setParameter("tenantId", tenantId);
         query.setParameter("username", username);
-        query.setParameter("startDate", toInstant(startDate));
-        query.setParameter("endDate", toEndOfDayInstant(endDate));
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
         
         return ((Number) query.getSingleResult()).longValue();
     }
@@ -444,8 +426,8 @@ public class ReportRepositoryImpl implements ReportRepository {
         Query query = entityManager.createQuery(jpql);
         query.setParameter("tenantId", tenantId);
         query.setParameter("username", username);
-        query.setParameter("startDate", toInstant(startDate));
-        query.setParameter("endDate", toEndOfDayInstant(endDate));
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
         
         return query.getResultList();
     }
@@ -460,8 +442,8 @@ public class ReportRepositoryImpl implements ReportRepository {
         Query query = entityManager.createQuery(jpql);
         query.setParameter("tenantId", tenantId);
         query.setParameter("username", username);
-        query.setParameter("startDate", toInstant(startDate));
-        query.setParameter("endDate", toEndOfDayInstant(endDate));
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
         
         return ((Number) query.getSingleResult()).longValue();
     }
@@ -480,8 +462,8 @@ public class ReportRepositoryImpl implements ReportRepository {
         Query query = entityManager.createQuery(jpql);
         query.setParameter("tenantId", tenantId);
         query.setParameter("username", username);
-        query.setParameter("startDate", toInstant(startDate));
-        query.setParameter("endDate", toEndOfDayInstant(endDate));
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
         
         return query.getResultList();
     }
@@ -496,8 +478,8 @@ public class ReportRepositoryImpl implements ReportRepository {
         Query query = entityManager.createQuery(jpql);
         query.setParameter("tenantId", tenantId);
         query.setParameter("username", username);
-        query.setParameter("startDate", toInstant(startDate));
-        query.setParameter("endDate", toEndOfDayInstant(endDate));
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
         
         return ((Number) query.getSingleResult()).longValue();
     }
@@ -513,13 +495,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }
@@ -538,13 +520,13 @@ public class ReportRepositoryImpl implements ReportRepository {
         query.setParameter("tenantId", tenantId);
         
         if (startDate != null) {
-            query.setParameter("startDate", toInstant(startDate));
+            query.setParameter("startDate", startDate);
         } else {
             query.setParameter("startDate", null);
         }
         
         if (endDate != null) {
-            query.setParameter("endDate", toEndOfDayInstant(endDate));
+            query.setParameter("endDate", endDate);
         } else {
             query.setParameter("endDate", null);
         }

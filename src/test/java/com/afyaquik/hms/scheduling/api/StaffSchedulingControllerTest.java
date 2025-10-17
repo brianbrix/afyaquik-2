@@ -1,7 +1,6 @@
 package com.afyaquik.hms.scheduling.api;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -66,8 +65,8 @@ class StaffSchedulingControllerTest {
 			1L, // shiftTypeId
 			"Morning", // shiftTypeName
 			ShiftStatus.SCHEDULED,
-			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
+			LocalDateTime.of(2025, 10, 9, 8, 0, 0),
+			LocalDateTime.of(2025, 10, 9, 14, 0, 0),
 			"Covering",
 			null,
 			false);
@@ -98,8 +97,8 @@ class StaffSchedulingControllerTest {
 			1L,
 			"Morning",
 			ShiftStatus.SCHEDULED,
-			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
+			LocalDateTime.of(2025, 10, 9, 8, 0, 0),
+			LocalDateTime.of(2025, 10, 9, 14, 0, 0),
 			"Covering",
 			null,
 			false);
@@ -140,8 +139,8 @@ class StaffSchedulingControllerTest {
 			1L,
 			"Morning",
 			ShiftStatus.SWAPPED,
-			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
+			LocalDateTime.of(2025, 10, 9, 8, 0, 0),
+			LocalDateTime.of(2025, 10, 9, 14, 0, 0),
 			"Swapped",
 			"Keys ready",
 			false);
@@ -180,8 +179,8 @@ class StaffSchedulingControllerTest {
 			1L,
 			"Morning",
 			ShiftStatus.CHECKED_IN,
-			OffsetDateTime.of(2025, 10, 9, 8, 0, 0, 0, ZoneOffset.UTC),
-			OffsetDateTime.of(2025, 10, 9, 14, 0, 0, 0, ZoneOffset.UTC),
+			LocalDateTime.of(2025, 10, 9, 8, 0, 0),
+			LocalDateTime.of(2025, 10, 9, 14, 0, 0),
 			"Covering",
 			null,
 			false);

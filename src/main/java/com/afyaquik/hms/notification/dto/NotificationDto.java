@@ -27,7 +27,7 @@ public class NotificationDto {
         this.content = notification.getContent();
         this.channel = notification.getChannel();
         this.read = notification.isRead();
-        this.sentAt = notification.getSentAt();
+        this.sentAt = notification.getSentAt().atZone(java.time.ZoneId.systemDefault()).toInstant();
         this.tenantId = notification.getTenantId();
     }
     

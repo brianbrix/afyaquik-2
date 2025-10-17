@@ -3,7 +3,8 @@ import { useShiftAlerts } from "../../hooks/useShiftAlerts";
 import { Alert, Button, Spinner, Fade } from "react-bootstrap";
 import { SHIFT_STATUS_LABELS, type StaffShift } from "../../types/scheduling";
 import React from "react";
-import { toNairobiIsoString } from "../../utils/timezone";
+import { toNairobiIsoString, toDayFormat } from "../../utils/timezone";
+import { useSystemSettings } from "../../hooks/useSystemSettings";
 
 
 export function ShiftAlertsBanner({ onCheckIn, onCheckOut }: {
@@ -11,6 +12,7 @@ export function ShiftAlertsBanner({ onCheckIn, onCheckOut }: {
   onCheckOut: (shift: StaffShift) => void;
 }) {
   const { data: alerts, isLoading, isError, isFetching } = useShiftAlerts();
+  const { settings } = useSystemSettings();
   // Only show spinner on initial load, not on background polling
   const showSpinner = isLoading && !alerts;
   const hasAlerts = !isError && alerts && alerts.length > 0;
@@ -36,7 +38,7 @@ export function ShiftAlertsBanner({ onCheckIn, onCheckOut }: {
               <Alert key={shift.id} variant="warning" className="d-flex align-items-center justify-content-between mb-2">
                 <div>
                   <b>Shift Alert:</b> {SHIFT_STATUS_LABELS[shift.status]} for <b>{shift.staffDisplayName}</b> ({shift.roleName})<br />
-                  <span>From <b>{toNairobiIsoString(shift.startsAt)}</b> to <b>{toNairobiIsoString(shift.endsAt)}</b></span>
+                  <span>From <b>{toDayFormat(shift.startsAt, settings)}</b> to <b>{toDayFormat(shift.endsAt, settings)}</b></span>
                 </div>
                 <div>
                   {shift.status === "SCHEDULED" && (

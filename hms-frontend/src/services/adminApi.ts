@@ -36,7 +36,7 @@ export async function deleteRole(id: number): Promise<void> {
 }
 
 export async function fetchDepartments(): Promise<AdminDepartment[]> {
-  const res = await apiClient.get<ApiEnvelope<AdminDepartment[]>>('/admin/departments');
+  const res = await apiClient.get<ApiEnvelope<AdminDepartment[]>>('/reference/departments');
   return res.data.data;
 }
 export async function createDepartment(payload: { departmentId: string; displayName: string; description?: string; }): Promise<AdminDepartment> {

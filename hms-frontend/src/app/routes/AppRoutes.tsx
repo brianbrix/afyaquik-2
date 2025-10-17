@@ -6,10 +6,11 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { DashboardPage } from "../../modules/dashboard";
 import { QueueBoardPage } from "../../modules/queue";
 import { PatientsPage } from "../../modules/patients";
-import { SchedulingCalendarPage } from "../../modules/scheduling";
+import { SchedulingCalendarPage } from "../../modules/scheduling/pages/SchedulingCalendarPage";
 import { ReportsPage } from "../../modules/reports";
 import { ProtectedLayout } from "./ProtectedLayout";
 import { LoginPage } from "../../modules/auth";
+import { SuperAdminLoginPage } from "../../modules/auth/pages/SuperAdminLoginPage";
 import { AdminLayout } from "../../components/admin/AdminLayout";
 import { UserDirectory } from "../../components/admin/UserDirectory";
 import { RoleListWithFormDemo } from "../../components/admin/RoleList";
@@ -35,17 +36,25 @@ import { MedicationManagementPage } from "../../modules/admin/pages/MedicationMa
 import { TeamManagementPage } from "../../modules/team/pages/TeamManagementPage";
 import { TimeOffRequestPage } from "../../modules/timeoff/pages/TimeOffRequestPage";
 import InventoryPage from "../../modules/inventory/pages/InventoryPage";
+import { FormConfigurationPage } from "../../modules/admin/pages/FormConfigurationPage";
+import { SystemSettingsPage } from "../../modules/admin/pages/SystemSettingsPage";
+import { SuperAdminPage } from "../../modules/admin/pages/SuperAdminPage";
+import { TenantManagementPage } from "../../modules/admin/pages/TenantManagementPage";
+import { SystemHealthPage } from "../../modules/admin/pages/SystemHealthPage";
+import { AppointmentsPage } from "../../modules/appointments";
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
       <Route element={<ProtectedLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/queue" element={<QueueBoardPage />} />
         <Route path="/patients" element={<PatientsPage />} />
         <Route path="/scheduling" element={<SchedulingCalendarPage />} />
+        <Route path="/appointments" element={<AppointmentsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/pharmacy/medications" element={<MedicationsPage />} />
         <Route path="/pharmacy/inventory" element={<PharmacyInventoryPage />} />
@@ -80,6 +89,11 @@ export function AppRoutes() {
           <Route path="audit-logs" element={<AuditLogsPage />} />
           <Route path="medications" element={<MedicationManagementPage />} />
           <Route path="inventory" element={<InventoryPage />} />
+          <Route path="form-configuration" element={<FormConfigurationPage />} />
+          <Route path="system-settings" element={<SystemSettingsPage />} />
+          <Route path="super-admin" element={<SuperAdminPage />} />
+          <Route path="tenant-management" element={<TenantManagementPage />} />
+          <Route path="system-health" element={<SystemHealthPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

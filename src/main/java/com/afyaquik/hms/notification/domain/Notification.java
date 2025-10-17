@@ -2,7 +2,7 @@ package com.afyaquik.hms.notification.domain;
 
 import com.afyaquik.hms.common.domain.BaseEntity;
 import jakarta.persistence.*;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "notifications")
@@ -27,7 +27,7 @@ public class Notification extends BaseEntity {
     private boolean read = false;
 
     @Column(nullable = false)
-    private Instant sentAt = Instant.now();
+    private LocalDateTime sentAt = LocalDateTime.now();
 
     // Getters and setters
     public String getRecipientId() { return recipientId; }
@@ -42,6 +42,6 @@ public class Notification extends BaseEntity {
     public void setChannel(String channel) { this.channel = channel; }
     public boolean isRead() { return read; }
     public void setRead(boolean read) { this.read = read; }
-    public Instant getSentAt() { return sentAt; }
-    public void setSentAt(Instant sentAt) { this.sentAt = sentAt; }
+    public LocalDateTime getSentAt() { return sentAt; }
+    public void setSentAt(LocalDateTime sentAt) { this.sentAt = sentAt; }
 }

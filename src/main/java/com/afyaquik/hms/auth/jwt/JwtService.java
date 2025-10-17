@@ -2,6 +2,7 @@ package com.afyaquik.hms.auth.jwt;
 
 import com.afyaquik.hms.auth.domain.StaffRole;
 import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.auth.domain.SuperAdminUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
@@ -11,6 +12,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,20 @@ public class JwtService {
         return generateToken(user, TokenType.REFRESH, properties.getRefreshTokenTtlSeconds());
     }
 
+    /**
+     * Generate access token for Super Admin users
+     */
+    public String generateSuperAdminAccessToken(SuperAdminUser user) {
+        return generateSuperAdminToken(user, TokenType.ACCESS, properties.getAccessTokenTtlSeconds());
+    }
+
+    /**
+     * Generate refresh token for Super Admin users
+     */
+    public String generateSuperAdminRefreshToken(SuperAdminUser user) {
+        return generateSuperAdminToken(user, TokenType.REFRESH, properties.getRefreshTokenTtlSeconds());
+    }
+
     private String generateToken(StaffUser user, TokenType tokenType, long ttlSeconds) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(ttlSeconds);
@@ -50,6 +66,24 @@ public class JwtService {
                 "tenant", user.getTenantId(),
                 "username", user.getUsername(),
                 "roles", user.getRoles().stream().map(StaffRole::getRoleKey).collect(Collectors.toList()),
+                "tokenType", tokenType.name());
+
+        return Jwts.builder()
+                .setSubject(String.valueOf(user.getId()))
+                .setIssuedAt(Date.from(now))
+                .setExpiration(Date.from(expiry))
+                .addClaims(claims)
+                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    private String generateSuperAdminToken(SuperAdminUser user, TokenType tokenType, long ttlSeconds) {
+        Instant now = Instant.now();
+        Instant expiry = now.plusSeconds(ttlSeconds);
+        Map<String, Object> claims = Map.of(
+                "superAdmin", true,
+                "username", user.getUsername(),
+                "roles", List.of("SUPER_ADMIN"),
                 "tokenType", tokenType.name());
 
         return Jwts.builder()
@@ -74,10 +108,20 @@ public class JwtService {
             }
             Long userId = Long.valueOf(body.getSubject());
             String username = body.get("username", String.class);
-            String tenant = body.get("tenant", String.class);
-            @SuppressWarnings("unchecked")
-            List<String> roles = (List<String>) body.get("roles", List.class);
-            return new JwtPrincipal(userId, username, tenant, roles);
+            
+            // Check if this is a Super Admin token
+            Boolean isSuperAdmin = body.get("superAdmin", Boolean.class);
+            if (Boolean.TRUE.equals(isSuperAdmin)) {
+                @SuppressWarnings("unchecked")
+                List<String> roles = (List<String>) body.get("roles", List.class);
+                return new JwtPrincipal(userId, username, null, roles); // No tenant for Super Admin
+            } else {
+                // Regular tenant-based token
+                String tenant = body.get("tenant", String.class);
+                @SuppressWarnings("unchecked")
+                List<String> roles = (List<String>) body.get("roles", List.class);
+                return new JwtPrincipal(userId, username, tenant, roles);
+            }
         } catch (JwtException | IllegalArgumentException ex) {
             throw new JwtVerificationException("Invalid or expired token", ex);
         }

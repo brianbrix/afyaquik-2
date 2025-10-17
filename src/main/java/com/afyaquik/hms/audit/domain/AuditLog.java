@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 /**
@@ -48,7 +48,7 @@ public class AuditLog extends BaseEntity {
     private String sessionId;
 
     @Column(name = "timestamp", nullable = false)
-    private Instant timestamp;
+    private LocalDateTime timestamp;
 
     @Column(name = "status", length = 20)
     private String status;
@@ -80,7 +80,7 @@ public class AuditLog extends BaseEntity {
         this.entityId = entityId;
         this.userId = userId;
         this.username = username;
-        this.timestamp = Instant.now();
+        this.timestamp = LocalDateTime.now();
         this.status = "SUCCESS";
     }
 

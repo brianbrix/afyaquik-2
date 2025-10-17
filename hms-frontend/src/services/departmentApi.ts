@@ -6,8 +6,8 @@ export interface Department {
   departmentId: string;
   displayName: string;
   description?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateDepartmentRequest {
@@ -24,7 +24,7 @@ export interface UpdateDepartmentRequest {
 export const departmentApi = {
   // Get all departments
   getAll: () =>
-    apiClient.get<ApiEnvelope<Department[]>>('/admin/departments').then(res => res.data.data),
+    apiClient.get<ApiEnvelope<Department[]>>('/reference/departments').then(res => res.data.data),
 
   // Create department
   create: (data: CreateDepartmentRequest) =>

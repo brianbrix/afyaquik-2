@@ -7,7 +7,7 @@ import com.afyaquik.hms.auth.domain.StaffRole;
 import com.afyaquik.hms.auth.domain.Department;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 public class StaffShiftSpecifications {
     public static Specification<StaffShift> withFilters(
@@ -17,8 +17,8 @@ public class StaffShiftSpecifications {
             StaffRole role,
             Department department,
             ShiftType shiftType,
-            OffsetDateTime rangeStart,
-            OffsetDateTime rangeEnd
+            LocalDateTime rangeStart,
+            LocalDateTime rangeEnd
     ) {
         return (root, query, cb) -> {
             var predicates = cb.conjunction();

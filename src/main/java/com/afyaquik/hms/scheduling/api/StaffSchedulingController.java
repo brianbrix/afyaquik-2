@@ -7,7 +7,7 @@ import com.afyaquik.hms.scheduling.domain.ShiftStatus;
 import com.afyaquik.hms.scheduling.dto.StaffShiftDto;
 import com.afyaquik.hms.scheduling.service.StaffSchedulingService;
 import jakarta.validation.Valid;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -53,8 +53,8 @@ public class StaffSchedulingController {
 		@RequestParam(name = "roleId", required = false) Long roleId,
 		@RequestParam(name = "departmentId", required = false) Long departmentId,
 		@RequestParam(name = "shiftType", required = false) Long shiftType,
-		@RequestParam(name = "rangeStart", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime rangeStart,
-		@RequestParam(name = "rangeEnd", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime rangeEnd) {
+		@RequestParam(name = "rangeStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime rangeStart,
+		@RequestParam(name = "rangeEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime rangeEnd) {
 		String tenantId = TenantHeaderInterceptor.getCurrentTenant();
 		Optional<ShiftStatus> statusFilter = parseStatus(status);
 

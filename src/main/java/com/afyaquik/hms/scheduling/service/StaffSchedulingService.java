@@ -2,7 +2,7 @@
 
 package com.afyaquik.hms.scheduling.service;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +28,7 @@ import com.afyaquik.hms.scheduling.domain.StaffShift;
 import com.afyaquik.hms.scheduling.dto.StaffShiftDto;
 import com.afyaquik.hms.scheduling.repository.ShiftTypeRepository;
 import com.afyaquik.hms.scheduling.repository.StaffShiftRepository;
+import com.afyaquik.hms.settings.service.SystemSettingsService;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -52,14 +53,16 @@ public class StaffSchedulingService {
 	private final DepartmentRepository departmentRepository;
 	private final StaffRoleRepository staffRoleRepository;
 	private final NotificationService notificationService;
+	private final SystemSettingsService systemSettingsService;
 
-	public StaffSchedulingService(StaffShiftRepository shiftRepository, StaffUserRepository staffUserRepository, ShiftTypeRepository shiftTypeRepository, DepartmentRepository departmentRepository, StaffRoleRepository staffRoleRepository, NotificationService notificationService) {
+	public StaffSchedulingService(StaffShiftRepository shiftRepository, StaffUserRepository staffUserRepository, ShiftTypeRepository shiftTypeRepository, DepartmentRepository departmentRepository, StaffRoleRepository staffRoleRepository, NotificationService notificationService, SystemSettingsService systemSettingsService) {
 		this.shiftRepository = shiftRepository;
 		this.staffUserRepository = staffUserRepository;
 		this.shiftTypeRepository = shiftTypeRepository;
 		this.departmentRepository = departmentRepository;
 		this.staffRoleRepository = staffRoleRepository;
 		this.notificationService = notificationService;
+		this.systemSettingsService = systemSettingsService;
 	}
 
 
@@ -81,8 +84,8 @@ public class StaffSchedulingService {
 										  Optional<Long> roleId,
 										  Optional<Long> departmentId,
 										  Optional<Long> shiftTypeId,
-										  Optional<OffsetDateTime> rangeStart,
-										  Optional<OffsetDateTime> rangeEnd) {
+										  Optional<LocalDateTime> rangeStart,
+										  Optional<LocalDateTime> rangeEnd) {
 		log.debug("Listing shifts tenant={} staffUserId={} status={} roleId={} departmentId={} shiftTypeId={} rangeStart={} rangeEnd={}", tenantId, staffUserId, status, roleId, departmentId, shiftTypeId, rangeStart, rangeEnd);
 		com.afyaquik.hms.scheduling.domain.ShiftType shiftTypeEntity = null;
 		com.afyaquik.hms.auth.domain.Department departmentEntity = null;
@@ -136,7 +139,7 @@ public class StaffSchedulingService {
 	 * Returns shifts for a staff user that require check-in or check-out alerts.
 	 */
 	public List<StaffShiftDto> findPendingShiftAlerts(String tenantId, Long staffUserId) {
-		OffsetDateTime now = OffsetDateTime.now(ZoneId.of("Africa/Nairobi"));
+		LocalDateTime now = LocalDateTime.now(systemSettingsService.getTimezoneAsZoneId());
 
 		// Shifts that are scheduled to start now or earlier but not checked in
 		log.info("Finding pending check-in for tenantId: {}, staffUserId: {}, status: {}, before: {}", tenantId, staffUserId, ShiftStatus.SCHEDULED, now.plusMinutes(1));
@@ -235,8 +238,8 @@ public class StaffSchedulingService {
 			shift.setShiftType(shiftType);
 		}
 
-		OffsetDateTime startsAt = Optional.ofNullable(request.startsAt()).orElse(shift.getStartsAt());
-		OffsetDateTime endsAt = Optional.ofNullable(request.endsAt()).orElse(shift.getEndsAt());
+		LocalDateTime startsAt = Optional.ofNullable(request.startsAt()).orElse(shift.getStartsAt());
+		LocalDateTime endsAt = Optional.ofNullable(request.endsAt()).orElse(shift.getEndsAt());
 		validateTimeRange(startsAt, endsAt);
 		ensureNoOverlap(tenantId, targetStaffUser.getId(), startsAt, endsAt, shift.getId());
 		shift.setStartsAt(startsAt);
@@ -370,8 +373,8 @@ public class StaffSchedulingService {
 
 	private void ensureNoOverlap(String tenantId,
 								 Long staffUserId,
-								 OffsetDateTime startsAt,
-								 OffsetDateTime endsAt,
+								 LocalDateTime startsAt,
+								 LocalDateTime endsAt,
 								 Long excludeShiftId) {
 		boolean overlaps = shiftRepository.existsOverlappingShift(tenantId, staffUserId, startsAt, endsAt, excludeShiftId);
 		if (overlaps) {
@@ -386,7 +389,7 @@ public class StaffSchedulingService {
 		}
 	}
 
-	private void validateTimeRange(OffsetDateTime startsAt, OffsetDateTime endsAt) {
+	private void validateTimeRange(LocalDateTime startsAt, LocalDateTime endsAt) {
 		if (startsAt == null || endsAt == null) {
 			throw new IllegalStateException("Shift start and end times are required");
 		}
@@ -430,8 +433,8 @@ public class StaffSchedulingService {
 		log.info("Creating next day recurring shift for tenant={} originalShiftId={}", tenantId, completedShift.getId());
 		
 		// Calculate next day's start and end times
-		OffsetDateTime nextDayStart = completedShift.getStartsAt().plusDays(1);
-		OffsetDateTime nextDayEnd = completedShift.getEndsAt().plusDays(1);
+		LocalDateTime nextDayStart = completedShift.getStartsAt().plusDays(1);
+		LocalDateTime nextDayEnd = completedShift.getEndsAt().plusDays(1);
 		
 		// Check if there's already a shift for this staff member at the same time
 		ensureNoOverlap(tenantId, completedShift.getStaffUser().getId(), nextDayStart, nextDayEnd, null);

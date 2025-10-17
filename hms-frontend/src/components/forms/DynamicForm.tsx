@@ -1,6 +1,7 @@
 import { Form } from "react-bootstrap";
-import { useId } from "react";
+import { useId, useEffect, useState } from "react";
 import RichTextEditor from "../shared/RichTextEditor";
+import { apiClient } from "../../services/apiClient";
 
 export type DynamicFieldType = "text" | "textarea" | "select" | "date" | "number" | "rich_text";
 
@@ -11,6 +12,7 @@ export interface DynamicFieldBase {
   required?: boolean;
   placeholder?: string;
   helpText?: string;
+  dependsOn?: string; // For cascading select fields
 }
 
 export interface DynamicSelectOption {
@@ -34,6 +36,37 @@ export interface DynamicFormProps {
 
 export function DynamicForm({ fields, values, disabled, onChange }: DynamicFormProps) {
   const baseId = useId();
+  const [insurancePlans, setInsurancePlans] = useState<DynamicSelectOption[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+
+  // Handle cascading select for insurance plans
+  useEffect(() => {
+    const insuranceProviderField = fields.find(f => f.name === 'insuranceProvider');
+    const insurancePlanField = fields.find(f => f.name === 'insurancePlan');
+    
+    if (insuranceProviderField && insurancePlanField && values?.insuranceProvider) {
+      const providerId = values.insuranceProvider;
+      if (providerId) {
+        setLoadingPlans(true);
+        apiClient.get(`/insurance/providers/${providerId}/plans`)
+          .then(res => {
+            const plans = res.data?.data || [];
+            setInsurancePlans(plans.map((plan: any) => ({
+              value: plan.id.toString(),
+              label: plan.name
+            })));
+          })
+          .catch(err => {
+            console.error('Error loading insurance plans:', err);
+            setInsurancePlans([]);
+          })
+          .finally(() => setLoadingPlans(false));
+      } else {
+        setInsurancePlans([]);
+      }
+    }
+  }, [values?.insuranceProvider, fields]);
+
   return (
     <div className="d-flex flex-column gap-3">
       {fields.map((field) => {
@@ -70,11 +103,17 @@ export function DynamicForm({ fields, values, disabled, onChange }: DynamicFormP
                 style={{ background: 'white' }}
               />
             ) : field.type === "select" && (field as DynamicSelectField).options ? (
-              <Form.Select {...common}>
+              <Form.Select {...common} disabled={field.name === 'insurancePlan' && loadingPlans}>
                 <option value="">Select...</option>
-                {(field as DynamicSelectField).options.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
+                {field.name === 'insurancePlan' && field.dependsOn === 'insuranceProvider' ? (
+                  insurancePlans.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))
+                ) : (
+                  (field as DynamicSelectField).options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))
+                )}
               </Form.Select>
             ) : (
               <Form.Control type={field.type === "date" ? "date" : field.type} {...common} />

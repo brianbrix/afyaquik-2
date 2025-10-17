@@ -12,4 +12,5 @@ import java.util.Optional;
 @Repository
 public interface PermissionRepository extends TenantAwareRepository<Permission, Long> {
     Optional<Permission> findByCode(String code);
+    boolean existsByCode(String code);
 }

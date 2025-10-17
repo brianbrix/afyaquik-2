@@ -43,30 +43,26 @@ export function AppLayout() {
           <Navbar.Toggle aria-controls="primary-nav" />
           <Navbar.Collapse id="primary-nav" className="justify-content-between">
             <Nav className="me-auto gap-1">
-              {isAdmin
-                ? (flagEnabled('admin-ui') && (
-                    <Nav.Link as={NavLink} to="/admin" className="d-flex align-items-center">
-                      <i className="bi bi-gear-fill me-1"></i>
-                      Admin
-                    </Nav.Link>
-                  ))
-                : <>
-                    <Nav.Link as={NavLink} to="/dashboard" className="d-flex align-items-center">
-                      <i className="bi bi-speedometer2 me-1"></i>
-                      <span className="d-none d-md-inline">Dashboard</span>
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/queue" className="d-flex align-items-center">
-                      <i className="bi bi-list-ul me-1"></i>
-                      <span className="d-none d-md-inline">Queue</span>
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/patients" className="d-flex align-items-center">
-                      <i className="bi bi-people me-1"></i>
-                      <span className="d-none d-md-inline">Patients</span>
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/scheduling" className="d-flex align-items-center">
-                      <i className="bi bi-calendar3 me-1"></i>
-                      <span className="d-none d-md-inline">Scheduling</span>
-                    </Nav.Link>
+              <Nav.Link as={NavLink} to="/dashboard" className="d-flex align-items-center">
+                <i className="bi bi-speedometer2 me-1"></i>
+                <span className="d-none d-md-inline">Dashboard</span>
+              </Nav.Link>
+              <Nav.Link as={NavLink} to="/queue" className="d-flex align-items-center">
+                <i className="bi bi-list-ul me-1"></i>
+                <span className="d-none d-md-inline">Queue</span>
+              </Nav.Link>
+              <Nav.Link as={NavLink} to="/patients" className="d-flex align-items-center">
+                <i className="bi bi-people me-1"></i>
+                <span className="d-none d-md-inline">Patients</span>
+              </Nav.Link>
+              <Nav.Link as={NavLink} to="/scheduling" className="d-flex align-items-center">
+                <i className="bi bi-calendar3 me-1"></i>
+                <span className="d-none d-md-inline">Scheduling</span>
+              </Nav.Link>
+              <Nav.Link as={NavLink} to="/appointments" className="d-flex align-items-center">
+                <i className="bi bi-calendar-check me-1"></i>
+                <span className="d-none d-md-inline">Appointments</span>
+              </Nav.Link>
                     {CAN_VIEW_REPORTS && (
                     <Nav.Link as={NavLink} to="/reports" className="d-flex align-items-center">
                       <i className="bi bi-graph-up me-1"></i>
@@ -127,8 +123,6 @@ export function AppLayout() {
                         <span className="d-none d-md-inline">Admin</span>
                       </Nav.Link>
                     )}
-                  </>
-              }
             </Nav>
             <div className="d-flex align-items-center gap-2">
               <RoleSwitcher />

@@ -5,6 +5,7 @@ import { PaginationControls } from '../../../components/shared/Pagination';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../services/apiClient';
 import { useAuth } from '../../../hooks/useAuth';
+import { useSystemSettings } from '../../../hooks/useSystemSettings';
 import Swal from 'sweetalert2';
 
 interface TimeOffRequest {
@@ -119,9 +120,7 @@ export function TimeOffRequestPage() {
     return <Badge bg={variants[status] || 'secondary'}>{status}</Badge>;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  const { formatDate } = useSystemSettings();
 
   const calculateDays = (startDate: string, endDate: string) => {
     const start = new Date(startDate);

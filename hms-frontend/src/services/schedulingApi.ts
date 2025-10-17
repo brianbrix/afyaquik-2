@@ -9,6 +9,26 @@ import type {
 	ShiftSwapApprovalPayload
 } from "../types/scheduling";
 
+// Helper function to format date for backend (removes timezone info)
+const formatDateForBackend = (dateString: string): string => {
+	if (!dateString) return dateString;
+	
+	// If it's already in the correct format (no timezone), return as is
+	if (!dateString.includes('+') && !dateString.includes('Z')) {
+		return dateString;
+	}
+	
+	// Parse the date and format it without timezone
+	const date = new Date(dateString);
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(2, '0');
+	const seconds = String(date.getSeconds()).padStart(2, '0');
+	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
 
 // Fetch pending check-in/out alerts for the logged-in staff
 export async function fetchShiftAlerts(): Promise<StaffShift[]> {
@@ -24,8 +44,8 @@ export async function fetchStaffShifts(filters: StaffShiftFilters = {}): Promise
 			roleId: filters.roleId ?? undefined,
 			departmentId: filters.departmentId ?? undefined,
 			shiftType: filters.shiftType ?? undefined,
-			rangeStart: filters.rangeStart ?? undefined,
-			rangeEnd: filters.rangeEnd ?? undefined
+			rangeStart: filters.rangeStart ? formatDateForBackend(filters.rangeStart) : undefined,
+			rangeEnd: filters.rangeEnd ? formatDateForBackend(filters.rangeEnd) : undefined
 		}
 	});
 	return response.data;
