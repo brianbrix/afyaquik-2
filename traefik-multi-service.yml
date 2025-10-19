@@ -55,7 +55,7 @@ services:
 
   # HMS Backend API
   hms-backend:
-    image: afyaquik/hms-backend:latest  # Replace with your actual image
+    image: afyaquik/hms-backend:latest
     container_name: hms-backend
     restart: unless-stopped
     environment:
@@ -64,9 +64,6 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://hms-db:5432/hms
       - SPRING_DATASOURCE_USERNAME=hms_user
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-      - SPRING_JPA_SHOW_SQL=false
-      - LOGGING_LEVEL_COM_AFYAQUIK=INFO
     depends_on:
       - hms-db
     labels:
@@ -78,9 +75,9 @@ services:
       - "traefik.http.services.hms-api.loadbalancer.server.port=8080"
       - "traefik.http.routers.hms-api.middlewares=cors-headers,api-rate-limit"
 
-  # HMS Frontend
+  # HMS Frontend Application
   hms-frontend:
-    image: afyaquik/hms-frontend:latest  # Replace with your actual image
+    image: afyaquik/hms-frontend:latest
     container_name: hms-frontend
     restart: unless-stopped
     environment:
@@ -106,11 +103,10 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - hms-data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
     labels:
       - "traefik.enabled=false"  # Database should not be exposed
 
-  # Redis for caching (optional)
+  # Redis for caching
   hms-redis:
     image: redis:7-alpine
     container_name: hms-redis
@@ -120,6 +116,20 @@ services:
       - redis-data:/data
     labels:
       - "traefik.enabled=false"  # Redis should not be exposed
+
+  # Example: Additional service template
+  # Replace this with your actual services
+  # example-service:
+  #   image: your-service:latest
+  #   container_name: example-service
+  #   restart: unless-stopped
+  #   labels:
+  #     - "traefik.enabled=true"
+  #     - "traefik.http.routers.example.rule=Host(`example.afyaquik.com`)"
+  #     - "traefik.http.routers.example.entrypoints=websecure"
+  #     - "traefik.http.routers.example.tls.certresolver=letsencrypt"
+  #     - "traefik.http.routers.example.service=example"
+  #     - "traefik.http.services.example.loadbalancer.server.port=3000"
 
 volumes:
   hms-data:

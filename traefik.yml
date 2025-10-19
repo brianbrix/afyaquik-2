@@ -4,7 +4,6 @@ services:
   traefik:
     image: traefik:v3.1
     container_name: traefik
-    restart: unless-stopped
     command:
       # API and dashboard
       - "--api.insecure=false"
@@ -24,11 +23,13 @@ services:
       
       # Let's Encrypt configuration
       - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=admin@afyaquik.com"  # Change this email!
+      - "--certificatesresolvers.letsencrypt.acme.email=admin@afyaquik.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       
-      # Security and performance
+      # Security headers
       - "--entrypoints.websecure.http.middlewares=security-headers@file"
+      
+      # Logging
       - "--log.level=INFO"
       - "--accesslog=true"
 
@@ -40,7 +41,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
-      - ./traefik-config.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
 
     labels:
       # Enable Traefik for itself
@@ -51,24 +52,14 @@ services:
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
       - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.middlewares=traefik-auth"
 
   # HMS Backend API
   hms-backend:
-    image: afyaquik/hms-backend:latest  # Replace with your actual image
+    image: your-hms-backend-image:latest  # Replace with your actual backend image
     container_name: hms-backend
-    restart: unless-stopped
     environment:
       - SPRING_PROFILES_ACTIVE=production
       - SERVER_PORT=8080
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://hms-db:5432/hms
-      - SPRING_DATASOURCE_USERNAME=hms_user
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
-      - SPRING_JPA_SHOW_SQL=false
-      - LOGGING_LEVEL_COM_AFYAQUIK=INFO
-    depends_on:
-      - hms-db
     labels:
       - "traefik.enabled=true"
       - "traefik.http.routers.hms-api.rule=Host(`api.afyaquik.com`)"
@@ -76,16 +67,12 @@ services:
       - "traefik.http.routers.hms-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-api.service=hms-api"
       - "traefik.http.services.hms-api.loadbalancer.server.port=8080"
-      - "traefik.http.routers.hms-api.middlewares=cors-headers,api-rate-limit"
+      - "traefik.http.routers.hms-api.middlewares=cors-headers"
 
   # HMS Frontend
   hms-frontend:
-    image: afyaquik/hms-frontend:latest  # Replace with your actual image
+    image: your-hms-frontend-image:latest  # Replace with your actual frontend image
     container_name: hms-frontend
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-      - REACT_APP_API_URL=https://api.afyaquik.com
     labels:
       - "traefik.enabled=true"
       - "traefik.http.routers.hms-frontend.rule=Host(`app.afyaquik.com`)"
@@ -93,39 +80,18 @@ services:
       - "traefik.http.routers.hms-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-frontend.service=hms-frontend"
       - "traefik.http.services.hms-frontend.loadbalancer.server.port=80"
-      - "traefik.http.routers.hms-frontend.middlewares=security-headers"
 
-  # PostgreSQL Database
-  hms-db:
-    image: postgres:15-alpine
-    container_name: hms-db
-    restart: unless-stopped
-    environment:
-      - POSTGRES_DB=hms
-      - POSTGRES_USER=hms_user
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-    volumes:
-      - hms-data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
+  # Test service (remove in production)
+  whoami:
+    image: traefik/whoami
+    container_name: whoami
     labels:
-      - "traefik.enabled=false"  # Database should not be exposed
-
-  # Redis for caching (optional)
-  hms-redis:
-    image: redis:7-alpine
-    container_name: hms-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    volumes:
-      - redis-data:/data
-    labels:
-      - "traefik.enabled=false"  # Redis should not be exposed
-
-volumes:
-  hms-data:
-    driver: local
-  redis-data:
-    driver: local
+      - "traefik.enabled=true"
+      - "traefik.http.routers.whoami.rule=Host(`test.afyaquik.com`)"
+      - "traefik.http.routers.whoami.entrypoints=websecure"
+      - "traefik.http.routers.whoami.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.whoami.service=whoami"
+      - "traefik.http.services.whoami.loadbalancer.server.port=80"
 
 networks:
   default:

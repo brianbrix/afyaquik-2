@@ -1,0 +1,124 @@
+# Service Template for Adding New Services to Traefik
+# Copy this template and modify it for your new service
+
+version: "3.8"
+
+services:
+  # Example: New Service Template
+  your-new-service:
+    image: your-service:latest
+    container_name: your-new-service
+    restart: unless-stopped
+    environment:
+      # Add your environment variables here
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://user:pass@hms-db:5432/dbname
+    depends_on:
+      - hms-db  # Add dependencies if needed
+    labels:
+      # Enable Traefik for this service
+      - "traefik.enabled=true"
+      
+      # Router configuration
+      - "traefik.http.routers.your-service.rule=Host(`your-service.afyaquik.com`)"
+      - "traefik.http.routers.your-service.entrypoints=websecure"
+      - "traefik.http.routers.your-service.tls.certresolver=letsencrypt"
+      
+      # Service configuration
+      - "traefik.http.routers.your-service.service=your-service"
+      - "traefik.http.services.your-service.loadbalancer.server.port=3000"  # Change port as needed
+      
+      # Middleware (optional)
+      - "traefik.http.routers.your-service.middlewares=security-headers"
+      
+      # Rate limiting (optional)
+      - "traefik.http.routers.your-service.middlewares=api-rate-limit"
+
+# Common Service Patterns:
+
+# 1. Web Application (React/Vue/Angular)
+# web-app:
+#   image: your-web-app:latest
+#   container_name: web-app
+#   restart: unless-stopped
+#   labels:
+#     - "traefik.enabled=true"
+#     - "traefik.http.routers.web-app.rule=Host(`web.afyaquik.com`)"
+#     - "traefik.http.routers.web-app.entrypoints=websecure"
+#     - "traefik.http.routers.web-app.tls.certresolver=letsencrypt"
+#     - "traefik.http.routers.web-app.service=web-app"
+#     - "traefik.http.services.web-app.loadbalancer.server.port=80"
+#     - "traefik.http.routers.web-app.middlewares=security-headers"
+
+# 2. API Service
+# api-service:
+#   image: your-api:latest
+#   container_name: api-service
+#   restart: unless-stopped
+#   labels:
+#     - "traefik.enabled=true"
+#     - "traefik.http.routers.api-service.rule=Host(`api-service.afyaquik.com`)"
+#     - "traefik.http.routers.api-service.entrypoints=websecure"
+#     - "traefik.http.routers.api-service.tls.certresolver=letsencrypt"
+#     - "traefik.http.routers.api-service.service=api-service"
+#     - "traefik.http.services.api-service.loadbalancer.server.port=8080"
+#     - "traefik.http.routers.api-service.middlewares=cors-headers,api-rate-limit"
+
+# 3. Admin Panel
+# admin-panel:
+#   image: your-admin:latest
+#   container_name: admin-panel
+#   restart: unless-stopped
+#   labels:
+#     - "traefik.enabled=true"
+#     - "traefik.http.routers.admin-panel.rule=Host(`admin.afyaquik.com`)"
+#     - "traefik.http.routers.admin-panel.entrypoints=websecure"
+#     - "traefik.http.routers.admin-panel.tls.certresolver=letsencrypt"
+#     - "traefik.http.routers.admin-panel.service=admin-panel"
+#     - "traefik.http.services.admin-panel.loadbalancer.server.port=3000"
+#     - "traefik.http.routers.admin-panel.middlewares=security-headers,basic-auth"
+
+# 4. Documentation Site
+# docs:
+#   image: your-docs:latest
+#   container_name: docs
+#   restart: unless-stopped
+#   labels:
+#     - "traefik.enabled=true"
+#     - "traefik.http.routers.docs.rule=Host(`docs.afyaquik.com`)"
+#     - "traefik.http.routers.docs.entrypoints=websecure"
+#     - "traefik.http.routers.docs.tls.certresolver=letsencrypt"
+#     - "traefik.http.routers.docs.service=docs"
+#     - "traefik.http.services.docs.loadbalancer.server.port=80"
+#     - "traefik.http.routers.docs.middlewares=security-headers"
+
+# 5. Monitoring Dashboard
+# monitoring:
+#   image: grafana/grafana:latest
+#   container_name: monitoring
+#   restart: unless-stopped
+#   environment:
+#     - GF_SECURITY_ADMIN_PASSWORD=admin
+#   labels:
+#     - "traefik.enabled=true"
+#     - "traefik.http.routers.monitoring.rule=Host(`monitoring.afyaquik.com`)"
+#     - "traefik.http.routers.monitoring.entrypoints=websecure"
+#     - "traefik.http.routers.monitoring.tls.certresolver=letsencrypt"
+#     - "traefik.http.routers.monitoring.service=monitoring"
+#     - "traefik.http.services.monitoring.loadbalancer.server.port=3000"
+#     - "traefik.http.routers.monitoring.middlewares=security-headers"
+
+# Adding Services to Existing Setup:
+# 1. Copy this template
+# 2. Modify the service name, image, and domain
+# 3. Add to your docker-compose file
+# 4. Run: docker-compose up -d your-new-service
+# 5. Check: ./health-check.sh
+
+# Domain Naming Convention:
+# - app.afyaquik.com (main application)
+# - api.afyaquik.com (main API)
+# - admin.afyaquik.com (admin panel)
+# - docs.afyaquik.com (documentation)
+# - monitoring.afyaquik.com (monitoring)
+# - your-service.afyaquik.com (custom services)
