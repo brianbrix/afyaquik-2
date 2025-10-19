@@ -23,6 +23,7 @@ services:
       - "traefik.http.routers.hms-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-frontend.service=hms-frontend"
       - "traefik.http.services.hms-frontend.loadbalancer.server.port=80"
+      - "traefik.http.routers.hms-frontend.middlewares=security-headers@docker"
 
 networks:
   hms-network:
