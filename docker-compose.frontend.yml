@@ -17,7 +17,7 @@ services:
     volumes:
       - ./hms-frontend/nginx.conf:/etc/nginx/nginx.conf:ro
     labels:
-      - "traefik.enabled=true"
+      - "traefik.enable=true"
       - "traefik.http.routers.hms-frontend.rule=Host(`app.afyaquik.com`)"
       - "traefik.http.routers.hms-frontend.entrypoints=websecure"
       - "traefik.http.routers.hms-frontend.tls.certresolver=letsencrypt"

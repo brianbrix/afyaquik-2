@@ -31,7 +31,7 @@ services:
       - hms-uploads:/app/uploads
       - hms-logs:/app/logs
     labels:
-      - "traefik.enabled=true"
+      - "traefik.enable=true"
       - "traefik.http.routers.hms-backend.rule=Host(`api.afyaquik.com`)"
       - "traefik.http.routers.hms-backend.entrypoints=websecure"
       - "traefik.http.routers.hms-backend.tls.certresolver=letsencrypt"
