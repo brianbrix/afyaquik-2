@@ -28,3 +28,4 @@ ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE;
 -- Update updated_at column
 ALTER TABLE appointments 
 ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE;
+

@@ -1,7 +1,6 @@
 package com.afyaquik.hms.audit.repository;
 
 import com.afyaquik.hms.audit.domain.AuditLog;
-import com.afyaquik.hms.audit.dto.AuditLogFilterRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,6 +22,21 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
      */
     @Query("SELECT a FROM AuditLog a WHERE a.tenantId = :tenantId ORDER BY a.timestamp DESC")
     Page<AuditLog> findByTenantIdOrderByTimestampDesc(@Param("tenantId") String tenantId, Pageable pageable);
+
+    /**
+     * Find all audit logs with pagination (for super admin).
+     */
+    @Query("SELECT a FROM AuditLog a ORDER BY a.timestamp DESC")
+    Page<AuditLog> findAllOrderByTimestampDesc(Pageable pageable);
+
+    /**
+     * Find all audit logs with date range (for super admin).
+     */
+    @Query("SELECT a FROM AuditLog a WHERE a.timestamp BETWEEN :startDate AND :endDate ORDER BY a.timestamp DESC")
+    Page<AuditLog> findAllByTimestampBetween(
+            @Param("startDate") OffsetDateTime startDate,
+            @Param("endDate") OffsetDateTime endDate,
+            Pageable pageable);
 
     /**
      * Find audit logs by date range.
@@ -172,6 +186,60 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
      */
     @Query("SELECT DISTINCT a.httpMethod FROM AuditLog a WHERE a.tenantId = :tenantId ORDER BY a.httpMethod")
     List<String> findDistinctHttpMethodsByTenantId(@Param("tenantId") String tenantId);
+
+    /**
+     * Get distinct usernames for a tenant.
+     */
+    @Query("SELECT DISTINCT a.username FROM AuditLog a WHERE a.tenantId = :tenantId ORDER BY a.username")
+    List<String> findDistinctUsernamesByTenantId(@Param("tenantId") String tenantId);
+
+    /**
+     * Get distinct IP addresses for a tenant.
+     */
+    @Query("SELECT DISTINCT a.ipAddress FROM AuditLog a WHERE a.tenantId = :tenantId ORDER BY a.ipAddress")
+    List<String> findDistinctIpAddressesByTenantId(@Param("tenantId") String tenantId);
+
+    /**
+     * Get distinct tenants (for super admin).
+     */
+    @Query("SELECT DISTINCT a.tenantId FROM AuditLog a ORDER BY a.tenantId")
+    List<String> findDistinctTenants();
+
+    /**
+     * Get distinct actions for super admin (across all tenants).
+     */
+    @Query("SELECT DISTINCT a.action FROM AuditLog a ORDER BY a.action")
+    List<String> findDistinctActionsForSuperAdmin();
+
+    /**
+     * Get distinct entity types for super admin (across all tenants).
+     */
+    @Query("SELECT DISTINCT a.entityType FROM AuditLog a ORDER BY a.entityType")
+    List<String> findDistinctEntityTypesForSuperAdmin();
+
+    /**
+     * Get distinct statuses for super admin (across all tenants).
+     */
+    @Query("SELECT DISTINCT a.status FROM AuditLog a ORDER BY a.status")
+    List<String> findDistinctStatusesForSuperAdmin();
+
+    /**
+     * Get distinct HTTP methods for super admin (across all tenants).
+     */
+    @Query("SELECT DISTINCT a.httpMethod FROM AuditLog a ORDER BY a.httpMethod")
+    List<String> findDistinctHttpMethodsForSuperAdmin();
+
+    /**
+     * Get distinct usernames for super admin (across all tenants).
+     */
+    @Query("SELECT DISTINCT a.username FROM AuditLog a ORDER BY a.username")
+    List<String> findDistinctUsernamesForSuperAdmin();
+
+    /**
+     * Get distinct IP addresses for super admin (across all tenants).
+     */
+    @Query("SELECT DISTINCT a.ipAddress FROM AuditLog a ORDER BY a.ipAddress")
+    List<String> findDistinctIpAddressesForSuperAdmin();
 
     /**
      * Count audit logs by tenant.

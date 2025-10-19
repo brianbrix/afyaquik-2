@@ -36,6 +36,26 @@ export function setAuthToken(token: string | null) {
 
 // Intentionally do not set a tenant header by default; it will be applied after successful login.
 
+// Request interceptor: automatically set super-admin token if available
+apiClient.interceptors.request.use(
+  (config) => {
+    // Check if this is a super-admin request and set the token
+    // But exclude login and refresh endpoints as they don't need existing tokens
+    if (config.url?.startsWith('/super-admin/') && 
+        !config.url?.includes('/auth/login') && 
+        !config.url?.includes('/auth/refresh')) {
+      const superAdminToken = localStorage.getItem('superAdminAccessToken');
+      if (superAdminToken) {
+        config.headers.Authorization = `Bearer ${superAdminToken}`;
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Global error interceptor: extract error message from API error response
 apiClient.interceptors.response.use(
   response => response,

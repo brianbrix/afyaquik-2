@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.afyaquik.hms.audit.annotation.Auditable;
 import com.afyaquik.hms.auth.security.CustomPermissionEvaluator;
 import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
@@ -28,6 +29,7 @@ import jakarta.validation.Valid;
 
 
 @RestController
+@Auditable(entityType = "Queue", description = "Queue management operations")
 @RequestMapping("/api/v1/queue")
 public class QueueController {
 
@@ -42,6 +44,7 @@ public class QueueController {
     }
 
     @PostMapping("/checkin")
+    @Auditable(action = "CHECKIN_PATIENT", entityType = "Queue", description = "Patient check-in to queue")
     public ResponseEntity<ApiResponse<QueueItemResponse>> checkIn(@Valid @RequestBody QueueCheckInRequest request) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         QueueItemResponse response = queueService.checkIn(tenantId, request);
@@ -49,6 +52,7 @@ public class QueueController {
     }
 
     @PutMapping("/{queueItemId}")
+    @Auditable(action = "UPDATE_QUEUE_ITEM", entityType = "Queue", entityIdField = "queueItemId", description = "Update queue item")
     public ResponseEntity<ApiResponse<QueueItemResponse>> updateQueueItem(
             @PathVariable Long queueItemId,
             @RequestBody UpdateQueueItemRequest request) {
@@ -58,6 +62,7 @@ public class QueueController {
     }
 
     @GetMapping("/{queueItemId}")
+    @Auditable(action = "VIEW_QUEUE_ITEM", entityType = "Queue", entityIdField = "queueItemId", auditGet = true, description = "View queue item details")
     public ApiResponse<QueueItemResponse> getQueueItem(
             @PathVariable Long queueItemId) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
@@ -66,6 +71,7 @@ public class QueueController {
 
 
     @GetMapping
+    @Auditable(action = "LIST_QUEUE_ITEMS", entityType = "Queue", auditGet = true, description = "List queue items by status")
     public ApiResponse<List<QueueSummary>> list(
             @RequestParam(defaultValue = "PENDING_CHECKIN") String status,
             @RequestParam(required = false) String startDate,

@@ -1,18 +1,28 @@
 package com.afyaquik.hms.consultation.api;
 
-import com.afyaquik.hms.consultation.dto.ConsultationEntryDto;
-import com.afyaquik.hms.consultation.dto.ConsultationEntryRequest;
-import com.afyaquik.hms.consultation.service.ConsultationEntryService;
-import com.afyaquik.hms.consultation.dto.BulkConsultationEntryRequest;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.afyaquik.hms.audit.annotation.Auditable;
+import com.afyaquik.hms.consultation.dto.BulkConsultationEntryRequest;
+import com.afyaquik.hms.consultation.dto.ConsultationEntryDto;
+import com.afyaquik.hms.consultation.dto.ConsultationEntryRequest;
+import com.afyaquik.hms.consultation.service.ConsultationEntryService;
+
 @RestController
 @RequestMapping("/api/v1/queue/{queueItemId}/consultation-entries")
+@Auditable(entityType = "ConsultationEntry", description = "Consultation entry management operations")
 public class ConsultationEntryController {
     private final ConsultationEntryService service;
 

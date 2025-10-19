@@ -61,3 +61,4 @@ ALTER TABLE appointments
 CREATE UNIQUE INDEX idx_appointments_provider_time_unique 
 ON appointments(tenant_id, provider_id, appointment_date_time) 
 WHERE status NOT IN ('CANCELLED', 'NO_SHOW', 'COMPLETED');
+

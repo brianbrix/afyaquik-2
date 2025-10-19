@@ -1,16 +1,24 @@
 package com.afyaquik.hms.auth.api;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.afyaquik.hms.auth.dto.SuperAdminLoginRequest;
 import com.afyaquik.hms.auth.dto.SuperAdminLoginResponse;
+import com.afyaquik.hms.auth.dto.SuperAdminRefreshRequest;
+import com.afyaquik.hms.auth.dto.SuperAdminRefreshResponse;
 import com.afyaquik.hms.auth.dto.SuperAdminUserDto;
 import com.afyaquik.hms.auth.service.SuperAdminAuthService;
 import com.afyaquik.hms.common.web.ApiResponse;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/super-admin/auth")
@@ -52,6 +60,22 @@ public class SuperAdminAuthController {
             log.error("Error fetching super admin profile", e);
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to fetch profile: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Refresh super admin access token
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<SuperAdminRefreshResponse>> refresh(
+            @Valid @RequestBody SuperAdminRefreshRequest request) {
+        try {
+            SuperAdminRefreshResponse response = superAdminAuthService.refresh(request);
+            return ResponseEntity.ok(ApiResponse.success(response));
+        } catch (Exception e) {
+            log.error("Super admin token refresh failed", e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Token refresh failed: " + e.getMessage()));
         }
     }
 

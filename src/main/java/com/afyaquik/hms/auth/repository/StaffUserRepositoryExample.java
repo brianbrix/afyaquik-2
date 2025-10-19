@@ -1,13 +1,12 @@
 package com.afyaquik.hms.auth.repository;
 
-import com.afyaquik.hms.auth.domain.StaffUser;
-import com.afyaquik.hms.common.repository.TenantAwareRepository;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.data.jpa.repository.EntityGraph;
+
+import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
 
 /**
  * Example of how to update StaffUserRepository to use TenantAwareRepository.
@@ -30,8 +29,7 @@ public interface StaffUserRepositoryExample extends TenantAwareRepository<StaffU
     @EntityGraph(attributePaths = "roles")
     List<StaffUser> findByTenantId(String tenantId);
     
-    @Query("SELECT u FROM StaffUser u LEFT JOIN FETCH u.departments WHERE u.tenantId = :tenantId")
-    List<StaffUser> findByTenantIdWithDepartments(@Param("tenantId") String tenantId);
+    // Department queries removed - departments are now managed separately
     
     // These methods should be removed as they're not tenant-aware
     // StaffUser findByUsernameAndDeletedFalse(String username);

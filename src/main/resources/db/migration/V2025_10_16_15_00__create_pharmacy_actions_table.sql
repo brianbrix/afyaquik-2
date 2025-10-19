@@ -18,3 +18,4 @@ CREATE TABLE pharmacy_actions (
     INDEX idx_pharmacy_actions_sort_order (sort_order)
 );
 
+

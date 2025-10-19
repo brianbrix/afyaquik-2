@@ -172,6 +172,22 @@ export const auditLogApi = {
   },
 
   /**
+   * Get distinct usernames.
+   */
+  async getDistinctUsernames(): Promise<string[]> {
+    const response = await apiClient.get('/audit-logs/distinct/usernames');
+    return response.data?.data ?? response.data;
+  },
+
+  /**
+   * Get distinct IP addresses.
+   */
+  async getDistinctIpAddresses(): Promise<string[]> {
+    const response = await apiClient.get('/audit-logs/distinct/ip-addresses');
+    return response.data?.data ?? response.data;
+  },
+
+  /**
    * Get audit log statistics.
    */
   async getAuditLogStatistics(): Promise<AuditLogStatistics> {

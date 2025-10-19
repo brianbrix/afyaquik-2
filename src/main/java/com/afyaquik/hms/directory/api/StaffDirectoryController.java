@@ -1,15 +1,18 @@
 package com.afyaquik.hms.directory.api;
 
-import com.afyaquik.hms.auth.domain.StaffUser;
-import com.afyaquik.hms.auth.repository.StaffUserRepository;
-import com.afyaquik.hms.common.web.ApiResponse;
-import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.common.web.ApiResponse;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 
 /** Lightweight staff directory endpoint used by queue assignment UI. */
 @RestController
@@ -29,7 +32,7 @@ public class StaffDirectoryController {
             @RequestParam(name = "q", required = false) String q) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         String query = q == null ? null : q.trim().toLowerCase(Locale.ROOT);
-        java.util.stream.Stream<StaffUser> stream = staffUserRepository.findByTenantIdWithDepartments(tenantId).stream().filter(StaffUser::isEnabled);
+        java.util.stream.Stream<StaffUser> stream = staffUserRepository.findByTenantId(tenantId).stream().filter(StaffUser::isEnabled);
         if (query != null && !query.isBlank()) {
             stream = stream.filter(u -> u.getUsername().toLowerCase(Locale.ROOT).contains(query) ||
                     u.getDisplayName().toLowerCase(Locale.ROOT).contains(query));
@@ -40,7 +43,7 @@ public class StaffDirectoryController {
             u.getUsername(),
             u.getDisplayName(),
             u.getRoles().stream().map(r -> r.getRoleKey() == null ? null : r.getRoleKey().toUpperCase()).sorted().toList(),
-            u.getDepartments().stream().map(d -> d.getDepartmentId()).sorted().toList()
+            new ArrayList<>() // Departments removed
         ))
                 .sorted((a,b) -> a.displayName.compareToIgnoreCase(b.displayName))
                 .toList();

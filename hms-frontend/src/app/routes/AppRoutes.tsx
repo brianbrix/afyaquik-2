@@ -41,13 +41,21 @@ import { SystemSettingsPage } from "../../modules/admin/pages/SystemSettingsPage
 import { SuperAdminPage } from "../../modules/admin/pages/SuperAdminPage";
 import { TenantManagementPage } from "../../modules/admin/pages/TenantManagementPage";
 import { SystemHealthPage } from "../../modules/admin/pages/SystemHealthPage";
+import { DatabaseRecordsPage } from "../../modules/admin/pages/DatabaseRecordsPage";
+import { PatientVisitsPage } from "../../modules/admin/pages/PatientVisitsPage";
+import { SuperAdminLayout } from "../../components/admin/SuperAdminLayout";
+import { SuperAdminAuthProvider } from "../providers/SuperAdminAuthProvider";
 import { AppointmentsPage } from "../../modules/appointments";
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
+      <Route path="/super-admin/login" element={
+        <SuperAdminAuthProvider>
+          <SuperAdminLoginPage />
+        </SuperAdminAuthProvider>
+      } />
       <Route element={<ProtectedLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
@@ -87,14 +95,29 @@ export function AppRoutes() {
           <Route path="currencies" element={<CurrencyManagementPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />
+          <Route path="patient-visits" element={<PatientVisitsPage />} />
           <Route path="medications" element={<MedicationManagementPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="form-configuration" element={<FormConfigurationPage />} />
           <Route path="system-settings" element={<SystemSettingsPage />} />
-          <Route path="super-admin" element={<SuperAdminPage />} />
-          <Route path="tenant-management" element={<TenantManagementPage />} />
-          <Route path="system-health" element={<SystemHealthPage />} />
         </Route>
+        
+      </Route>
+      
+      {/* Super Admin Routes - Only accessible by SUPER_ADMIN users */}
+      <Route path="super-admin" element={
+        <SuperAdminAuthProvider>
+          <SuperAdminLayout />
+        </SuperAdminAuthProvider>
+      }>
+        <Route index element={<Navigate to="super-admin" replace />} />
+        <Route path="super-admin" element={<SuperAdminPage />} />
+        <Route path="tenant-management" element={<TenantManagementPage />} />
+        <Route path="system-health" element={<SystemHealthPage />} />
+        <Route path="system-settings" element={<SystemSettingsPage />} />
+        <Route path="database-records" element={<DatabaseRecordsPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="audit-logs" element={<AuditLogsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

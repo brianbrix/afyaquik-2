@@ -1,5 +1,18 @@
 package com.afyaquik.hms.audit.service;
 
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.afyaquik.hms.audit.domain.AuditLog;
 import com.afyaquik.hms.audit.dto.AuditLogDto;
 import com.afyaquik.hms.audit.dto.AuditLogFilterRequest;
@@ -8,16 +21,6 @@ import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Service for audit log operations.
@@ -41,6 +44,61 @@ public class AuditLogService {
         Page<AuditLog> auditLogs = auditLogRepository.findByTenantIdOrderByTimestampDesc(tenantId, pageable);
 
         return auditLogs.map(this::convertToDto);
+    }
+
+    /**
+     * Get audit logs for super admin (all tenants).
+     */
+    public Page<AuditLogDto> getAuditLogsForSuperAdmin(AuditLogFilterRequest filter) {
+        log.info("Fetching audit logs for super admin with filter: {}", filter);
+
+        Pageable pageable = createPageable(filter);
+        Page<AuditLog> auditLogs;
+        
+        // Use date filtering if provided
+        if (filter.getStartDate() != null && filter.getEndDate() != null) {
+            auditLogs = auditLogRepository.findAllByTimestampBetween(
+                filter.getStartDate(), 
+                filter.getEndDate(), 
+                pageable
+            );
+        } else {
+            auditLogs = auditLogRepository.findAllOrderByTimestampDesc(pageable);
+        }
+
+        return auditLogs.map(this::convertToDto);
+    }
+
+    /**
+     * Get audit logs for super admin with tenant filtering.
+     */
+    public Page<AuditLogDto> getAuditLogsForSuperAdminByTenant(String tenantId, AuditLogFilterRequest filter) {
+        log.info("Fetching audit logs for super admin for tenant: {} with filter: {}", tenantId, filter);
+
+        Pageable pageable = createPageable(filter);
+        Page<AuditLog> auditLogs;
+        
+        // Use date filtering if provided
+        if (filter.getStartDate() != null && filter.getEndDate() != null) {
+            auditLogs = auditLogRepository.findByTenantIdAndTimestampBetween(
+                tenantId,
+                filter.getStartDate(), 
+                filter.getEndDate(), 
+                pageable
+            );
+        } else {
+            auditLogs = auditLogRepository.findByTenantIdOrderByTimestampDesc(tenantId, pageable);
+        }
+
+        return auditLogs.map(this::convertToDto);
+    }
+
+    /**
+     * Get all audit logs without tenant filtering (for debugging).
+     */
+    public Page<AuditLog> getAllAuditLogsDebug(Pageable pageable) {
+        log.info("Fetching ALL audit logs for debugging (no tenant filtering)");
+        return auditLogRepository.findAll(pageable);
     }
 
     /**
@@ -221,6 +279,55 @@ public class AuditLogService {
     }
 
     /**
+     * Get distinct tenants (for super admin).
+     */
+    public List<String> getDistinctTenants() {
+        return auditLogRepository.findDistinctTenants();
+    }
+
+    /**
+     * Get distinct actions for super admin (across all tenants).
+     */
+    public List<String> getDistinctActionsForSuperAdmin() {
+        return auditLogRepository.findDistinctActionsForSuperAdmin();
+    }
+
+    /**
+     * Get distinct entity types for super admin (across all tenants).
+     */
+    public List<String> getDistinctEntityTypesForSuperAdmin() {
+        return auditLogRepository.findDistinctEntityTypesForSuperAdmin();
+    }
+
+    /**
+     * Get distinct statuses for super admin (across all tenants).
+     */
+    public List<String> getDistinctStatusesForSuperAdmin() {
+        return auditLogRepository.findDistinctStatusesForSuperAdmin();
+    }
+
+    /**
+     * Get distinct HTTP methods for super admin (across all tenants).
+     */
+    public List<String> getDistinctHttpMethodsForSuperAdmin() {
+        return auditLogRepository.findDistinctHttpMethodsForSuperAdmin();
+    }
+
+    /**
+     * Get distinct usernames for super admin (across all tenants).
+     */
+    public List<String> getDistinctUsernamesForSuperAdmin() {
+        return auditLogRepository.findDistinctUsernamesForSuperAdmin();
+    }
+
+    /**
+     * Get distinct IP addresses for super admin (across all tenants).
+     */
+    public List<String> getDistinctIpAddressesForSuperAdmin() {
+        return auditLogRepository.findDistinctIpAddressesForSuperAdmin();
+    }
+
+    /**
      * Get distinct entity types for the current tenant.
      */
     public List<String> getDistinctEntityTypes() {
@@ -242,6 +349,22 @@ public class AuditLogService {
     public List<String> getDistinctHttpMethods() {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         return auditLogRepository.findDistinctHttpMethodsByTenantId(tenantId);
+    }
+
+    /**
+     * Get distinct usernames for the current tenant.
+     */
+    public List<String> getDistinctUsernames() {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return auditLogRepository.findDistinctUsernamesByTenantId(tenantId);
+    }
+
+    /**
+     * Get distinct IP addresses for the current tenant.
+     */
+    public List<String> getDistinctIpAddresses() {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return auditLogRepository.findDistinctIpAddressesByTenantId(tenantId);
     }
 
     /**
@@ -274,24 +397,24 @@ public class AuditLogService {
         StringBuilder csv = new StringBuilder();
         csv.append("ID,Action,Entity Type,Entity ID,User ID,Username,IP Address,Session ID,Request ID,Endpoint,HTTP Method,Response Status,Duration (ms),Status,Error Message,Timestamp\n");
 
-        for (AuditLog log : auditLogs.getContent()) {
+        for (AuditLog auditLog : auditLogs.getContent()) {
             csv.append(String.format("%d,%s,%s,%s,%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
-                    log.getId(),
-                    escapeCsv(log.getAction()),
-                    escapeCsv(log.getEntityType()),
-                    log.getEntityId() != null ? log.getEntityId().toString() : "",
-                    log.getUserId(),
-                    escapeCsv(log.getUsername()),
-                    escapeCsv(log.getIpAddress()),
-                    escapeCsv(log.getSessionId()),
-                    escapeCsv(log.getRequestId()),
-                    escapeCsv(log.getEndpoint()),
-                    escapeCsv(log.getHttpMethod()),
-                    log.getResponseStatus() != null ? log.getResponseStatus().toString() : "",
-                    log.getDurationMs() != null ? log.getDurationMs().toString() : "",
-                    escapeCsv(log.getStatus()),
-                    escapeCsv(log.getErrorMessage()),
-                    log.getTimestamp().toString()
+                    auditLog.getId(),
+                    escapeCsv(auditLog.getAction()),
+                    escapeCsv(auditLog.getEntityType()),
+                    auditLog.getEntityId() != null ? auditLog.getEntityId().toString() : "",
+                    auditLog.getUserId(),
+                    escapeCsv(auditLog.getUsername()),
+                    escapeCsv(auditLog.getIpAddress()),
+                    escapeCsv(auditLog.getSessionId()),
+                    escapeCsv(auditLog.getRequestId()),
+                    escapeCsv(auditLog.getEndpoint()),
+                    escapeCsv(auditLog.getHttpMethod()),
+                    auditLog.getResponseStatus() != null ? auditLog.getResponseStatus().toString() : "",
+                    auditLog.getDurationMs() != null ? auditLog.getDurationMs().toString() : "",
+                    escapeCsv(auditLog.getStatus()),
+                    escapeCsv(auditLog.getErrorMessage()),
+                    auditLog.getTimestamp().toString()
             ));
         }
 
@@ -326,6 +449,20 @@ public class AuditLogService {
         auditLog.setTenantId(tenantId);
         
         return auditLogRepository.save(auditLog);
+    }
+
+    /**
+     * Save audit log asynchronously to avoid performance impact.
+     */
+    @Async
+    @Transactional
+    public void saveAuditLogAsync(AuditLog auditLog) {
+        try {
+            auditLogRepository.save(auditLog);
+            log.debug("Audit log saved asynchronously: {}", auditLog.getId());
+        } catch (Exception e) {
+            log.error("Failed to save audit log asynchronously", e);
+        }
     }
 
     /**
@@ -386,8 +523,8 @@ public class AuditLogService {
 
     // Helper methods
     private Pageable createPageable(AuditLogFilterRequest filter) {
-        int page = filter.getPage() != null ? filter.getPage() : 0;
-        int size = filter.getSize() != null ? filter.getSize() : 20;
+        int page = Optional.ofNullable(filter.getPage()).orElse(0);
+        int size = Optional.ofNullable(filter.getSize()).orElse(20);
         String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "timestamp";
         String sortDirection = filter.getSortDirection() != null ? filter.getSortDirection() : "desc";
 

@@ -1,23 +1,30 @@
 package com.afyaquik.hms.auth.service;
 
-import com.afyaquik.hms.auth.domain.Tenant;
-import com.afyaquik.hms.auth.domain.StaffUser;
-import com.afyaquik.hms.auth.domain.StaffRole;
-import com.afyaquik.hms.auth.repository.TenantRepository;
-import com.afyaquik.hms.auth.repository.StaffUserRepository;
-import com.afyaquik.hms.auth.repository.StaffRoleRepository;
-import com.afyaquik.hms.auth.dto.TenantDto;
-import com.afyaquik.hms.auth.dto.CreateTenantRequest;
-import com.afyaquik.hms.auth.dto.CreateAdminUserRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import com.afyaquik.hms.auth.domain.StaffRole;
+import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.auth.domain.Tenant;
+import com.afyaquik.hms.auth.dto.CreateAdminUserRequest;
+import com.afyaquik.hms.auth.dto.CreateTenantRequest;
+import com.afyaquik.hms.auth.dto.StaffUserSummaryDto;
+import com.afyaquik.hms.auth.dto.TenantDto;
+import com.afyaquik.hms.auth.dto.UpdateTenantRequest;
+import com.afyaquik.hms.auth.dto.UpdateTenantSettingsRequest;
+import com.afyaquik.hms.auth.repository.StaffRoleRepository;
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.auth.repository.TenantRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -128,6 +135,18 @@ public class TenantManagementService {
         Tenant tenant = tenantRepository.findByTenantCode(request.tenantCode())
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found: " + request.tenantCode()));
 
+        // Check tenant user limit
+        if (tenant.getMaxUsers() != null) {
+            long currentUserCount = staffUserRepository.findByTenantId(tenant.getTenantCode()).stream()
+                    .filter(u -> !u.isDeleted())
+                    .count();
+            
+            if (currentUserCount >= tenant.getMaxUsers()) {
+                log.warn("User limit reached for tenant={} current={} max={}", tenant.getTenantCode(), currentUserCount, tenant.getMaxUsers());
+                throw new IllegalArgumentException("Maximum number of users reached for this tenant (" + tenant.getMaxUsers() + "). Please increase the limit or contact support.");
+            }
+        }
+
         // TODO: Add username and email uniqueness checks
 
         // Get or create the role
@@ -147,6 +166,8 @@ public class TenantManagementService {
         user.setDisplayName(request.displayName());
         user.setEmail(request.email());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setTenantSuperAdmin(request.isTenantSuperAdmin()); // Set tenant super-admin flag
+        user.addRole(role); // Assign the role to the user
         // TODO: Add department, phone, isActive, jobTitle, notes fields to StaffUser
 
         StaffUser savedUser = staffUserRepository.save(user);
@@ -158,8 +179,31 @@ public class TenantManagementService {
     /**
      * Get users for a specific tenant
      */
-    public List<StaffUser> getUsersForTenant(String tenantCode) {
-        return staffUserRepository.findByTenantId(tenantCode);
+    public List<StaffUserSummaryDto> getUsersForTenant(String tenantCode) {
+        List<StaffUser> users = staffUserRepository.findByTenantId(tenantCode);
+        return users.stream()
+                .map(this::toSummaryDto)
+                .collect(Collectors.toList());
+    }
+    
+    private StaffUserSummaryDto toSummaryDto(StaffUser user) {
+        Set<String> roles = user.getRoles().stream()
+                .map(role -> role.getDisplayName())
+                .collect(Collectors.toSet());
+        
+        return new StaffUserSummaryDto(
+            user.getId(),
+            user.getUsername(),
+            user.getDisplayName(),
+            user.getEmail(),
+            user.isEnabled(),
+            user.isTenantSuperAdmin(),
+            roles,
+            user.getSupervisorId(),
+            user.getSupervisorDisplayName(),
+            user.getCreatedAt(),
+            user.getUpdatedAt()
+        );
     }
 
     /**
@@ -206,6 +250,81 @@ public class TenantManagementService {
             tenant.getCreatedAt().toString(),
             tenant.getUpdatedAt().toString()
         );
+    }
+
+    /**
+     * Activate a tenant
+     */
+    @Transactional
+    public void activateTenant(String tenantCode) {
+        Tenant tenant = tenantRepository.findByTenantCode(tenantCode)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found: " + tenantCode));
+        
+        tenant.setIsActive(true);
+        tenantRepository.save(tenant);
+        log.info("Activated tenant: {}", tenantCode);
+    }
+
+
+    /**
+     * Update tenant settings
+     */
+    @Transactional
+    public Tenant updateTenantSettings(String tenantCode, UpdateTenantSettingsRequest request) {
+        Tenant tenant = tenantRepository.findByTenantCode(tenantCode)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found: " + tenantCode));
+        
+        if (request.isActive() != null) {
+            tenant.setIsActive(request.isActive());
+        }
+        if (request.maxUsers() != null) {
+            tenant.setMaxUsers(request.maxUsers());
+        }
+        if (request.subscriptionPlan() != null) {
+            tenant.setSubscriptionPlan(request.subscriptionPlan());
+        }
+        
+        Tenant savedTenant = tenantRepository.save(tenant);
+        log.info("Updated tenant settings for: {}", tenantCode);
+        return savedTenant;
+    }
+
+    /**
+     * Update tenant details
+     */
+    @Transactional
+    public Tenant updateTenant(String tenantCode, UpdateTenantRequest request) {
+        Tenant tenant = tenantRepository.findByTenantCode(tenantCode)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found: " + tenantCode));
+        
+        if (request.tenantName() != null) {
+            tenant.setTenantName(request.tenantName());
+        }
+        if (request.description() != null) {
+            tenant.setDescription(request.description());
+        }
+        if (request.contactEmail() != null) {
+            tenant.setContactEmail(request.contactEmail());
+        }
+        if (request.contactPhone() != null) {
+            tenant.setContactPhone(request.contactPhone());
+        }
+        if (request.address() != null) {
+            tenant.setAddress(request.address());
+        }
+        if (request.city() != null) {
+            tenant.setCity(request.city());
+        }
+        if (request.state() != null) {
+            tenant.setState(request.state());
+        }
+        if (request.country() != null) {
+            tenant.setCountry(request.country());
+        }
+        
+        Tenant savedTenant = tenantRepository.save(tenant);
+        log.info("Updated tenant details for: {}", tenantCode);
+        return savedTenant;
     }
 
     public record TenantStats(

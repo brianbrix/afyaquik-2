@@ -114,11 +114,22 @@ public class UserProfileService {
             throw new RuntimeException("Profile already exists for user: " + username);
         }
         
+        // Validate required fields
+        if (email == null || email.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email is required to create a user profile");
+        }
+        if (firstName == null || firstName.trim().isEmpty()) {
+            throw new IllegalArgumentException("First name is required to create a user profile");
+        }
+        if (lastName == null || lastName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Last name is required to create a user profile");
+        }
+        
         UserProfile profile = new UserProfile();
         profile.setUsername(username);
-        profile.setEmail(email);
-        profile.setFirstName(firstName);
-        profile.setLastName(lastName);
+        profile.setEmail(email.trim());
+        profile.setFirstName(firstName.trim());
+        profile.setLastName(lastName.trim());
         profile.setTenantId(tenantId);
         
         UserProfile saved = userProfileRepository.save(profile);

@@ -31,3 +31,4 @@ public class LocalDateTimeConverter implements AttributeConverter<LocalDateTime,
         return offsetDateTime.toLocalDateTime();
     }
 }
+

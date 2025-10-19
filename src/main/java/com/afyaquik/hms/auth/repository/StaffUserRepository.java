@@ -1,14 +1,15 @@
 package com.afyaquik.hms.auth.repository;
 
-import com.afyaquik.hms.auth.domain.StaffUser;
-import com.afyaquik.hms.common.repository.TenantAwareRepository;
-import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+
+import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 
 public interface StaffUserRepository extends TenantAwareRepository<StaffUser, Long> {
 
@@ -17,8 +18,7 @@ public interface StaffUserRepository extends TenantAwareRepository<StaffUser, Lo
 
     @EntityGraph(attributePaths = "roles")
     List<StaffUser> findByTenantId(String tenantId);
-    @Query("SELECT u FROM StaffUser u LEFT JOIN FETCH u.departments WHERE u.tenantId = :tenantId")
-    List<StaffUser> findByTenantIdWithDepartments(@Param("tenantId") String tenantId);
+    // Department queries removed - departments are now managed separately
     
     StaffUser findByUsernameAndDeletedFalse(String username);
     
@@ -40,11 +40,7 @@ public interface StaffUserRepository extends TenantAwareRepository<StaffUser, Lo
         return findByTenantId(tenantId);
     }
     
-    @Query("SELECT u FROM StaffUser u LEFT JOIN FETCH u.departments WHERE u.tenantId = :tenantId")
-    default List<StaffUser> findAllForCurrentTenantWithDepartments() {
-        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
-        return findByTenantIdWithDepartments(tenantId);
-    }
+    // Department queries removed - departments are now managed separately
     
     @EntityGraph(attributePaths = "roles")
     default StaffUser findByUsernameAndDeletedFalseForCurrentTenant(String username) {
@@ -58,4 +54,8 @@ public interface StaffUserRepository extends TenantAwareRepository<StaffUser, Lo
     
     // Analytics methods
     long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
+
+    
+    @Query("SELECT COUNT(u) FROM StaffUser u WHERE u.enabled = true")
+    long countByEnabledTrue();
 }

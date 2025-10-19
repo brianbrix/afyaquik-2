@@ -56,6 +56,7 @@ export interface CreateAdminUserRequest {
   department?: string;
   phone?: string;
   notes?: string;
+  isTenantSuperAdmin?: boolean;
 }
 
 export interface StaffUser {
@@ -65,6 +66,7 @@ export interface StaffUser {
   displayName: string;
   email: string;
   department?: string;
+  isTenantSuperAdmin?: boolean;
   phone?: string;
   jobTitle?: string;
   isActive: boolean;
@@ -94,9 +96,13 @@ export const tenantManagementApi = {
   updateTenant: (tenantCode: string, tenant: CreateTenantRequest) =>
     apiClient.put<ApiEnvelope<Tenant>>(`/super-admin/tenants/${tenantCode}`, tenant).then(res => res.data.data),
 
+  // Activate tenant
+  activateTenant: (tenantCode: string) =>
+    apiClient.post<ApiEnvelope<void>>(`/super-admin/tenants/${tenantCode}/activate`).then(res => res.data.data),
+
   // Deactivate tenant
   deactivateTenant: (tenantCode: string) =>
-    apiClient.delete<ApiEnvelope<void>>(`/super-admin/tenants/${tenantCode}`).then(res => res.data.data),
+    apiClient.post<ApiEnvelope<void>>(`/super-admin/tenants/${tenantCode}/deactivate`).then(res => res.data.data),
 
   // Get tenant stats
   getTenantStats: (tenantCode: string) =>

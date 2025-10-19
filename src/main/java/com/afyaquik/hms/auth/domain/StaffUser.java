@@ -1,6 +1,10 @@
 package com.afyaquik.hms.auth.domain;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import com.afyaquik.hms.common.domain.BaseEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -9,8 +13,6 @@ import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.util.HashSet;
-import java.util.Set;
 
 @Entity
 @Table(name = "staff_users", uniqueConstraints = {
@@ -40,6 +42,9 @@ public class StaffUser extends BaseEntity {
     @Column(name = "enabled", nullable = false)
     private boolean enabled = true;
 
+    @Column(name = "is_tenant_super_admin", nullable = false)
+    private boolean isTenantSuperAdmin = false;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "staff_user_roles",
@@ -47,12 +52,7 @@ public class StaffUser extends BaseEntity {
             inverseJoinColumns = @JoinColumn(name = "staff_role_id"))
     private Set<StaffRole> roles = new HashSet<>();
 
-    @ManyToMany
-    @JoinTable(
-            name = "staff_user_departments",
-            joinColumns = @JoinColumn(name = "staff_user_id"),
-            inverseJoinColumns = @JoinColumn(name = "department_id"))
-    private Set<Department> departments = new HashSet<>();
+    // Department relationship removed - departments are now managed separately
 
     @Column(name = "supervisor_id")
     private Long supervisorId;
@@ -112,15 +112,7 @@ public class StaffUser extends BaseEntity {
         this.roles.add(role);
     }
 
-    public Set<Department> getDepartments() {
-        return departments;
-    }
-
-    public void setDepartments(Set<Department> departments) {
-        this.departments = departments;
-    }
-
-    public void addDepartment(Department department) { this.departments.add(department); }
+    // Department methods removed - departments are now managed separately
 
     public Long getSupervisorId() {
         return supervisorId;
@@ -136,5 +128,13 @@ public class StaffUser extends BaseEntity {
 
     public void setSupervisorDisplayName(String supervisorDisplayName) {
         this.supervisorDisplayName = supervisorDisplayName;
+    }
+
+    public boolean isTenantSuperAdmin() {
+        return isTenantSuperAdmin;
+    }
+
+    public void setTenantSuperAdmin(boolean isTenantSuperAdmin) {
+        this.isTenantSuperAdmin = isTenantSuperAdmin;
     }
 }

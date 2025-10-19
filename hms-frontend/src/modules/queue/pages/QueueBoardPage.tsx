@@ -531,6 +531,26 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                 ))}
               </Form.Select>
             </Col>
+            <Col md={8} sm={12}>
+              <div className="d-flex flex-wrap gap-2">
+                <span className="text-muted small align-self-center me-2">Quick filters:</span>
+                {statusOptions
+                  .filter(status => status.includes('WAITING'))
+                  .map((status) => (
+                    <Button
+                      key={status}
+                      size="sm"
+                      variant={selectedStatus === status ? "primary" : "outline-secondary"}
+                      onClick={() => setSelectedStatus(status)}
+                      className="text-nowrap"
+                    >
+                      {statusLabels[status]}
+                    </Button>
+                  ))}
+              </div>
+            </Col>
+          </Row>
+          <Row className="g-3 align-items-center">
             <Col md={4} sm={12}>
               <FilterBar placeholder="Search ticket, name, or reason..." value={searchValue} onChange={setSearchValue} />
             </Col>

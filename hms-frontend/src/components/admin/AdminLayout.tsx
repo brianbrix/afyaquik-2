@@ -82,18 +82,6 @@ export const AdminLayout: React.FC = () => {
                 <i className="bi bi-gear-fill me-2"></i>
                 System Settings
               </NavLink>
-              <NavLink to="super-admin" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
-                <i className="bi bi-shield-check me-2"></i>
-                Super Admin
-              </NavLink>
-              <NavLink to="tenant-management" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
-                <i className="bi bi-building me-2"></i>
-                Tenant Management
-              </NavLink>
-              <NavLink to="system-health" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
-                <i className="bi bi-heart-pulse me-2"></i>
-                System Health
-              </NavLink>
             </div>
           </div>
 
@@ -178,6 +166,10 @@ export const AdminLayout: React.FC = () => {
               <NavLink to="analytics" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
                 <i className="bi bi-speedometer2 me-2"></i>
                 System Analytics
+              </NavLink>
+              <NavLink to="patient-visits" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-people me-2"></i>
+                Patient Visits
               </NavLink>
               <NavLink to="audit-logs" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
                 <i className="bi bi-journal-text me-2"></i>

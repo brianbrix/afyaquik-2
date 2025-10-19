@@ -1,9 +1,9 @@
 package com.afyaquik.hms.auth.api;
 
 import com.afyaquik.hms.auth.domain.UserGroup;
-import com.afyaquik.hms.auth.domain.StaffUser;
 import com.afyaquik.hms.auth.dto.UserGroupDto;
 import com.afyaquik.hms.auth.service.UserGroupService;
+import com.afyaquik.hms.audit.annotation.Auditable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/user-groups")
+@Auditable(entityType = "UserGroup", auditGet = false, description = "User group management operations")
 public class UserGroupController {
     private final UserGroupService userGroupService;
 

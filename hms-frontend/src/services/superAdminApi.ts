@@ -29,6 +29,11 @@ export interface SuperAdminLoginResponse {
   user: SuperAdminUser;
 }
 
+export interface SuperAdminRefreshResponse {
+  accessToken: string;
+  expiresIn: number;
+}
+
 export interface Permission {
   id: number;
   code: string;
@@ -49,10 +54,25 @@ export interface UpdateSuperAdminUserRequest {
   isActive: boolean;
 }
 
+// Helper function to clean filter parameters
+const cleanFilterParams = (filter: any) => {
+  return Object.fromEntries(
+    Object.entries(filter).filter(([_, value]) => 
+      value !== undefined && 
+      value !== null && 
+      value !== '' && 
+      value !== 'undefined'
+    )
+  );
+};
+
 export const superAdminApi = {
   // Super Admin Authentication
   login: (credentials: SuperAdminLoginRequest) =>
     apiClient.post<ApiEnvelope<SuperAdminLoginResponse>>('/super-admin/auth/login', credentials).then(res => res.data.data),
+
+  refresh: (refreshToken: string) =>
+    apiClient.post<ApiEnvelope<SuperAdminRefreshResponse>>('/super-admin/auth/refresh', { refreshToken }).then(res => res.data.data),
 
   logout: () =>
     apiClient.post<ApiEnvelope<void>>('/super-admin/auth/logout').then(res => res.data.data),
@@ -83,5 +103,32 @@ export const superAdminApi = {
 
   // Check super admin access
   checkAccess: () =>
-    apiClient.get<ApiEnvelope<boolean>>('/super-admin/check-access').then(res => res.data.data)
+    apiClient.get<ApiEnvelope<boolean>>('/super-admin/check-access').then(res => res.data.data),
+
+  // Audit Logs for Super Admin
+  getAuditLogs: (filter: any = {}) => {
+    const cleanFilter = cleanFilterParams(filter);
+    return apiClient.get<ApiEnvelope<any>>(`/super-admin/audit-logs?${new URLSearchParams(cleanFilter).toString()}`).then(res => res.data.data);
+  },
+
+  getDistinctActions: () =>
+    apiClient.get<ApiEnvelope<string[]>>('/super-admin/audit-logs/distinct/actions').then(res => res.data.data),
+
+  getDistinctEntityTypes: () =>
+    apiClient.get<ApiEnvelope<string[]>>('/super-admin/audit-logs/distinct/entity-types').then(res => res.data.data),
+
+  getDistinctStatuses: () =>
+    apiClient.get<ApiEnvelope<string[]>>('/super-admin/audit-logs/distinct/statuses').then(res => res.data.data),
+
+  getDistinctHttpMethods: () =>
+    apiClient.get<ApiEnvelope<string[]>>('/super-admin/audit-logs/distinct/http-methods').then(res => res.data.data),
+
+  getDistinctUsernames: () =>
+    apiClient.get<ApiEnvelope<string[]>>('/super-admin/audit-logs/distinct/usernames').then(res => res.data.data),
+
+  getDistinctIpAddresses: () =>
+    apiClient.get<ApiEnvelope<string[]>>('/super-admin/audit-logs/distinct/ip-addresses').then(res => res.data.data),
+
+  getDistinctTenants: () =>
+    apiClient.get<ApiEnvelope<string[]>>('/super-admin/audit-logs/tenants').then(res => res.data.data)
 };

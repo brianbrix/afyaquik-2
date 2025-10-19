@@ -14,6 +14,7 @@ export interface AdminUser {
   roles: AdminRole[];
   supervisorId?: number;
   supervisorDisplayName?: string;
+  isTenantSuperAdmin?: boolean;
 }
 
 interface ApiEnvelope<T> { status: string; data: T; errors?: any; meta?: any; }

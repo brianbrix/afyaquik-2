@@ -1,18 +1,24 @@
 package com.afyaquik.hms.auth.service;
 
-import com.afyaquik.hms.auth.domain.SuperAdminUser;
-import com.afyaquik.hms.auth.dto.SuperAdminLoginRequest;
-import com.afyaquik.hms.auth.dto.SuperAdminLoginResponse;
-import com.afyaquik.hms.auth.dto.SuperAdminUserDto;
-import com.afyaquik.hms.auth.jwt.JwtService;
-import com.afyaquik.hms.auth.repository.SuperAdminUserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import com.afyaquik.hms.auth.domain.SuperAdminUser;
+import com.afyaquik.hms.auth.dto.SuperAdminLoginRequest;
+import com.afyaquik.hms.auth.dto.SuperAdminLoginResponse;
+import com.afyaquik.hms.auth.dto.SuperAdminRefreshRequest;
+import com.afyaquik.hms.auth.dto.SuperAdminRefreshResponse;
+import com.afyaquik.hms.auth.dto.SuperAdminUserDto;
+import com.afyaquik.hms.auth.jwt.JwtPrincipal;
+import com.afyaquik.hms.auth.jwt.JwtService;
+import com.afyaquik.hms.auth.jwt.TokenType;
+import com.afyaquik.hms.auth.repository.SuperAdminUserRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -85,6 +91,37 @@ public class SuperAdminAuthService {
         if (user.getFailedLoginAttempts() >= 5) {
             log.warn("Super admin account locked due to too many failed attempts: {}", user.getUsername());
         }
+    }
+
+    /**
+     * Refresh super admin access token
+     */
+    public SuperAdminRefreshResponse refresh(SuperAdminRefreshRequest request) {
+        log.info("Super admin token refresh attempt");
+        
+        JwtPrincipal principal = jwtService.parseToken(request.refreshToken(), TokenType.REFRESH);
+        
+        SuperAdminUser user = superAdminUserRepository.findById(principal.userId())
+                .filter(SuperAdminUser::getIsActive)
+                .orElseThrow(() -> {
+                    log.warn("Super admin token refresh failed: user not found or inactive");
+                    return new BadCredentialsException("User no longer available");
+                });
+
+        // Check if account is locked
+        if (user.isLocked()) {
+            log.warn("Super admin token refresh failed: account locked");
+            throw new BadCredentialsException("Account is locked");
+        }
+
+        String accessToken = jwtService.generateSuperAdminAccessToken(user);
+        
+        log.info("Super admin token refresh successful for username: {}", user.getUsername());
+        
+        return new SuperAdminRefreshResponse(
+                accessToken,
+                (int) jwtService.getAccessTokenTtlSeconds()
+        );
     }
 
     /**

@@ -1,8 +1,13 @@
 package com.afyaquik.hms.auth.domain;
 
-import com.afyaquik.hms.common.domain.BaseEntity;
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import com.afyaquik.hms.common.domain.SuperAdminBaseEntity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 /**
  * Tenant entity representing a clinic or organization
@@ -12,7 +17,7 @@ import java.time.LocalDateTime;
 @Table(name = "tenants", uniqueConstraints = {
         @UniqueConstraint(name = "uk_tenant_code", columnNames = {"tenant_code"})
 })
-public class Tenant extends BaseEntity {
+public class Tenant extends SuperAdminBaseEntity {
 
     @Column(name = "tenant_code", nullable = false, unique = true, length = 64)
     private String tenantCode;

@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { Card, Button, Table, Badge, Alert, Spinner, Row, Col, Form, Modal, InputGroup } from 'react-bootstrap';
 import { useQuery } from '@tanstack/react-query';
 import { auditLogApi, AuditLog, AuditLogFilter } from '../../../services/auditLogApi';
+import { superAdminApi } from '../../../services/superAdminApi';
+import { useSuperAdminAuth } from '../../../app/providers/SuperAdminAuthProvider';
 import { DateRangePicker } from '../components/DateRangePicker';
+import { SearchableMultiSelect } from '../../../components/shared/SearchableMultiSelect';
 import ReactPaginate from 'react-paginate';
 
 export function AuditLogsPage() {
@@ -13,40 +16,64 @@ export function AuditLogsPage() {
   const [filters, setFilters] = useState<AuditLogFilter>({});
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [dateRange, setDateRange] = useState<{startDate: string, endDate: string}>({startDate: '', endDate: ''});
+  
+  // Detect if we're in super admin context
+  let isSuperAdmin = false;
+  try {
+    const { isAuthenticated } = useSuperAdminAuth();
+    isSuperAdmin = isAuthenticated;
+  } catch (error) {
+    // Not in super admin context, use regular API
+    isSuperAdmin = false;
+  }
 
   // Fetch audit logs
   const { data: auditLogsData, isLoading, error, refetch } = useQuery({
-    queryKey: ['audit-logs', currentPage, pageSize, searchTerm, filters],
-    queryFn: () => auditLogApi.getAuditLogs({
-      ...filters,
-      searchTerm: searchTerm || undefined,
-      page: currentPage,
-      size: pageSize,
-      sortBy: 'timestamp',
-      sortDirection: 'desc'
-    }),
+    queryKey: ['audit-logs', currentPage, pageSize, searchTerm, filters, dateRange, isSuperAdmin],
+    queryFn: () => {
+      const filterParams = {
+        ...filters,
+        startDate: dateRange.startDate || undefined,
+        endDate: dateRange.endDate || undefined,
+        searchTerm: searchTerm || undefined,
+        page: currentPage,
+        size: pageSize,
+        sortBy: 'timestamp',
+        sortDirection: 'desc'
+      };
+      
+      return isSuperAdmin 
+        ? superAdminApi.getAuditLogs(filterParams)
+        : auditLogApi.getAuditLogs(filterParams);
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Fetch distinct values for filters
-  const { data: distinctActions } = useQuery({
-    queryKey: ['audit-logs-distinct-actions'],
-    queryFn: auditLogApi.getDistinctActions,
-  });
-
   const { data: distinctEntityTypes } = useQuery({
-    queryKey: ['audit-logs-distinct-entity-types'],
-    queryFn: auditLogApi.getDistinctEntityTypes,
+    queryKey: ['audit-logs-distinct-entity-types', isSuperAdmin],
+    queryFn: isSuperAdmin ? superAdminApi.getDistinctEntityTypes : auditLogApi.getDistinctEntityTypes,
   });
 
   const { data: distinctStatuses } = useQuery({
-    queryKey: ['audit-logs-distinct-statuses'],
-    queryFn: auditLogApi.getDistinctStatuses,
+    queryKey: ['audit-logs-distinct-statuses', isSuperAdmin],
+    queryFn: isSuperAdmin ? superAdminApi.getDistinctStatuses : auditLogApi.getDistinctStatuses,
   });
 
   const { data: distinctHttpMethods } = useQuery({
-    queryKey: ['audit-logs-distinct-http-methods'],
-    queryFn: auditLogApi.getDistinctHttpMethods,
+    queryKey: ['audit-logs-distinct-http-methods', isSuperAdmin],
+    queryFn: isSuperAdmin ? superAdminApi.getDistinctHttpMethods : auditLogApi.getDistinctHttpMethods,
+  });
+
+  const { data: distinctUsernames } = useQuery({
+    queryKey: ['audit-logs-distinct-usernames', isSuperAdmin],
+    queryFn: isSuperAdmin ? superAdminApi.getDistinctUsernames : auditLogApi.getDistinctUsernames,
+  });
+
+  const { data: distinctIpAddresses } = useQuery({
+    queryKey: ['audit-logs-distinct-ip-addresses', isSuperAdmin],
+    queryFn: isSuperAdmin ? superAdminApi.getDistinctIpAddresses : auditLogApi.getDistinctIpAddresses,
   });
 
   const handlePageChange = ({ selected }: { selected: number }) => {
@@ -61,15 +88,22 @@ export function AuditLogsPage() {
   const handleClearFilters = () => {
     setFilters({});
     setSearchTerm('');
+    setDateRange({startDate: '', endDate: ''});
     setCurrentPage(0);
   };
 
   const handleExportCsv = async () => {
     try {
-      const blob = await auditLogApi.exportAuditLogsToCsv({
+      const exportParams = {
         ...filters,
+        startDate: dateRange.startDate || undefined,
+        endDate: dateRange.endDate || undefined,
         searchTerm: searchTerm || undefined
-      });
+      };
+      
+      const blob = isSuperAdmin 
+        ? await superAdminApi.getAuditLogs(exportParams) // Super admin doesn't have CSV export yet
+        : await auditLogApi.exportAuditLogsToCsv(exportParams);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -85,10 +119,16 @@ export function AuditLogsPage() {
 
   const handleExportJson = async () => {
     try {
-      const blob = await auditLogApi.exportAuditLogsToJson({
+      const exportParams = {
         ...filters,
+        startDate: dateRange.startDate || undefined,
+        endDate: dateRange.endDate || undefined,
         searchTerm: searchTerm || undefined
-      });
+      };
+      
+      const blob = isSuperAdmin 
+        ? await superAdminApi.getAuditLogs(exportParams) // Super admin doesn't have JSON export yet
+        : await auditLogApi.exportAuditLogsToJson(exportParams);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -191,16 +231,21 @@ export function AuditLogsPage() {
                   placeholder="Search audit logs..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearch();
+                    }
+                  }}
                 />
-                <Button variant="outline-secondary" onClick={handleSearch}>
+                <Button variant="outline-secondary" type="button" onClick={handleSearch}>
                   <i className="bi bi-search"></i>
                 </Button>
               </InputGroup>
             </Col>
             <Col md={6}>
               <div className="d-flex gap-2">
-                <Button variant="outline-secondary" onClick={handleClearFilters}>
+                <Button variant="outline-secondary" type="button" onClick={handleClearFilters}>
                   Clear Filters
                 </Button>
                 <div className="flex-grow-1"></div>
@@ -222,77 +267,125 @@ export function AuditLogsPage() {
           </Row>
 
           {showFilters && (
-            <Row className="mt-3 g-3">
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Actions</Form.Label>
-                  <Form.Select
-                    multiple
-                    value={filters.actions || []}
-                    onChange={(e) => setFilters({
-                      ...filters,
-                      actions: Array.from(e.target.selectedOptions, option => option.value)
-                    })}
-                  >
-                    {distinctActions?.map(action => (
-                      <option key={action} value={action}>{action}</option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Entity Types</Form.Label>
-                  <Form.Select
-                    multiple
+            <>
+              {/* Date Range Filter */}
+              <Row className="mt-3 g-3">
+                <Col md={12}>
+                  <Form.Group>
+                    <Form.Label>Date Range</Form.Label>
+                    <DateRangePicker
+                      startDate={dateRange.startDate}
+                      endDate={dateRange.endDate}
+                      onDateChange={(start, end) => {
+                        setDateRange({startDate: start, endDate: end});
+                        setCurrentPage(0);
+                      }}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              {/* Other Filters */}
+              <Row className="mt-3 g-3">
+                <Col md={3}>
+                  <SearchableMultiSelect
+                    label="Entity Types"
                     value={filters.entityTypes || []}
-                    onChange={(e) => setFilters({
-                      ...filters,
-                      entityTypes: Array.from(e.target.selectedOptions, option => option.value)
-                    })}
-                  >
-                    {distinctEntityTypes?.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>Status</Form.Label>
-                  <Form.Select
-                    multiple
+                    onChange={(values) => setFilters({ ...filters, entityTypes: values })}
+                    options={distinctEntityTypes || []}
+                    placeholder="Search entity types..."
+                  />
+                </Col>
+                <Col md={3}>
+                  <SearchableMultiSelect
+                    label="Status"
                     value={filters.statuses || []}
-                    onChange={(e) => setFilters({
-                      ...filters,
-                      statuses: Array.from(e.target.selectedOptions, option => option.value)
-                    })}
-                  >
-                    {distinctStatuses?.map(status => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={3}>
-                <Form.Group>
-                  <Form.Label>HTTP Method</Form.Label>
-                  <Form.Select
-                    multiple
+                    onChange={(values) => setFilters({ ...filters, statuses: values })}
+                    options={distinctStatuses || []}
+                    placeholder="Search statuses..."
+                  />
+                </Col>
+                <Col md={3}>
+                  <SearchableMultiSelect
+                    label="HTTP Methods"
                     value={filters.httpMethod ? [filters.httpMethod] : []}
-                    onChange={(e) => setFilters({
-                      ...filters,
-                      httpMethod: e.target.value || undefined
-                    })}
-                  >
-                    <option value="">All Methods</option>
-                    {distinctHttpMethods?.map(method => (
-                      <option key={method} value={method}>{method}</option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-            </Row>
+                    onChange={(values) => setFilters({ ...filters, httpMethod: values[0] || undefined })}
+                    options={distinctHttpMethods || []}
+                    placeholder="Search HTTP methods..."
+                  />
+                </Col>
+                <Col md={3}>
+                  <SearchableMultiSelect
+                    label="Users"
+                    value={filters.usernames || []}
+                    onChange={(values) => setFilters({ ...filters, usernames: values })}
+                    options={distinctUsernames || []}
+                    placeholder="Search users..."
+                  />
+                </Col>
+              </Row>
+
+              {/* Additional Filters Row */}
+              <Row className="mt-3 g-3">
+                <Col md={3}>
+                  <SearchableMultiSelect
+                    label="IP Addresses"
+                    value={filters.ipAddress ? [filters.ipAddress] : []}
+                    onChange={(values) => setFilters({ ...filters, ipAddress: values[0] || undefined })}
+                    options={distinctIpAddresses || []}
+                    placeholder="Search IP addresses..."
+                  />
+                </Col>
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Session ID</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Enter session ID"
+                      value={filters.sessionId || ''}
+                      onChange={(e) => setFilters({
+                        ...filters,
+                        sessionId: e.target.value || undefined
+                      })}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Endpoint</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Enter endpoint"
+                      value={filters.endpoint || ''}
+                      onChange={(e) => setFilters({
+                        ...filters,
+                        endpoint: e.target.value || undefined
+                      })}
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Search Actions</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Search by action (e.g., CREATE_USER, UPDATE_PATIENT)"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleSearch();
+                        }
+                      }}
+                    />
+                    <Form.Text className="text-muted">
+                      Use the search box above to filter by actions
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+              </Row>
+            </>
           )}
         </Card.Body>
       </Card>

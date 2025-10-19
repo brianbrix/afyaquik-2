@@ -9,10 +9,12 @@ import { profileApi } from '../../services/profileApi';
 import { useMutation } from '@tanstack/react-query';
 import { ReactPaginateComponent } from '../shared/ReactPaginate';
 import { Row, Col } from 'react-bootstrap';
+import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 
 export const UserDirectory: React.FC = () => {
   const { data: users, isLoading, error } = useAdminUsers();
+  const { user: currentUser } = useAuth();
   const qc = useQueryClient();
   const updateUser = useUpdateUser();
   const updateRoles = useUpdateUserRoles();
@@ -53,6 +55,17 @@ export const UserDirectory: React.FC = () => {
   }, [users]);
 
   const handleEnableProfile = async (user: any) => {
+    // Check if user has email
+    if (!user.email || user.email.trim() === '') {
+      await Swal.fire({
+        title: 'Email Required',
+        text: `User ${user.displayName} does not have an email address. Please update the user's email before creating a profile.`,
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+
     const result = await Swal.fire({
       title: 'Enable Profile?',
       text: `Create a profile for ${user.username}?`,
@@ -97,6 +110,28 @@ export const UserDirectory: React.FC = () => {
   };
 
   const toggleEnabled = (u: any) => {
+    // Check if user is trying to disable themselves
+    if (currentUser && currentUser.username === u.username && !u.enabled) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cannot Disable Self',
+        text: 'You cannot disable your own account. Ask another administrator to do this.',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+    
+    // Check if user is tenant super admin
+    if (u.isTenantSuperAdmin) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cannot Modify Tenant Super Admin',
+        text: 'This user is a tenant super admin and cannot be modified. Contact system administrator.',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+
     const prev = users;
     const optimistic = users?.map(x => x.id === u.id ? { ...x, enabled: !x.enabled } : x) || [];
     // optimistic update
@@ -115,6 +150,28 @@ export const UserDirectory: React.FC = () => {
   };
 
   const onDelete = (u: any) => {
+    // Check if user is trying to delete themselves
+    if (currentUser && currentUser.username === u.username) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cannot Delete Self',
+        text: 'You cannot delete your own account. Ask another administrator to do this.',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+    
+    // Check if user is tenant super admin
+    if (u.isTenantSuperAdmin) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Cannot Delete Tenant Super Admin',
+        text: 'This user is a tenant super admin and cannot be deleted. Contact system administrator.',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+
     if (!window.confirm(`Delete user ${u.username}? This can be undone only by backend restore.`)) return;
     deleteUser.mutate(u.id);
   };
@@ -171,7 +228,15 @@ export const UserDirectory: React.FC = () => {
                   )}
                 </td>
                 <td className="d-flex gap-2">
-                  <button className="btn btn-outline-secondary btn-sm" onClick={()=>setEditing(u)}>Edit</button>
+                  <button 
+                    className="btn btn-outline-secondary btn-sm" 
+                    onClick={()=>setEditing(u)}
+                    title={u.isTenantSuperAdmin ? 'Cannot edit tenant super admin' : ''}
+                    disabled={u.isTenantSuperAdmin}
+                  >
+                    Edit
+                    {u.isTenantSuperAdmin && <i className="bi bi-lock ms-1"></i>}
+                  </button>
                   {!profileStatus[u.username] && (
                     <button 
                       className="btn btn-outline-primary btn-sm" 
@@ -181,7 +246,19 @@ export const UserDirectory: React.FC = () => {
                       Enable Profile
                     </button>
                   )}
-                  <button className="btn btn-outline-danger btn-sm" onClick={()=>onDelete(u)} disabled={deleteUser.isPending}>Del</button>
+                  <button 
+                    className="btn btn-outline-danger btn-sm" 
+                    onClick={()=>onDelete(u)} 
+                    disabled={deleteUser.isPending || (currentUser && currentUser.username === u.username) || u.isTenantSuperAdmin}
+                    title={
+                      currentUser && currentUser.username === u.username ? 'Cannot delete your own account' :
+                      u.isTenantSuperAdmin ? 'Cannot delete tenant super admin' : ''
+                    }
+                  >
+                    Del
+                    {(currentUser && currentUser.username === u.username) && <i className="bi bi-lock ms-1"></i>}
+                    {u.isTenantSuperAdmin && <i className="bi bi-shield-exclamation ms-1"></i>}
+                  </button>
                 </td>
               </tr>
             ))}

@@ -1,19 +1,31 @@
 package com.afyaquik.hms.auth.api;
 
-import com.afyaquik.hms.auth.domain.Tenant;
-import com.afyaquik.hms.auth.domain.StaffUser;
-import com.afyaquik.hms.auth.service.TenantManagementService;
-import com.afyaquik.hms.auth.dto.TenantDto;
-import com.afyaquik.hms.auth.dto.CreateTenantRequest;
-import com.afyaquik.hms.auth.dto.CreateAdminUserRequest;
-import com.afyaquik.hms.common.web.ApiResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.auth.domain.Tenant;
+import com.afyaquik.hms.auth.dto.CreateAdminUserRequest;
+import com.afyaquik.hms.auth.dto.CreateTenantRequest;
+import com.afyaquik.hms.auth.dto.StaffUserSummaryDto;
+import com.afyaquik.hms.auth.dto.TenantDto;
+import com.afyaquik.hms.auth.dto.UpdateTenantRequest;
+import com.afyaquik.hms.auth.dto.UpdateTenantSettingsRequest;
+import com.afyaquik.hms.auth.service.TenantManagementService;
+import com.afyaquik.hms.common.web.ApiResponse;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/super-admin/tenants")
@@ -94,23 +106,6 @@ public class TenantManagementController {
         }
     }
 
-    /**
-     * Update tenant
-     */
-    @PutMapping("/{tenantCode}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<TenantDto>> updateTenant(
-            @PathVariable String tenantCode,
-            @RequestBody CreateTenantRequest request) {
-        try {
-            Tenant tenant = tenantManagementService.updateTenant(tenantCode, request);
-            return ResponseEntity.ok(ApiResponse.success(tenantManagementService.toDto(tenant)));
-        } catch (Exception e) {
-            log.error("Error updating tenant: {}", tenantCode, e);
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Failed to update tenant: " + e.getMessage()));
-        }
-    }
 
     /**
      * Deactivate tenant
@@ -149,9 +144,9 @@ public class TenantManagementController {
      */
     @GetMapping("/{tenantCode}/users")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<StaffUser>>> getTenantUsers(@PathVariable String tenantCode) {
+    public ResponseEntity<ApiResponse<List<StaffUserSummaryDto>>> getTenantUsers(@PathVariable String tenantCode) {
         try {
-            List<StaffUser> users = tenantManagementService.getUsersForTenant(tenantCode);
+            List<StaffUserSummaryDto> users = tenantManagementService.getUsersForTenant(tenantCode);
             return ResponseEntity.ok(ApiResponse.success(users));
         } catch (Exception e) {
             log.error("Error fetching tenant users: {}", tenantCode, e);
@@ -179,7 +174,8 @@ public class TenantManagementController {
                     request.roleKey(),
                     request.department(),
                     request.phone(),
-                    request.notes()
+                    request.notes(),
+                    request.isTenantSuperAdmin()
             );
             
             StaffUser user = tenantManagementService.createAdminUser(requestWithTenant);
@@ -188,6 +184,61 @@ public class TenantManagementController {
             log.error("Error creating admin user for tenant: {}", tenantCode, e);
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to create admin user: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Activate a tenant
+     */
+    @PostMapping("/{tenantCode}/activate")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> activateTenant(@PathVariable String tenantCode) {
+        try {
+            tenantManagementService.activateTenant(tenantCode);
+            return ResponseEntity.ok(ApiResponse.success(null));
+        } catch (Exception e) {
+            log.error("Error activating tenant: {}", tenantCode, e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to activate tenant: " + e.getMessage()));
+        }
+    }
+
+
+    /**
+     * Update tenant settings (max users, etc.)
+     */
+    @PutMapping("/{tenantCode}/settings")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<TenantDto>> updateTenantSettings(
+            @PathVariable String tenantCode,
+            @RequestBody UpdateTenantSettingsRequest request) {
+        try {
+            Tenant tenant = tenantManagementService.updateTenantSettings(tenantCode, request);
+            TenantDto dto = tenantManagementService.toDto(tenant);
+            return ResponseEntity.ok(ApiResponse.success(dto));
+        } catch (Exception e) {
+            log.error("Error updating tenant settings: {}", tenantCode, e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to update tenant settings: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Update tenant details (name, description, contact info, etc.)
+     */
+    @PutMapping("/{tenantCode}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<TenantDto>> updateTenant(
+            @PathVariable String tenantCode,
+            @RequestBody UpdateTenantRequest request) {
+        try {
+            Tenant tenant = tenantManagementService.updateTenant(tenantCode, request);
+            TenantDto dto = tenantManagementService.toDto(tenant);
+            return ResponseEntity.ok(ApiResponse.success(dto));
+        } catch (Exception e) {
+            log.error("Error updating tenant: {}", tenantCode, e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to update tenant: " + e.getMessage()));
         }
     }
 }

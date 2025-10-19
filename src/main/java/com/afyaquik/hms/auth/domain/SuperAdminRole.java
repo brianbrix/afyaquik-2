@@ -1,6 +1,7 @@
 package com.afyaquik.hms.auth.domain;
 
-import com.afyaquik.hms.common.domain.BaseEntity;
+import com.afyaquik.hms.common.domain.SuperAdminBaseEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -14,7 +15,7 @@ import jakarta.persistence.UniqueConstraint;
 @Table(name = "super_admin_roles", uniqueConstraints = {
         @UniqueConstraint(name = "uk_super_admin_role_key", columnNames = {"role_key"})
 })
-public class SuperAdminRole extends BaseEntity {
+public class SuperAdminRole extends SuperAdminBaseEntity {
 
     @Column(name = "role_key", nullable = false, length = 64, unique = true)
     private String roleKey;

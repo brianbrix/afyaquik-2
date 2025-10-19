@@ -1,8 +1,13 @@
 package com.afyaquik.hms.auth.domain;
 
-import jakarta.persistence.*;
-import java.time.Instant;
 import java.time.LocalDateTime;
+
+import com.afyaquik.hms.common.domain.SuperAdminBaseEntity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 /**
  * Super Admin users who have system-wide access across all tenants
@@ -13,20 +18,7 @@ import java.time.LocalDateTime;
         @UniqueConstraint(name = "uk_super_admin_username", columnNames = {"username"}),
         @UniqueConstraint(name = "uk_super_admin_email", columnNames = {"email"})
 })
-public class SuperAdminUser {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
-
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
+public class SuperAdminUser extends SuperAdminBaseEntity {
 
     @Column(nullable = false, unique = true, length = 64)
     private String username;
@@ -68,50 +60,7 @@ public class SuperAdminUser {
         this.isActive = true;
     }
 
-    @PrePersist
-    protected void onCreate() {
-        Instant now = Instant.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
 
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = Instant.now();
-    }
-
-    // Getters and setters for audit fields
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public LocalDateTime getDeletedAt() {
-        return deletedAt;
-    }
-
-    public void setDeletedAt(LocalDateTime deletedAt) {
-        this.deletedAt = deletedAt;
-    }
 
     // Getters and setters
     public String getUsername() {

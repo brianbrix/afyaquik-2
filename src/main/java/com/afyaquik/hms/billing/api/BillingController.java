@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.afyaquik.hms.audit.annotation.Auditable;
 import com.afyaquik.hms.billing.domain.BillStatus;
 import com.afyaquik.hms.billing.dto.BillDto;
 import com.afyaquik.hms.billing.dto.BillItemDto;
@@ -35,6 +36,7 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/v1/billing")
+@Auditable(entityType = "Bill", description = "Billing operations")
 public class BillingController {
 
     private static final Logger log = LoggerFactory.getLogger(BillingController.class);

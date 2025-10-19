@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.afyaquik.hms.audit.annotation.Auditable;
 import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.pharmacy.dto.MedicationDto;
@@ -26,6 +27,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/pharmacy/medications")
+@Auditable(entityType = "Medication", description = "Medication management operations")
 public class MedicationController {
 
     private final MedicationService medicationService;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Form, Button, Alert, Spinner, Container, Row, Col } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { superAdminApi } from '../../../services/superAdminApi';
+import { useSuperAdminAuth } from '../../../app/providers/SuperAdminAuthProvider';
 import Swal from 'sweetalert2';
 
 export function SuperAdminLoginPage() {
@@ -12,6 +12,7 @@ export function SuperAdminLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { login } = useSuperAdminAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,24 +20,19 @@ export function SuperAdminLoginPage() {
     setError(null);
 
     try {
-      const response = await superAdminApi.login({
+      await login({
         username: formData.username,
         password: formData.password
       });
 
-      // Store tokens in localStorage
-      localStorage.setItem('superAdminAccessToken', response.accessToken);
-      localStorage.setItem('superAdminRefreshToken', response.refreshToken);
-      localStorage.setItem('superAdminUser', JSON.stringify(response.user));
-
       Swal.fire({
         icon: 'success',
         title: 'Login Successful',
-        text: `Welcome, ${response.user.displayName}!`,
+        text: `Welcome, ${formData.username}!`,
         timer: 1500,
         showConfirmButton: false
       }).then(() => {
-        navigate('/admin/super-admin');
+        navigate('/super-admin');
       });
 
     } catch (error: any) {

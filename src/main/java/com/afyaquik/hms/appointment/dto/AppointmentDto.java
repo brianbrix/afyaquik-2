@@ -85,3 +85,4 @@ public record AppointmentDto(
         return appointmentDateTime.toLocalTime().toString();
     }
 }
+

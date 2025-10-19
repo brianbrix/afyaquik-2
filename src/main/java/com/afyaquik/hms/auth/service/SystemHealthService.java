@@ -1,18 +1,18 @@
 package com.afyaquik.hms.auth.service;
 
-import com.afyaquik.hms.auth.repository.TenantRepository;
-import com.afyaquik.hms.auth.repository.StaffUserRepository;
-import com.afyaquik.hms.auth.repository.SuperAdminUserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.RuntimeMXBean;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+
+import org.springframework.stereotype.Service;
+
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.auth.repository.SuperAdminUserRepository;
+import com.afyaquik.hms.auth.repository.TenantRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -44,11 +44,14 @@ public class SystemHealthService {
         long totalTenants = tenantRepository.count();
         long activeTenants = tenantRepository.countActiveTenants();
         long totalUsers = staffUserRepository.count();
-        long activeUsers = staffUserRepository.count(); // TODO: Add countByIsActiveTrue method
+        long activeUsers = staffUserRepository.countByEnabledTrue();
         long superAdmins = superAdminUserRepository.count();
 
+        // Calculate system health status based on various metrics
+        SystemHealthStatus status = calculateSystemHealthStatus(memoryUsagePercent, totalTenants, activeTenants, totalUsers, activeUsers);
+        
         return new SystemHealthMetrics(
-            SystemHealthStatus.HEALTHY, // TODO: Implement actual health checks
+            status,
             totalMemory,
             usedMemory,
             freeMemory,
@@ -154,4 +157,35 @@ public class SystemHealthService {
         long activeUsers,
         long superAdmins
     ) {}
+
+    /**
+     * Calculate system health status based on various metrics
+     */
+    private SystemHealthStatus calculateSystemHealthStatus(double memoryUsagePercent, long totalTenants, long activeTenants, long totalUsers, long activeUsers) {
+        // Memory usage thresholds
+        if (memoryUsagePercent > 90) {
+            return SystemHealthStatus.CRITICAL;
+        } else if (memoryUsagePercent > 75) {
+            return SystemHealthStatus.WARNING;
+        }
+        
+        // Tenant health - check if there are inactive tenants
+        if (totalTenants > 0) {
+            double activeTenantRatio = (double) activeTenants / totalTenants;
+            if (activeTenantRatio < 0.5) {
+                return SystemHealthStatus.WARNING;
+            }
+        }
+        
+        // User health - check if there are many inactive users
+        if (totalUsers > 0) {
+            double activeUserRatio = (double) activeUsers / totalUsers;
+            if (activeUserRatio < 0.3) {
+                return SystemHealthStatus.WARNING;
+            }
+        }
+        
+        // If all checks pass, system is healthy
+        return SystemHealthStatus.HEALTHY;
+    }
 }

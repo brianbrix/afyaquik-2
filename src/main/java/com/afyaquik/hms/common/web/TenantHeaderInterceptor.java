@@ -1,11 +1,12 @@
 package com.afyaquik.hms.common.web;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class TenantHeaderInterceptor implements HandlerInterceptor {
@@ -14,6 +15,12 @@ public class TenantHeaderInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) throws Exception {
+        // Skip tenant header validation for authentication endpoints
+        String requestURI = request.getRequestURI();
+        if (requestURI.contains("api/v1/super-admin")) {
+            return true;
+        }
+        
         String tenantId = request.getHeader(TENANT_HEADER);
         if (tenantId == null || tenantId.trim().isEmpty()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "X-Tenant-Id header is required");

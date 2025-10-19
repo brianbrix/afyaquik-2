@@ -5,15 +5,16 @@ import com.afyaquik.hms.auth.domain.UserGroup;
 import com.afyaquik.hms.auth.dto.StaffUserDto;
 import com.afyaquik.hms.auth.repository.StaffUserRepository;
 import com.afyaquik.hms.auth.service.UserGroupService;
+import com.afyaquik.hms.audit.annotation.Auditable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/group-membership")
+@Auditable(entityType = "UserGroupMembership", auditGet = false, description = "User group membership management operations")
 public class UserGroupMembershipController {
     private final UserGroupService userGroupService;
     private final StaffUserRepository staffUserRepository;
@@ -49,7 +50,7 @@ public class UserGroupMembershipController {
 
     @DeleteMapping("/{groupId}/members/{userId}")
     public ResponseEntity<?> removeMember(@PathVariable Long groupId, @PathVariable Long userId) {
-        Optional<UserGroup> groupOpt = userGroupService.findById(groupId);
+        Optional<UserGroup> groupOpt = userGroupService.findByIdWithMembers(groupId);
         Optional<StaffUser> userOpt = staffUserRepository.findById(userId);
         if (groupOpt.isEmpty() || userOpt.isEmpty()) return ResponseEntity.notFound().build();
         UserGroup group = groupOpt.get();

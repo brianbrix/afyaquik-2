@@ -37,3 +37,4 @@ public record AppointmentFilterRequest(
         return searchTerm != null ? searchTerm.trim().toLowerCase() : null;
     }
 }
+

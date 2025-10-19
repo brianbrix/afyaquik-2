@@ -1,14 +1,15 @@
 package com.afyaquik.hms.auth.security;
 
-import com.afyaquik.hms.auth.service.PermissionService;
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
+import com.afyaquik.hms.auth.service.PermissionService;
 
 /**
  * Custom permission evaluator that integrates with our resolved permissions system.
@@ -34,6 +35,12 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         String permissionName = permission.toString();
         
         try {
+            // Check if this is a super admin user
+            if (authentication.getPrincipal() instanceof SuperAdminUserDetails) {
+                // Super admin users have all permissions
+                return true;
+            }
+            
             // Special case for supervisor check - handle this independently
             if ("isSupervisor".equals(permissionName)) {
                 return checkIsSupervisor(username);

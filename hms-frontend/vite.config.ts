@@ -4,7 +4,8 @@ import react from "@vitejs/plugin-react-swc";
 export default defineConfig({
   plugins: [react()],
   define: {
-    global: 'window'
+    global: 'window',
+    'process.env': {}
   },
   build: {
     target: "es2022"

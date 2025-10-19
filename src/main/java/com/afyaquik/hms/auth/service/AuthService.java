@@ -1,6 +1,16 @@
 package com.afyaquik.hms.auth.service;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.afyaquik.hms.auth.domain.StaffRole;
 import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.auth.domain.Tenant;
 import com.afyaquik.hms.auth.dto.LoginRequest;
 import com.afyaquik.hms.auth.dto.LoginResponse;
 import com.afyaquik.hms.auth.dto.TokenRefreshResponse;
@@ -8,16 +18,7 @@ import com.afyaquik.hms.auth.dto.UserProfileDto;
 import com.afyaquik.hms.auth.jwt.JwtPrincipal;
 import com.afyaquik.hms.auth.jwt.JwtService;
 import com.afyaquik.hms.auth.jwt.TokenType;
-
-import java.util.List;
-
-import org.springframework.security.authentication.BadCredentialsException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
-import com.afyaquik.hms.auth.domain.StaffRole;
+import com.afyaquik.hms.auth.repository.TenantRepository;
 
 @Service
 public class AuthService {
@@ -27,15 +28,30 @@ public class AuthService {
     private final StaffUserService staffUserService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final TenantRepository tenantRepository;
 
-    public AuthService(StaffUserService staffUserService, JwtService jwtService, PasswordEncoder passwordEncoder) {
+    public AuthService(StaffUserService staffUserService, JwtService jwtService, PasswordEncoder passwordEncoder, TenantRepository tenantRepository) {
         this.staffUserService = staffUserService;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
+        this.tenantRepository = tenantRepository;
     }
 
     public LoginResponse login(String tenantId, LoginRequest request) {
         log.info("Login attempt for tenant={} username={}", tenantId, request.username());
+        
+        // Check if tenant is active
+        Tenant tenant = tenantRepository.findByTenantCode(tenantId)
+                .orElseThrow(() -> {
+                    log.warn("Login failed: tenant not found for tenant={}", tenantId);
+                    return new BadCredentialsException("Invalid tenant");
+                });
+        
+        if (!tenant.getIsActive()) {
+            log.warn("Login failed: tenant is inactive for tenant={}", tenantId);
+            throw new BadCredentialsException("Tenant account is inactive. Please contact support.");
+        }
+        
         StaffUser user = staffUserService
                 .findByTenantAndUsername(tenantId, request.username())
                 .filter(StaffUser::isEnabled)

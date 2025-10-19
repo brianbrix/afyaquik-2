@@ -477,11 +477,7 @@ export function LoginPage() {
                       <i className="bi bi-clock me-1"></i>
                       {formatDate(new Date())}
                     </span>
-                    <span>•</span>
-                    <span>
-                      <i className="bi bi-currency-dollar me-1"></i>
-                      {formatCurrency(0).replace('0.00', 'USD')}
-                    </span>
+                  
                   </small>
                 </div>
               </Card.Body>

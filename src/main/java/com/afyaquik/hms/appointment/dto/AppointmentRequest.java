@@ -58,3 +58,4 @@ public record AppointmentRequest(
         return appointmentDateTime != null && appointmentDateTime.isAfter(LocalDateTime.now());
     }
 }
+

@@ -1,6 +1,7 @@
 package com.afyaquik.hms.auth.api;
 
 import com.afyaquik.hms.auth.service.SystemHealthService;
+import com.afyaquik.hms.audit.annotation.NoAudit;
 import com.afyaquik.hms.common.web.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/super-admin/system")
 @RequiredArgsConstructor
 @Slf4j
+@NoAudit(reason = "System health monitoring endpoints")
 public class SystemHealthController {
 
     private final SystemHealthService systemHealthService;

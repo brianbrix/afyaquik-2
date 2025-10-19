@@ -345,6 +345,40 @@ public class AuditLogController {
     }
 
     /**
+     * Get distinct usernames.
+     */
+    @GetMapping("/distinct/usernames")
+    @PreAuthorize("hasPermission(null,'VIEW_AUDIT_LOGS')")
+    public ResponseEntity<ApiResponse<List<String>>> getDistinctUsernames() {
+        try {
+            log.info("Fetching distinct usernames");
+            List<String> usernames = auditLogService.getDistinctUsernames();
+            return ResponseEntity.ok(ApiResponse.success(usernames, 200, "Distinct usernames retrieved successfully"));
+        } catch (Exception e) {
+            log.error("Error fetching distinct usernames", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Failed to fetch distinct usernames: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get distinct IP addresses.
+     */
+    @GetMapping("/distinct/ip-addresses")
+    @PreAuthorize("hasPermission(null,'VIEW_AUDIT_LOGS')")
+    public ResponseEntity<ApiResponse<List<String>>> getDistinctIpAddresses() {
+        try {
+            log.info("Fetching distinct IP addresses");
+            List<String> ipAddresses = auditLogService.getDistinctIpAddresses();
+            return ResponseEntity.ok(ApiResponse.success(ipAddresses, 200, "Distinct IP addresses retrieved successfully"));
+        } catch (Exception e) {
+            log.error("Error fetching distinct IP addresses", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Failed to fetch distinct IP addresses: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Get audit log statistics.
      */
     @GetMapping("/statistics")
@@ -384,7 +418,7 @@ public class AuditLogController {
      * Export audit logs to CSV.
      */
     @GetMapping("/export/csv")
-    @PreAuthorize("hasPermission('EXPORT_AUDIT_LOGS')")
+    @PreAuthorize("hasPermission(null,'EXPORT_AUDIT_LOGS')")
     public ResponseEntity<String> exportAuditLogsToCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime endDate,
@@ -443,7 +477,7 @@ public class AuditLogController {
      * Export audit logs to JSON.
      */
     @GetMapping("/export/json")
-    @PreAuthorize("hasPermission('EXPORT_AUDIT_LOGS')")
+    @PreAuthorize("hasPermission(null,'EXPORT_AUDIT_LOGS')")
     public ResponseEntity<List<AuditLogDto>> exportAuditLogsToJson(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime endDate,
