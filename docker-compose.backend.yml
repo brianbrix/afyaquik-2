@@ -37,7 +37,6 @@ services:
       - "traefik.http.routers.hms-backend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-backend.service=hms-backend"
       - "traefik.http.services.hms-backend.loadbalancer.server.port=8080"
-      - "traefik.http.routers.hms-backend.middlewares=cors-headers"
 
   hms-db:
     image: postgres:15-alpine
