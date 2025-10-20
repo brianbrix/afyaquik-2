@@ -8,7 +8,7 @@ export interface UserGroup {
 
 export async function fetchUserGroups(): Promise<UserGroup[]> {
   const res = await apiClient.get('/user-groups');
-  return res.data;
+  return res.data?.content || res.data || [];
 }
 
 export async function createUserGroup(group: Omit<UserGroup, 'id'>): Promise<UserGroup> {

@@ -12,7 +12,9 @@ function computeWsBase(): string {
   try {
     // Derive the backend origin from API_BASE_URL, even if API_BASE_URL is relative
     const apiUrl = new URL(API_BASE_URL, window.location.origin);
-    return `${apiUrl.protocol}//${apiUrl.host}/ws`;
+    // Use wss:// for HTTPS pages, ws:// for HTTP pages
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${apiUrl.host}/ws`;
   } catch {
     // Fallback to relative path (works in prod behind proxy)
     return "/ws";

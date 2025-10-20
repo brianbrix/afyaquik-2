@@ -9,6 +9,7 @@ import { Row, Col, Button, Table, Form, Spinner, Alert, InputGroup, FormControl 
 import Select from 'react-select';
 import { fetchRoles, AdminRole } from '../../../services/adminApi';
 import { useResolvedPermissions, hasPermission } from '../../../hooks/usePermissions';
+import { usePaginatedSelect } from '../../../hooks/usePaginatedSelect';
 
 export type Permission = {
   id: number;
@@ -61,11 +62,23 @@ export default function PermissionMatrixAdminPage() {
     setMatrix({});
     setTargetId(null);
     if (targetType === 'USER') {
-      fetchUsers().then(setUserOptions);
+      fetchUsers().then(response => {
+        // Handle paginated response
+        const users = response?.content || response || [];
+        setUserOptions(users);
+      });
     } else if (targetType === 'GROUP') {
-      fetchUserGroups().then(setGroupOptions);
+      fetchUserGroups().then(response => {
+        // Handle paginated response
+        const groups = response?.content || response || [];
+        setGroupOptions(groups);
+      });
     } else if (targetType === 'ROLE') {
-      fetchRoles().then(setRoleOptions);
+      fetchRoles().then(response => {
+        // Handle paginated response
+        const roles = response?.content || response || [];
+        setRoleOptions(roles);
+      });
     }
   }, [targetType]);
 
@@ -120,9 +133,9 @@ export default function PermissionMatrixAdminPage() {
 
   // Options for select
   let options: { value: number; label: string }[] = [];
-  if (targetType === 'USER') options = userOptions.map((u: AdminUser) => ({ value: u.id, label: `${u.displayName} (${u.username})` }));
-  if (targetType === 'GROUP') options = groupOptions.map((g: UserGroup) => ({ value: g.id!, label: g.name }));
-  if (targetType === 'ROLE') options = roleOptions.map((r: AdminRole) => ({ value: r.id, label: r.displayName }));
+  if (targetType === 'USER') options = (userOptions || []).map((u: AdminUser) => ({ value: u.id, label: `${u.displayName} (${u.username})` }));
+  if (targetType === 'GROUP') options = (groupOptions || []).map((g: UserGroup) => ({ value: g.id!, label: g.name }));
+  if (targetType === 'ROLE') options = (roleOptions || []).map((r: AdminRole) => ({ value: r.id, label: r.displayName }));
 
   return (
     <div>

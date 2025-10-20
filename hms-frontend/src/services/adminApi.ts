@@ -21,8 +21,8 @@ interface ApiEnvelope<T> { status: string; data: T; errors?: any; meta?: any; }
 
 // ---- API functions ----
 export async function fetchRoles(): Promise<AdminRole[]> {
-  const res = await apiClient.get<ApiEnvelope<AdminRole[]>>('/admin/roles');
-  return res.data.data;
+  const res = await apiClient.get<ApiEnvelope<{ content: AdminRole[] }>>('/admin/roles');
+  return res.data.data.content || res.data.data;
 }
 export async function createRole(payload: { roleKey: string; displayName: string; }): Promise<AdminRole> {
   const res = await apiClient.post<ApiEnvelope<AdminRole>>('/admin/roles', payload);
@@ -53,8 +53,8 @@ export async function deleteDepartment(id: number): Promise<void> {
 }
 
 export async function fetchUsers(): Promise<AdminUser[]> {
-  const res = await apiClient.get<ApiEnvelope<AdminUser[]>>('/admin/users');
-  return res.data.data;
+  const res = await apiClient.get<ApiEnvelope<{ content: AdminUser[] }>>('/admin/users');
+  return res.data.data.content || res.data.data;
 }
 export async function createUser(payload: { username: string; displayName: string; email?: string; password: string; roleKeys?: string[]; }): Promise<AdminUser> {
   const res = await apiClient.post<ApiEnvelope<AdminUser>>('/admin/users', payload);
