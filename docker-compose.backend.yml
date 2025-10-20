@@ -42,6 +42,7 @@ services:
       - "traefik.http.routers.hms-backend-api.middlewares=strip-api-prefix"
       - "traefik.http.middlewares.strip-api-prefix.stripprefix.prefixes=/api/v1"
       - "traefik.http.middlewares.strip-api-prefix.stripprefix.forceslash=false"
+      - "traefik.http.routers.hms-backend-ws.priority=10"
 
 
       # WebSocket Router (separate configuration)
@@ -50,6 +51,7 @@ services:
       - "traefik.http.routers.hms-backend-ws.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-backend-ws.service=hms-backend-ws-service"
       - "traefik.http.services.hms-backend-ws-service.loadbalancer.server.port=8080"
+      - "traefik.http.routers.hms-backend-ws.priority=10"
 #      - "traefik.http.routers.hms-backend-ws.middlewares=strip-ws-prefix"
 #      - "traefik.http.middlewares.strip-ws-prefix.stripprefix.prefixes=/ws"
 
