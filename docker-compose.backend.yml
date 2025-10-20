@@ -34,28 +34,10 @@ services:
       - hms-logs:/app/logs
     labels:
       - "traefik.enable=true"
-      
-      # API Router
-      - "traefik.http.routers.hms-backend-api.rule=Host(`app.afyaquik.com`) && PathPrefix(`/api/v1`)"
+      - "traefik.http.routers.hms-backend-api.rule=Host(`app.afyaquik.com`) && PathPrefix(`/api`)"
       - "traefik.http.routers.hms-backend-api.entrypoints=websecure"
       - "traefik.http.routers.hms-backend-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.hms-backend-api.service=hms-backend-service"
-      - "traefik.http.routers.hms-backend-api.priority=10"
-      - "traefik.http.routers.hms-frontend.middlewares=security-headers@file"
-
-      
-      # API Service
       - "traefik.http.services.hms-backend-service.loadbalancer.server.port=8080"
-      
-      # WebSocket Router
-      - "traefik.http.routers.hms-backend-ws.rule=Host(`app.afyaquik.com`) && PathPrefix(`/ws`)"
-      - "traefik.http.routers.hms-backend-ws.entrypoints=websecure"
-      - "traefik.http.routers.hms-backend-ws.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.hms-backend-ws.service=hms-backend-ws-service"
-      - "traefik.http.routers.hms-backend-ws.priority=10"
-      
-      # WebSocket Service
-      - "traefik.http.services.hms-backend-ws-service.loadbalancer.server.port=8080"
 
   hms-db:
     image: postgres:15-alpine
