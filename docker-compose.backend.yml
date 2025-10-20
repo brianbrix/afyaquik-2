@@ -41,6 +41,8 @@ services:
       - "traefik.http.routers.hms-backend-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-backend-api.service=hms-backend-service"
       - "traefik.http.routers.hms-backend-api.priority=10"
+      - "traefik.http.routers.hms-frontend.middlewares=security-headers@file"
+
       
       # API Service
       - "traefik.http.services.hms-backend-service.loadbalancer.server.port=8080"
