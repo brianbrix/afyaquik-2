@@ -6,8 +6,8 @@ services:
       context: ./hms-frontend
       dockerfile: Dockerfile.frontend
       args:
-        - VITE_API_BASE_URL=https://api.afyaquik.com/api/v1
-    container_name: hms-frontend
+        - VITE_API_BASE_URL=/api/v1
+    # container_name: hms-frontend  # Remove for scaling
     environment:
       - NODE_ENV=production
     networks:

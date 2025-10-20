@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: hms-backend
+    # container_name: hms-backend  # Remove for scaling
     environment:
       - SPRING_PROFILES_ACTIVE=production
       - SPRING_DATASOURCE_URL=jdbc:postgresql://hms-db:5432/hms_db
@@ -34,11 +34,19 @@ services:
       - hms-logs:/app/logs
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.hms-backend.rule=Host(`api.afyaquik.com`)"
-      - "traefik.http.routers.hms-backend.entrypoints=websecure"
-      - "traefik.http.routers.hms-backend.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.hms-backend.service=hms-backend"
+      - "traefik.http.routers.hms-backend-api.rule=Host(`app.afyaquik.com`) && PathPrefix(`/api/`)"
+      - "traefik.http.routers.hms-backend-api.entrypoints=websecure"
+      - "traefik.http.routers.hms-backend-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.hms-backend-api.service=hms-backend"
       - "traefik.http.services.hms-backend.loadbalancer.server.port=8080"
+      - "traefik.http.routers.hms-backend-api.middlewares=strip-api"
+      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
+      - "traefik.http.routers.hms-backend-ws.rule=Host(`app.afyaquik.com`) && PathPrefix(`/ws/`)"
+      - "traefik.http.routers.hms-backend-ws.entrypoints=websecure"
+      - "traefik.http.routers.hms-backend-ws.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.hms-backend-ws.service=hms-backend"
+      - "traefik.http.routers.hms-backend-ws.middlewares=strip-ws"
+      - "traefik.http.middlewares.strip-ws.stripprefix.prefixes=/ws"
 
   hms-db:
     image: postgres:15-alpine
