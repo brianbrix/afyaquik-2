@@ -39,8 +39,8 @@ services:
       - "traefik.http.routers.hms-backend-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-backend-api.service=hms-backend-service"
       - "traefik.http.services.hms-backend-service.loadbalancer.server.port=8080"
-      - "traefik.http.routers.hms-backend-api.middlewares=strip-api-prefix"
-      - "traefik.http.middlewares.strip-api-prefix.stripprefix.prefixes=/api"
+#      - "traefik.http.routers.hms-backend-api.middlewares=strip-api-prefix"
+#      - "traefik.http.middlewares.strip-api-prefix.stripprefix.prefixes=/api"
 
       # WebSocket Router (separate configuration)
       - "traefik.http.routers.hms-backend-ws.rule=Host(`app.afyaquik.com`) && PathPrefix(`/ws`)"
@@ -48,8 +48,8 @@ services:
       - "traefik.http.routers.hms-backend-ws.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-backend-ws.service=hms-backend-ws-service"
       - "traefik.http.services.hms-backend-ws-service.loadbalancer.server.port=8080"
-      - "traefik.http.routers.hms-backend-ws.middlewares=strip-ws-prefix"
-      - "traefik.http.middlewares.strip-ws-prefix.stripprefix.prefixes=/ws"
+#      - "traefik.http.routers.hms-backend-ws.middlewares=strip-ws-prefix"
+#      - "traefik.http.middlewares.strip-ws-prefix.stripprefix.prefixes=/ws"
 
   hms-db:
     image: postgres:15-alpine
