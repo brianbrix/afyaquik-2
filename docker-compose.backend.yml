@@ -34,7 +34,7 @@ services:
       - hms-logs:/app/logs
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.hms-backend-api.rule=Host(`app.afyaquik.com`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.hms-backend-api.rule=Host(`app.afyaquik.com`) && PathPrefix(`/api/v1/`)"
       - "traefik.http.routers.hms-backend-api.entrypoints=websecure"
       - "traefik.http.routers.hms-backend-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-backend-api.service=hms-backend-service"
