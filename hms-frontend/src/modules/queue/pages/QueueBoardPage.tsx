@@ -154,7 +154,7 @@ const allowedTransitions: Partial<Record<QueueStatus, QueueStatus[]>> = {
   IN_REGISTRATION: ["WAITING_TRIAGE", "BLOCKED"],
   WAITING_TRIAGE: ["IN_TRIAGE", "IN_REGISTRATION"],
   IN_TRIAGE: ["WAITING_PROVIDER", "BLOCKED"],
-  WAITING_PROVIDER: ["IN_CONSULT", "IN_TRIAGE", "BLOCKED"],
+  WAITING_PROVIDER: ["IN_CONSULT", "WAITING_TRIAGE", "BLOCKED"],
   IN_CONSULT: [
     "WAITING_DIAGNOSTICS",
     "WAITING_PHARMACY",
@@ -217,6 +217,7 @@ export function QueueBoardPage() {
   const { activeRole } = useRoleContext();
   const { permissions, loading: permissionsLoading, error: permissionsError, refetch: refetchPermissions } = useResolvedPermissions();
   const CAN_VIEW_NOTES = hasPermission(permissions, 'VIEW_PATIENT_NOTES');
+  const CAN_VIEW_RESULTS   = hasPermission(permissions, 'VIEW_DIAGNOSTIC_RESULTS');
   const [selectedStatus, setSelectedStatus] = useState<QueueStatus>("PENDING_CHECKIN");
   const [searchValue, setSearchValue] = useState("");
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to today
@@ -680,7 +681,7 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                               Notes
                             </Button>
                             )}
-                            {(item.status === 'IN_CONSULT' || item.status === 'WAITING_PROVIDER') && (
+                            {((item.status === 'IN_CONSULT' || item.status === 'WAITING_PROVIDER' || item.status === 'IN_DIAGNOSTICS' || item.status === 'CLOSED') && CAN_VIEW_RESULTS) && (
                               <Button
                                 size="sm"
                                 variant="outline-success"
@@ -1070,6 +1071,13 @@ function AssignModal({
   const staffQueryResult = useStaffDirectory(show);
   const staffData: StaffDirectoryEntry[] = staffQueryResult.data || [];
 
+  // Fetch queue status role matrix for filtering staff
+  const { data: statusMatrix } = useQuery({
+    queryKey: ['queue-status-role-matrix'],
+    queryFn: fetchQueueStatusRoleMatrix,
+    enabled: show
+  });
+
   // Get unique roles and departments from all staff
   const availableRoles = useMemo(() => {
     const roles = new Set<string>();
@@ -1116,7 +1124,7 @@ function AssignModal({
           )}
           {error && <Alert variant="danger" className="mb-0">{error}</Alert>}
 
-          <SearchableStaffSelect
+          <FilteredStaffSelect
             value={selectedStaff}
             onChange={(staff) => {
               setSelectedStaff(staff);
@@ -1129,6 +1137,9 @@ function AssignModal({
             disabled={isSubmitting}
             required
             label="Assignee"
+            staffData={staffData}
+            selectedStatus={queueItem?.status}
+            statusMatrix={statusMatrix}
           />
           <input type="hidden" name="assigneeId" value={selectedStaff?.username || ''} required />
           <input type="hidden" name="assigneeDisplayName" value={selectedStaff?.displayName || ''} />

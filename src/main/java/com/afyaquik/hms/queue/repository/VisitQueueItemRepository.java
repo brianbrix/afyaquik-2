@@ -6,6 +6,8 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.afyaquik.hms.common.repository.TenantAwareRepository;
@@ -49,4 +51,13 @@ public interface VisitQueueItemRepository extends TenantAwareRepository<VisitQue
     // Analytics methods
     long countByTenantIdAndDeletedFalse(String tenantId);
     long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
+    
+    // Find queue items that have been waiting for notification (30+ minutes in waiting status)
+    @Query("SELECT q FROM VisitQueueItem q WHERE q.tenantId = :tenantId " +
+           "AND q.currentStatus IN ('WAITING_TRIAGE', 'WAITING_PROVIDER', 'WAITING_DIAGNOSTICS', 'WAITING_PHARMACY', 'WAITING_BILLING') " +
+           "AND (q.updatedAt IS NOT NULL AND q.updatedAt <= :thresholdTime OR " +
+           "q.updatedAt IS NULL AND q.createdAt <= :thresholdTime) " +
+           "AND q.currentAssigneeId IS NOT NULL " +
+           "AND q.deleted = false")
+    List<VisitQueueItem> findWaitingItemsForNotification(@Param("tenantId") String tenantId, @Param("thresholdTime") java.time.Instant thresholdTime);
 }

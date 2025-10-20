@@ -1,16 +1,14 @@
 package com.afyaquik.hms.notification.controller;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.afyaquik.hms.audit.annotation.Auditable;
 import com.afyaquik.hms.auth.security.TenantUserDetails;
@@ -59,6 +57,30 @@ public class NotificationController {
         }
         
         return ApiResponse.success(notifications);
+    }
+
+    /**
+     * Send notification to specific roles (for testing)
+     */
+    @PostMapping("/send-to-roles")
+    public ResponseEntity<String> sendToRoles(@RequestBody QueueNotificationController.RoleNotificationRequest request) {
+        try {
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("message", request.getMessage());
+            variables.put("timestamp", java.time.LocalDateTime.now().toString());
+
+            notificationService.sendNotificationToRoles(
+                    request.getTemplateCode(),
+                    variables,
+                    request.getTargetRoles(),
+                    request.getChannel()
+            );
+
+            return ResponseEntity.ok("Notification sent to roles: " + String.join(", ", request.getTargetRoles()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error sending notification to roles: " + e.getMessage());
+        }
     }
     
     /**

@@ -27,6 +27,7 @@ public class SystemSettingsService {
     public static final String TIME_FORMAT_KEY = "system.time_format";
     public static final String CURRENCY_KEY = "system.currency";
     public static final String LANGUAGE_KEY = "system.language";
+    public static final String QUEUE_WAITING_THRESHOLD_KEY = "notification.queue_waiting_threshold_minutes";
 
     /**
      * Get all system settings for the current tenant
@@ -85,6 +86,23 @@ public class SystemSettingsService {
     }
 
     /**
+     * Get queue waiting threshold in minutes, defaults to 30
+     */
+    public int getQueueWaitingThresholdMinutes() {
+        String threshold = getSettingValue(QUEUE_WAITING_THRESHOLD_KEY);
+        if (threshold == null || threshold.trim().isEmpty()) {
+            return 30; // Default to 30 minutes
+        }
+        try {
+            int minutes = Integer.parseInt(threshold.trim());
+            return Math.max(1, minutes); // Ensure at least 1 minute
+        } catch (NumberFormatException e) {
+            log.warn("Invalid queue waiting threshold '{}', falling back to 30 minutes", threshold);
+            return 30;
+        }
+    }
+
+    /**
      * Update a system setting
      */
     @Transactional
@@ -131,7 +149,9 @@ public class SystemSettingsService {
             createDefaultSetting(CURRENCY_KEY, "USD", "USD", 
                 "Default currency code", "STRING"),
             createDefaultSetting(LANGUAGE_KEY, "en", "en", 
-                "Default language code", "STRING")
+                "Default language code", "STRING"),
+            createDefaultSetting(QUEUE_WAITING_THRESHOLD_KEY, "30", "30", 
+                "Minutes to wait before sending queue waiting notifications", "NUMBER")
         );
 
         systemSettingRepository.saveAll(defaultSettings);

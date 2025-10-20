@@ -26,6 +26,8 @@ import com.afyaquik.hms.auth.repository.StaffRoleRepository;
 import com.afyaquik.hms.auth.repository.StaffUserRepository;
 import com.afyaquik.hms.configuration.service.FormDefinitionService;
 import com.afyaquik.hms.configuration.service.RoleRedirectUrlService;
+import com.afyaquik.hms.consultation.domain.ConsultationTitle;
+import com.afyaquik.hms.consultation.repository.ConsultationTitleRepository;
 import com.afyaquik.hms.diagnostics.domain.FieldType;
 import com.afyaquik.hms.diagnostics.domain.ResultTemplate;
 import com.afyaquik.hms.diagnostics.domain.TestCatalog;
@@ -34,6 +36,9 @@ import com.afyaquik.hms.diagnostics.domain.TestType;
 import com.afyaquik.hms.diagnostics.repository.ResultTemplateRepository;
 import com.afyaquik.hms.diagnostics.repository.TestCatalogRepository;
 import com.afyaquik.hms.diagnostics.repository.TestCategoryRepository;
+import com.afyaquik.hms.notification.domain.NotificationLevel;
+import com.afyaquik.hms.notification.domain.NotificationTemplate;
+import com.afyaquik.hms.notification.repository.NotificationTemplateRepository;
 import com.afyaquik.hms.patient.domain.Patient;
 import com.afyaquik.hms.patient.repository.PatientRepository;
 import com.afyaquik.hms.queue.api.QueueAssignmentRequest;
@@ -44,11 +49,7 @@ import com.afyaquik.hms.scheduling.domain.ShiftStatus;
 import com.afyaquik.hms.scheduling.domain.ShiftType;
 import com.afyaquik.hms.scheduling.domain.StaffShift;
 import com.afyaquik.hms.scheduling.repository.StaffShiftRepository;
-import com.afyaquik.hms.notification.domain.NotificationLevel;
-import com.afyaquik.hms.notification.domain.NotificationTemplate;
-import com.afyaquik.hms.notification.repository.NotificationTemplateRepository;
-import com.afyaquik.hms.consultation.domain.ConsultationTitle;
-import com.afyaquik.hms.consultation.repository.ConsultationTitleRepository;
+import com.afyaquik.hms.settings.service.SystemSettingsService;
 
 @Component
 @Profile("!test")
@@ -85,6 +86,7 @@ public class DemoDataInitializer implements CommandLineRunner {
     private final ResultTemplateRepository resultTemplateRepository;
     private final NotificationTemplateRepository notificationTemplateRepository;
     private final ConsultationTitleRepository consultationTitleRepository;
+    private final SystemSettingsService systemSettingsService;
 
     public DemoDataInitializer(
             PasswordEncoder passwordEncoder,
@@ -102,7 +104,8 @@ public class DemoDataInitializer implements CommandLineRunner {
             TestCatalogRepository testCatalogRepository,
             ResultTemplateRepository resultTemplateRepository,
             NotificationTemplateRepository notificationTemplateRepository,
-            ConsultationTitleRepository consultationTitleRepository) {
+            ConsultationTitleRepository consultationTitleRepository,
+            SystemSettingsService systemSettingsService) {
         this.passwordEncoder = passwordEncoder;
         this.staffRoleRepository = staffRoleRepository;
         this.staffUserRepository = staffUserRepository;
@@ -119,6 +122,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         this.resultTemplateRepository = resultTemplateRepository;
         this.notificationTemplateRepository = notificationTemplateRepository;
         this.consultationTitleRepository = consultationTitleRepository;
+        this.systemSettingsService = systemSettingsService;
     }
 
     @Override
@@ -178,6 +182,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         seedDiagnostics(tenantId);
         seedNotificationTemplates(tenantId);
         seedConsultationTitles(tenantId);
+        // seedSystemSettings(tenantId);
 
         seedQueue(tenantId, doctor, nurse, receptionist);
 
@@ -535,6 +540,18 @@ public class DemoDataInitializer implements CommandLineRunner {
         queueAdvanced.setEnabled(true);
         notificationTemplateRepository.save(queueAdvanced);
 
+        // Queue Waiting Alert Notification
+        NotificationTemplate queueWaitingAlert = new NotificationTemplate();
+        queueWaitingAlert.setTenantId(tenantId);
+        queueWaitingAlert.setCode("QUEUE_WAITING_ALERT");
+        queueWaitingAlert.setName("Queue Item Waiting Alert");
+        queueWaitingAlert.setLevel(NotificationLevel.WARNING);
+        queueWaitingAlert.setContent("Queue item for patient {{patientName}} (Ticket: {{ticketNumber}}) has been waiting for {{waitingTime}} minutes in status {{status}}. Please attend to this item.");
+        queueWaitingAlert.setVariables("patientName,ticketNumber,waitingTime,status");
+        queueWaitingAlert.setTargetRoles("DOCTOR,NURSE,PHARMACIST,LAB_TECHNICIAN,BILLING_OFFICER");
+        queueWaitingAlert.setEnabled(true);
+        notificationTemplateRepository.save(queueWaitingAlert);
+
         // Low Stock Alert Notification
         NotificationTemplate lowStockAlert = new NotificationTemplate();
         lowStockAlert.setTenantId(tenantId);
@@ -665,6 +682,22 @@ public class DemoDataInitializer implements CommandLineRunner {
         consultationTitle.setIsCustom(isCustom);
         consultationTitle.setParent(parent);
         consultationTitle.setTenantId(tenantId);
-        return consultationTitleRepository.save(consultationTitle);
+        return         consultationTitleRepository.save(consultationTitle);
     }
+
+    // private void seedSystemSettings(String tenantId) {
+    //     log.info("Seeding system settings for tenant {}", tenantId);
+        
+    //     // Set the tenant context for system settings initialization
+    //     TenantHeaderInterceptor.setCurrentTenantId(tenantId);
+        
+    //     try {
+    //         systemSettingsService.initializeDefaultSettings();
+    //         log.info("System settings initialized for tenant {}", tenantId);
+    //     } catch (Exception e) {
+    //         log.error("Failed to initialize system settings for tenant {}: {}", tenantId, e.getMessage(), e);
+    //     } finally {
+    //         TenantHeaderInterceptor.clearCurrentTenant();
+    //     }
+    // }
 }

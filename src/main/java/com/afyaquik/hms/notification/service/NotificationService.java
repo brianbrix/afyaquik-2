@@ -1,16 +1,25 @@
 
 package com.afyaquik.hms.notification.service;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
 import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.notification.domain.Notification;
 import com.afyaquik.hms.notification.domain.NotificationLevel;
@@ -20,6 +29,9 @@ import com.afyaquik.hms.notification.dto.NotificationTemplateDto;
 import com.afyaquik.hms.notification.events.NotificationEventPublisher;
 import com.afyaquik.hms.notification.repository.NotificationRepository;
 import com.afyaquik.hms.notification.repository.NotificationTemplateRepository;
+import com.afyaquik.hms.queue.domain.VisitQueueItem;
+import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
+import com.afyaquik.hms.settings.service.SystemSettingsService;
 
 @Service
 public class NotificationService {
@@ -28,6 +40,15 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationEventPublisher notificationEventPublisher;
     private final EmailService emailService;
+
+    @Autowired
+    private VisitQueueItemRepository queueItemRepository;
+
+    @Autowired
+    private StaffUserRepository staffUserRepository;
+
+    @Autowired
+    private SystemSettingsService systemSettingsService;
 
     public NotificationService(NotificationTemplateRepository templateRepository, NotificationRepository notificationRepository, NotificationEventPublisher notificationEventPublisher, EmailService emailService) {
         this.templateRepository = templateRepository;
@@ -291,14 +312,54 @@ public class NotificationService {
      */
     @Transactional
     public void sendNotificationToRoles(String templateCode, Map<String, Object> variables, String[] targetRoles, String channel) {
-        // This would require integration with user service to get users by roles
-        // For now, we'll log the intention
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        if (tenantId == null) {
+            log.warn("No tenant context available for role-based notification");
+            return;
+        }
+
         log.info("Sending notification '{}' to roles: {}", templateCode, String.join(", ", targetRoles));
         
-        // TODO: Implement integration with user service to get users by roles
-        // This would involve:
-        // 1. Getting all users with the specified roles
-        // 2. Sending notification to each user
-        // 3. This requires integration with the user/role management system
+        // Get all users in the tenant with their roles
+        List<StaffUser> allUsers = staffUserRepository.findByTenantId(tenantId);
+        
+        // Filter users who have any of the target roles and are enabled
+        List<StaffUser> targetUsers = allUsers.stream()
+            .filter(user -> user.isEnabled() && !user.isDeleted())
+            .filter(user -> hasAnyRole(user, targetRoles))
+            .collect(Collectors.toList());
+        
+        log.info("Found {} users with target roles", targetUsers.size());
+        
+        // Send notification to each target user
+        int successCount = 0;
+        for (StaffUser user : targetUsers) {
+            try {
+                sendNotification(templateCode, variables, user.getUsername(), channel);
+                successCount++;
+            } catch (Exception e) {
+                log.error("Failed to send notification to user {}: {}", user.getUsername(), e.getMessage(), e);
+            }
+        }
+        
+        log.info("Successfully sent notification to {}/{} users", successCount, targetUsers.size());
     }
+
+    /**
+     * Check if a user has any of the specified roles
+     */
+    private boolean hasAnyRole(StaffUser user, String[] targetRoles) {
+        Set<String> userRoleKeys = user.getRoles().stream()
+            .map(role -> role.getRoleKey())
+            .collect(Collectors.toSet());
+        
+        for (String targetRole : targetRoles) {
+            if (userRoleKeys.contains(targetRole.toUpperCase())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
 }

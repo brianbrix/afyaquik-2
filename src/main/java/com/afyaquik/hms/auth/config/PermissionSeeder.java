@@ -99,7 +99,8 @@ public class PermissionSeeder {
                 new Permission("VIEW_ALL_APPOINTMENTS", "View all appointments"),
                 new Permission("CREATE_APPOINTMENT", "Create an appointment"),
                 new Permission("EDIT_APPOINTMENT", "Edit appointment details"),
-                new Permission("EXPORT_AUDIT_LOGS", "Export audit logs")
+                new Permission("EXPORT_AUDIT_LOGS", "Export audit logs"),
+                    new Permission("VIEW_DIAGNOSTIC_RESULTS", "View diagnostic results")
             );
             for (Permission p : permissions) {
                 p.setTenantId("clinic-a");

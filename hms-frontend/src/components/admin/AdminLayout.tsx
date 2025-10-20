@@ -196,7 +196,7 @@ export const AdminLayout: React.FC = () => {
       
       <main className="flex-grow-1 bg-light">
         <div className="p-4">
-          <Outlet />
+        <Outlet />
         </div>
       </main>
     </div>
