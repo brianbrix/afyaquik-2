@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Swal from 'sweetalert2';
 import type { FormEvent } from "react";
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table, Tabs, Tab } from "react-bootstrap";
+import { Pagination as Pager } from "../../../components/shared/Pagination";
 import { FilterBar, type FilterBarValues, type FilterFieldConfig } from "../../../components/shared/FilterBar";
 import { FormModal } from "../../../components/shared/FormModal";
 import { PageHeader } from "../../../components/shared/PageHeader";
@@ -501,10 +502,22 @@ export function SchedulingCalendarPage(){
   const { permissions } = useResolvedPermissions();
   const { user } = useAuth();
   const canManageShifts = hasPermission(permissions, "MANAGE_SHIFTS");
-  const applied = useMemo(()=> mapFilters(filterValues, activeRole, rolesQuery.data), [filterValues, activeRole, rolesQuery.data]);
+  const [myShifts, setMyShifts] = useState(true);
+  const applied = useMemo(()=> {
+    const base = mapFilters(filterValues, activeRole, rolesQuery.data);
+    if (myShifts && user?.id) {
+      return { ...base, staffUserId: user.id } as any;
+    }
+    return base;
+  }, [filterValues, activeRole, rolesQuery.data, myShifts, user?.id]);
   const search = (filterValues.searchTerm as string)?.toLowerCase().trim() || "";
-  const { data: shifts = [], isLoading, isError, refetch } = useStaffShiftsList(applied);
-  const filtered = useMemo(()=> !search ? shifts : shifts.filter(s => [s.staffDisplayName,s.departmentId,s.roleId,getShiftType(s.shiftType)?.name || s.shiftType,s.notes??"",s.handoverNotes??""].filter(Boolean).map(v=>String(v).toLowerCase()).some(v=>v.includes(search))), [shifts, search, shiftTypes]);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(20);
+  const { data: shiftsPage, isLoading, isError, refetch } = useStaffShiftsList(applied, page, size);
+  const shifts = (shiftsPage as any)?.content ?? [];
+  const totalPages = (shiftsPage as any)?.totalPages ?? 0;
+  const totalElements = (shiftsPage as any)?.totalElements ?? 0;
+  const filtered = useMemo(()=> !search ? shifts : shifts.filter((s: any) => [s.staffDisplayName,s.departmentId,s.roleId,getShiftType(s.shiftType)?.name || s.shiftType,s.notes??"",s.handoverNotes??""].filter(Boolean).map((v: any)=>String(v).toLowerCase()).some((v: string)=>v.includes(search))), [shifts, search, shiftTypes]);
   const createShift = useCreateStaffShift(applied); const updateShift = useUpdateStaffShift(applied); const requestSwap = useRequestShiftSwap(applied); const approveSwap = useApproveShiftSwap(applied);
 
   // Access control: allow approving only if user has an admin/scheduler style role
@@ -596,7 +609,21 @@ export function SchedulingCalendarPage(){
       </div>} />
     <Card className="shadow-sm border-0">
       <Card.Body className="d-flex flex-column gap-3">
-        <FilterBar fields={filterFields} values={filterValues} onChange={setFilterValues} onReset={()=>setFilterValues({...BASE_FILTER_VALUES})} />
+        <div className="d-flex justify-content-between align-items-center">
+          <FilterBar fields={filterFields} values={filterValues} onChange={setFilterValues} onReset={()=>setFilterValues({...BASE_FILTER_VALUES})} />
+          <div className="form-check ms-3">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="myShiftsCheckbox"
+              checked={myShifts}
+              onChange={(e) => { setMyShifts(e.target.checked); setPage(0); }}
+            />
+            <label className="form-check-label" htmlFor="myShiftsCheckbox">
+              My shifts
+            </label>
+          </div>
+        </div>
         {isError && <Alert variant="danger" className="mb-0">Unable to load shifts. Try again.</Alert>}
         
         <Tabs
@@ -654,6 +681,19 @@ export function SchedulingCalendarPage(){
             />
           </Tab>
         </Tabs>
+        {/* Pagination for table view */}
+        {viewType === 'table' && (
+          <div className="d-flex justify-content-end mt-3">
+            <Pager
+              page={page}
+              size={size}
+              totalElements={totalElements}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={(s) => { setSize(s); setPage(0); }}
+            />
+          </div>
+        )}
       </Card.Body>
     </Card>
   <ShiftCreateModal show={modal==='create'} onHide={close} onSubmit={onCreate} isSubmitting={createShift.isPending} error={createShift.isError? createShift.error: undefined} defaultRole={typeof activeRole === 'number' ? activeRole : 0} roles={rolesQuery.data ?? []} departments={deptsQuery.data ?? []} shiftTypes={shiftTypes} shiftTypesError={shiftTypesError} />

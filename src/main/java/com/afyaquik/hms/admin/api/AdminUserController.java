@@ -11,15 +11,21 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.afyaquik.hms.admin.dto.CreateUserRequest;
 import com.afyaquik.hms.admin.dto.UpdateUserRequest;
 import com.afyaquik.hms.admin.dto.UpdateUserRolesRequest;
 import com.afyaquik.hms.admin.dto.UserDto;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import com.afyaquik.hms.admin.service.AdminUserService;
 import com.afyaquik.hms.audit.annotation.Auditable;
 import com.afyaquik.hms.common.web.ApiResponse;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.common.web.TenantHeaderResolver;
 
 import jakarta.validation.Valid;
@@ -36,10 +42,10 @@ public class AdminUserController {
     }
 
     @GetMapping
-    public ApiResponse<List<UserDto>> list(
-            @RequestHeader(value = TenantHeaderResolver.TENANT_HEADER, required = false) String tenantHeader) {
-        String tenantId = TenantHeaderResolver.resolveTenantId(tenantHeader);
-        return ApiResponse.success(userService.list(tenantId));
+    public ApiResponse<Page<UserDto>> list(
+            @RequestParam(value = "q", required = false) String q,    Pageable pageable) {
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        return ApiResponse.success(userService.list(tenantId, q, pageable));
     }
 
     @PostMapping

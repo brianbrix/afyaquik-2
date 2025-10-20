@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Card, Table, Button, Badge, Row, Col, Form, InputGroup, Alert, Spinner } from 'react-bootstrap';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { appointmentApi, AppointmentDto, AppointmentStatus, AppointmentFilterRequest, appointmentUtils } from '../../../services/appointmentApi';
+import { appointmentApi, AppointmentDto, AppointmentStatus, AppointmentFilterRequest, appointmentUtils, type PageResponse } from '../../../services/appointmentApi';
 import { AppointmentForm } from './AppointmentForm';
-import { ReactPaginateComponent } from '../../../components/shared/ReactPaginate';
+import { Pagination as Pager } from '../../../components/shared/Pagination';
 import Swal from 'sweetalert2';
 
 interface AppointmentListProps {
@@ -36,20 +36,14 @@ export const AppointmentList: React.FC<AppointmentListProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch appointments
-  const { data: appointments, isLoading, error } = useQuery({
-    queryKey: ['appointments', 'list', filters],
-    queryFn: () => appointmentApi.getAll(filters)
+  const { data: pageData, isLoading, error } = useQuery({
+    queryKey: ['appointments', 'list', filters, currentPage, pageSize],
+    queryFn: () => appointmentApi.getAllPaged(filters, currentPage, pageSize)
   });
 
   // Client-side pagination
-  const paginatedAppointments = useMemo(() => {
-    if (!appointments) return [];
-    const startIndex = currentPage * pageSize;
-    const endIndex = startIndex + pageSize;
-    return appointments.slice(startIndex, endIndex);
-  }, [appointments, currentPage, pageSize]);
-
-  const totalPages = Math.ceil((appointments?.length || 0) / pageSize);
+  const paginatedAppointments = (pageData as PageResponse<AppointmentDto> | undefined)?.content ?? [];
+  const totalPages = (pageData as PageResponse<AppointmentDto> | undefined)?.totalPages ?? 0;
 
   const handlePageChange = ({ selected }: { selected: number }) => {
     setCurrentPage(selected);
@@ -339,10 +333,10 @@ export const AppointmentList: React.FC<AppointmentListProps> = ({
       {/* Appointments Table */}
       <Card>
         <Card.Header className="d-flex justify-content-between align-items-center">
-          <h6 className="mb-0">Appointments ({appointments?.length || 0})</h6>
+          <h6 className="mb-0">Appointments ({(pageData as PageResponse<AppointmentDto> | undefined)?.totalElements ?? 0})</h6>
         </Card.Header>
         <Card.Body className="p-0">
-          {!appointments || appointments.length === 0 ? (
+          {!paginatedAppointments || paginatedAppointments.length === 0 ? (
             <div className="text-center py-4">
               <div className="text-muted">No appointments found</div>
             </div>
@@ -465,38 +459,18 @@ export const AppointmentList: React.FC<AppointmentListProps> = ({
         </Card.Body>
         
         {/* Pagination */}
-        {totalPages > 1 && (
+        {totalPages > 0 && (
           <Card.Footer>
             <Row className="align-items-center">
-              <Col md={6}>
-                <div className="text-muted small">
-                  Showing {currentPage * pageSize + 1} to {Math.min((currentPage + 1) * pageSize, appointments?.length || 0)} of {appointments?.length || 0} appointments
-                </div>
-              </Col>
-              <Col md={6}>
-                <div className="d-flex justify-content-end align-items-center gap-3">
-                  <div className="d-flex align-items-center gap-2">
-                    <label className="form-label mb-0 small">Show:</label>
-                    <select
-                      className="form-select form-select-sm"
-                      style={{ width: 'auto' }}
-                      value={pageSize}
-                      onChange={(e) => {
-                        setPageSize(Number(e.target.value));
-                        setCurrentPage(0); // Reset to first page when changing page size
-                      }}
-                    >
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                    </select>
-                    <span className="small text-muted">entries</span>
-                  </div>
-                  <ReactPaginateComponent
-                    currentPage={currentPage}
+              <Col md={12}>
+                <div className="d-flex justify-content-end">
+                  <Pager
+                    page={currentPage}
+                    size={pageSize}
+                    totalElements={(pageData as PageResponse<AppointmentDto> | undefined)?.totalElements ?? 0}
                     totalPages={totalPages}
-                    onPageChange={handlePageChange}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(0); }}
                   />
                 </div>
               </Col>

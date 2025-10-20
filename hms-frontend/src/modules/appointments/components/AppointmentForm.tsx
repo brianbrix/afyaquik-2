@@ -37,10 +37,11 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Fetch data for dropdowns
-  const { data: patients } = useQuery({
+  const { data: patientsRaw } = useQuery({
     queryKey: ['patients'],
     queryFn: () => searchPatients()
   });
+  const patients: Patient[] = Array.isArray(patientsRaw) ? patientsRaw : ((patientsRaw as any)?.content ?? []);
 
   const { data: staff } = useStaffDirectory(true);
 
@@ -212,7 +213,7 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
                   isInvalid={!!errors.patientId}
                 >
                   <option value={0}>Select Patient</option>
-                  {patients?.map((patient: Patient) => (
+                  {patients.map((patient: Patient) => (
                     <option key={patient.id} value={patient.id}>
                       {patient.firstName} {patient.lastName} ({patient.medicalRecordNumber})
                     </option>

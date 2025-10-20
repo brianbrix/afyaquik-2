@@ -29,6 +29,14 @@ export type Patient = {
 
 export type PatientSummary = Patient; // same for now
 
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number; // current page
+}
+
 export type CreatePatientPayload = {
   medicalRecordNumber: string;
   firstName: string;
@@ -44,13 +52,14 @@ export type CreatePatientPayload = {
 
 const PATIENTS_KEY = (q: string | null) => ["patients", q ?? "all"]; 
 
-export async function searchPatients(query?: string): Promise<PatientSummary[]> {
+export async function searchPatients(query?: string, page: number = 0, size: number = 10): Promise<PageResponse<PatientSummary>> {
   const params: Record<string, string> = {};
   if (query && query.trim()) params.q = query.trim();
+  params.page = String(page);
+  params.size = String(size);
   const res = await apiClient.get(`/patients`, { params });
-  // Supports ApiResponse or raw
   const data = res.data?.data ?? res.data;
-  return data as PatientSummary[];
+  return data as PageResponse<PatientSummary>;
 }
 
 export async function createPatient(payload: CreatePatientPayload): Promise<Patient> {
@@ -59,10 +68,10 @@ export async function createPatient(payload: CreatePatientPayload): Promise<Pati
   return data as Patient;
 }
 
-export function usePatients(query: string) {
+export function usePatients(query: string, page: number, size: number) {
   return useQuery({
-    queryKey: PATIENTS_KEY(query),
-    queryFn: () => searchPatients(query),
+    queryKey: [...PATIENTS_KEY(query), page, size],
+    queryFn: () => searchPatients(query, page, size),
   });
 }
 

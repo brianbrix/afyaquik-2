@@ -24,13 +24,13 @@ import type {
 	ShiftSwapRequestPayload
 } from "../../../types/scheduling";
 
-const shiftsKey = (filters: StaffShiftFilters) => ["scheduling", "shifts", filters];
+const shiftsKey = (filters: StaffShiftFilters, page?: number, size?: number) => ["scheduling", "shifts", filters, page, size];
 
-export function useStaffShiftsList(filters: StaffShiftFilters) {
-	return useQuery<StaffShift[]>({
-		queryKey: shiftsKey(filters),
-		queryFn: () => fetchStaffShifts(filters)
-	});
+export function useStaffShiftsList(filters: StaffShiftFilters, page: number = 0, size: number = 20) {
+    return useQuery({
+        queryKey: shiftsKey(filters, page, size),
+        queryFn: () => fetchStaffShifts(filters, page, size)
+    });
 }
 
 export function useCreateStaffShift(filters: StaffShiftFilters) {
@@ -38,7 +38,7 @@ export function useCreateStaffShift(filters: StaffShiftFilters) {
 	return useMutation<StaffShift, Error, CreateStaffShiftPayload>({
 		mutationFn: createStaffShift,
 		onSuccess: async () => {
-			await queryClient.invalidateQueries({ queryKey: shiftsKey(filters) });
+            await queryClient.invalidateQueries({ queryKey: ["scheduling","shifts"] });
 		}
 	});
 }
@@ -53,7 +53,7 @@ export function useUpdateStaffShift(filters: StaffShiftFilters) {
 			variables: { shiftId: number; payload: UpdateStaffShiftPayload }
 		) => {
 			await Promise.all([
-				queryClient.invalidateQueries({ queryKey: shiftsKey(filters) }),
+                queryClient.invalidateQueries({ queryKey: ["scheduling","shifts"] }),
 				queryClient.invalidateQueries({ queryKey: ["scheduling", "shift", variables.shiftId] })
 			]);
 		}
@@ -66,7 +66,7 @@ export function useRequestShiftSwap(filters: StaffShiftFilters) {
 		mutationFn: ({ shiftId, payload }: { shiftId: number; payload: ShiftSwapRequestPayload }) =>
 			requestShiftSwap(shiftId, payload),
 		onSuccess: async () => {
-			await queryClient.invalidateQueries({ queryKey: shiftsKey(filters) });
+            await queryClient.invalidateQueries({ queryKey: ["scheduling","shifts"] });
 		}
 	});
 }
@@ -77,7 +77,7 @@ export function useApproveShiftSwap(filters: StaffShiftFilters) {
 		mutationFn: ({ shiftId, payload }: { shiftId: number; payload: ShiftSwapApprovalPayload }) =>
 			approveShiftSwap(shiftId, payload),
 		onSuccess: async () => {
-			await queryClient.invalidateQueries({ queryKey: shiftsKey(filters) });
+            await queryClient.invalidateQueries({ queryKey: ["scheduling","shifts"] });
 		}
 	});
 }

@@ -185,7 +185,8 @@ export const PreviousStaffNotesModal: React.FC<PreviousStaffNotesModalProps> = (
                             {item.durationDays && ` • ${item.durationDays} days`}
                           </div>
                           <div className="small">
-                            Quantity: {item.quantityPrescribed}
+                            Quantity: {Number(item.quantityPrescribed)}
+                            <br></br>
                             {item.unitPrice && ` • Unit Price: $${item.unitPrice}`}
                             {item.totalPrice && ` • Total: $${item.totalPrice}`}
                           </div>

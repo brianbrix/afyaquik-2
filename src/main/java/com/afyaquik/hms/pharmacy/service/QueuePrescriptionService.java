@@ -56,9 +56,9 @@ public class QueuePrescriptionService {
             throw new RuntimeException("Access denied to queue item in another tenant");
         }
 
-        // Get prescriptions for this patient
-        List<Prescription> prescriptions = prescriptionRepository.findByTenantIdAndPatientId(
-            tenantId, queueItem.getPatient().getId());
+        // Get prescriptions ONLY for this queue item
+        List<Prescription> prescriptions = prescriptionRepository.findByTenantIdAndQueueItemId(
+            tenantId, queueItemId);
         
         return prescriptions.stream()
             .map(prescription -> convertToDto(tenantId, prescription))

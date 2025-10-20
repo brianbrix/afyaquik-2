@@ -6,6 +6,9 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,12 +45,20 @@ public class AdminUserService {
         this.tenantRepository = tenantRepository;
     }
 
-    public List<UserDto> list(String tenantId) {
-        log.debug("Listing users for tenant={}", tenantId);
-        return userRepository.findByTenantId(tenantId).stream()
+    public Page<UserDto> list(String tenantId, String q, Pageable pageable) {
+        log.debug("Listing users (paged) for tenant={} q={} page={} size={}", tenantId, q, pageable.getPageNumber(), pageable.getPageSize());
+        String term = q == null ? "" : q.trim().toLowerCase();
+        List<UserDto> all = userRepository.findByTenantId(tenantId).stream()
             .filter(u -> !u.isDeleted())
+            .filter(u -> term.isBlank() ||
+                (u.getUsername() != null && u.getUsername().toLowerCase().contains(term)) ||
+                (u.getDisplayName() != null && u.getDisplayName().toLowerCase().contains(term)))
             .map(mapper::toDto)
             .collect(Collectors.toList());
+        int start = Math.min((int) pageable.getOffset(), all.size());
+        int end = Math.min(start + pageable.getPageSize(), all.size());
+        List<UserDto> slice = all.subList(start, end);
+        return new PageImpl<>(slice, pageable, all.size());
     }
 
     public UserDto create(String tenantId, CreateUserRequest req) {

@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 
@@ -18,6 +20,9 @@ public interface StaffUserRepository extends TenantAwareRepository<StaffUser, Lo
 
     @EntityGraph(attributePaths = "roles")
     List<StaffUser> findByTenantId(String tenantId);
+
+    @EntityGraph(attributePaths = "roles")
+    Page<StaffUser> findByTenantId(String tenantId, Pageable pageable);
     // Department queries removed - departments are now managed separately
     
     StaffUser findByUsernameAndDeletedFalse(String username);

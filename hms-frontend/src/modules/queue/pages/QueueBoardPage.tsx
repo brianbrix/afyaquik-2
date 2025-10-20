@@ -287,8 +287,10 @@ export function QueueBoardPage() {
     return [];
   }, [activeRole, statusMatrix]);
 
-  // Use role-based queue fetching with date filtering
-  const queueQuery = useQueueListByRole(allowedStatuses, startDate, endDate);
+  // Use role-based queue fetching with date filtering and server-side pagination
+  const [page, setPage] = React.useState(0);
+  const [size, setSize] = React.useState(20);
+  const queueQuery = useQueueListByRole(allowedStatuses, startDate, endDate, page, size);
   useQueueStream(selectedStatus);
   const assignMutation = useAssignQueueItem(selectedStatus);
   const transitionMutation = useTransitionQueueItem(selectedStatus);
@@ -309,15 +311,16 @@ export function QueueBoardPage() {
   }, [user, queryClient]);
 
   const filteredItems = useMemo(() => {
-    const items = Array.isArray(queueQuery.data) ? queueQuery.data : [];
+    const pageData = queueQuery.data as any;
+    const items: any[] = Array.isArray(pageData?.content) ? pageData.content : [];
     
     // First filter by selected status (since we now fetch all allowed statuses)
-    let statusFilteredItems = items.filter(item => item.status === selectedStatus);
+    let statusFilteredItems = items.filter((item: any) => item.status === selectedStatus);
     
     // Then apply search filtering
     if (!searchValue) return statusFilteredItems;
     const lower = searchValue.trim().toLowerCase();
-    return statusFilteredItems.filter((item) =>
+    return statusFilteredItems.filter((item: any) =>
       [item.ticketNumber, item.patientName, item.visitReason]
         .filter(Boolean)
         .some((field) => field?.toLowerCase().includes(lower))
@@ -481,9 +484,12 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
     };
 
     // Pre-submit stale status check
-    const latest = queueQuery.data?.find(i => i.id === activeItem.id);
+    const pageData2 = queueQuery.data as any;
+    const latest = Array.isArray(pageData2?.content) ? pageData2.content.find((i: any) => i.id === activeItem.id) : undefined;
     if (latest && latest.status !== activeItem.status) {
-      setStaleWarning(`Item moved from ${statusLabels[activeItem.status]} to ${statusLabels[latest.status]}. Refreshing view.`);
+      const fromLabel = statusLabels[activeItem.status as keyof typeof statusLabels] ?? activeItem.status;
+      const toLabel = statusLabels[latest.status as keyof typeof statusLabels] ?? latest.status;
+      setStaleWarning(`Item moved from ${fromLabel} to ${toLabel}. Refreshing view.`);
       handleCloseModal();
       queueQuery.refetch();
       return;

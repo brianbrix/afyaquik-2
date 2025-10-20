@@ -79,7 +79,7 @@ public class AppointmentController {
      * Get all appointments with optional filters
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<AppointmentDto>>> getAppointments(
+    public ResponseEntity<ApiResponse<Page<AppointmentDto>>> getAppointments(
             @RequestParam(required = false) Long patientId,
             @RequestParam(required = false) Long providerId,
             @RequestParam(required = false) Long departmentId,
@@ -88,7 +88,8 @@ public class AppointmentController {
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String searchTerm,
             @RequestParam(required = false) Boolean upcomingOnly,
-            @RequestParam(required = false) Boolean todayOnly) {
+            @RequestParam(required = false) Boolean todayOnly,
+            Pageable pageable) {
         try {
             AppointmentFilterRequest filter = new AppointmentFilterRequest(
                     patientId, providerId, departmentId,
@@ -98,7 +99,7 @@ public class AppointmentController {
                     searchTerm, upcomingOnly, todayOnly
             );
             
-            List<AppointmentDto> appointments = appointmentService.getAppointmentsWithFilters(filter);
+            Page<AppointmentDto> appointments = appointmentService.getAppointmentsWithFiltersPaged(filter, pageable);
             return ResponseEntity.ok(ApiResponse.success(appointments));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

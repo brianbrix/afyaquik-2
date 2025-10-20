@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: hms
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://hms-db:5432/hms_db}
+    username: ${SPRING_DATASOURCE_USERNAME:hms_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:hms_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            trust: ${SMTP_HOST:smtp.gmail.com}
+
+server:
+  servlet:
+    context-path: /
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:change-this-secret-key-change-this-secret-key}
+      access-token-ttl-seconds: ${JWT_ACCESS_TTL:900}
+      refresh-token-ttl-seconds: ${JWT_REFRESH_TTL:604800}
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin123}
+  bucket-name: ${MINIO_BUCKET_NAME:diagnostic-files}
+
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    org.hibernate: WARN
+    com.afyaquik.hms.audit.interceptor.AnnotationBasedAuditInterceptor: INFO
+  file:
+    name: logs/hms-application.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level"

@@ -3,6 +3,8 @@ package com.afyaquik.hms.queue.api;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -72,10 +74,11 @@ public class QueueController {
 
     @GetMapping
     @Auditable(action = "LIST_QUEUE_ITEMS", entityType = "Queue", auditGet = true, description = "List queue items by status")
-    public ApiResponse<List<QueueSummary>> list(
+    public ApiResponse<Page<QueueSummary>> list(
             @RequestParam(defaultValue = "PENDING_CHECKIN") String status,
             @RequestParam(required = false) String startDate,
-            @RequestParam(required = false) String endDate) {
+            @RequestParam(required = false) String endDate,
+            Pageable pageable) {
         String tenantId = TenantHeaderInterceptor.getCurrentTenant();
         QueueStatus queueStatus;
         try {
@@ -117,23 +120,23 @@ public class QueueController {
         // Use date filtering if dates are provided
         if (startInstant != null && endInstant != null) {
             if (canViewAllClosedQueueItems && queueStatus == QueueStatus.CLOSED) {
-                return ApiResponse.success(queueService.listByStatusAndDate(tenantId, QueueStatus.CLOSED, startInstant, endInstant));
+                return ApiResponse.success(queueService.listByStatusAndDate(tenantId, QueueStatus.CLOSED, startInstant, endInstant, pageable));
             } else {
             if (isReception) {
-                return ApiResponse.success(queueService.listByStatusAndDate(tenantId, queueStatus, startInstant, endInstant));
+                return ApiResponse.success(queueService.listByStatusAndDate(tenantId, queueStatus, startInstant, endInstant, pageable));
             } else {
-                return ApiResponse.success(queueService.listByStatusAndAssigneeAndDate(tenantId, queueStatus, username, startInstant, endInstant));
+                return ApiResponse.success(queueService.listByStatusAndAssigneeAndDate(tenantId, queueStatus, username, startInstant, endInstant, pageable));
             }
         }
         } else {
             // Use original methods without date filtering
             if (canViewAllClosedQueueItems && queueStatus == QueueStatus.CLOSED) {
-                return ApiResponse.success(queueService.listByStatus(tenantId, QueueStatus.CLOSED));
+                return ApiResponse.success(queueService.listByStatus(tenantId, QueueStatus.CLOSED, pageable));
             } else {
             if (isReception) {
-                return ApiResponse.success(queueService.listByStatus(tenantId, queueStatus));
+                return ApiResponse.success(queueService.listByStatus(tenantId, queueStatus, pageable));
             } else {
-                return ApiResponse.success(queueService.listByStatusAndAssignee(tenantId, queueStatus, username));
+                return ApiResponse.success(queueService.listByStatusAndAssignee(tenantId, queueStatus, username, pageable));
             }
             }
         }

@@ -39,14 +39,21 @@ function unwrap<T>(payload: any): T {
   return payload as T;
 }
 
-export async function fetchQueueByStatus(status: QueueStatus, startDate?: string, endDate?: string): Promise<QueueSummary[]> {
-  const params: any = { status };
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
+export async function fetchQueueByStatus(status: QueueStatus, startDate: string | undefined, endDate: string | undefined, page: number, size: number): Promise<PageResponse<QueueSummary>> {
+  const params: any = { status, page, size };
   if (startDate) params.startDate = startDate;
   if (endDate) params.endDate = endDate;
-  
   const response = await apiClient.get("/queue", { params });
-  const unwrapped = unwrap<unknown>(response.data);
-  return Array.isArray(unwrapped) ? (unwrapped as QueueSummary[]) : [];
+  const data = (response.data?.data ?? response.data) as PageResponse<QueueSummary>;
+  return data;
 }
 
 export async function assignQueueItem(

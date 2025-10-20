@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchQueueByStatus, fetchQueueTimeline, transitionQueueItem, advanceAssignQueueItem, assignQueueItem } from "../../../services/queueApi";
+import { fetchQueueByStatus, fetchQueueTimeline, transitionQueueItem, advanceAssignQueueItem, assignQueueItem, type PageResponse } from "../../../services/queueApi";
 import type {
   QueueAssignmentPayload,
   QueueTimelineEntry,
@@ -13,25 +13,27 @@ import { useAuth } from "../../../hooks/useAuth";
 import { Client, IMessage, StompSubscription, StompConfig } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-const queueListKey = (status: QueueStatus) => ["queue", status];
+const queueListKey = (status: QueueStatus, page: number, size: number) => ["queue", status, page, size];
 const queueTimelineKey = (id: number) => ["queue", "timeline", id];
 
-export function useQueueList(status: QueueStatus, startDate?: string, endDate?: string) {
+export function useQueueList(status: QueueStatus, startDate: string | undefined, endDate: string | undefined, page: number, size: number) {
   return useQuery({
-    queryKey: [...queueListKey(status), startDate, endDate],
-    queryFn: () => fetchQueueByStatus(status, startDate, endDate)
+    queryKey: [...queueListKey(status, page, size), startDate, endDate],
+    queryFn: () => fetchQueueByStatus(status, startDate, endDate, page, size)
   });
 }
 
-export function useQueueListByRole(allowedStatuses: QueueStatus[], startDate?: string, endDate?: string) {
+export function useQueueListByRole(allowedStatuses: QueueStatus[], startDate: string | undefined, endDate: string | undefined, page: number, size: number) {
   return useQuery({
-    queryKey: ["queue", "role-based", allowedStatuses, startDate, endDate],
+    queryKey: ["queue", "role-based", allowedStatuses, startDate, endDate, page, size],
     queryFn: async () => {
-      // Fetch queue items for all allowed statuses
-      const promises = allowedStatuses.map(status => fetchQueueByStatus(status, startDate, endDate));
+      const promises = allowedStatuses.map(status => fetchQueueByStatus(status, startDate, endDate, page, size));
       const results = await Promise.all(promises);
-      // Flatten and return all items
-      return results.flat();
+      // Merge pages: combine content, keep totals additive (approximate across statuses)
+      const mergedContent = results.flatMap(r => r.content);
+      const totalElements = results.reduce((sum, r) => sum + (r.totalElements ?? 0), 0);
+      const totalPages = Math.max(...results.map(r => r.totalPages ?? 0));
+      return { content: mergedContent, totalElements, totalPages, size, number: page } as PageResponse<QueueSummary>;
     },
     enabled: allowedStatuses.length > 0
   });

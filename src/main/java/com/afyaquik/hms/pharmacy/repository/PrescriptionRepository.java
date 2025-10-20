@@ -1,20 +1,17 @@
 package com.afyaquik.hms.pharmacy.repository;
 
-import com.afyaquik.hms.common.repository.TenantAwareRepository;
-import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
 import com.afyaquik.hms.patient.domain.Patient;
 import com.afyaquik.hms.pharmacy.domain.Prescription;
 
@@ -35,6 +32,8 @@ public interface PrescriptionRepository extends TenantAwareRepository<Prescripti
 
     @Query("SELECT p FROM Prescription p WHERE p.tenantId = :tenantId AND p.patient.id = :patientId AND p.deleted = false")
     List<Prescription> findByTenantIdAndPatientId(@Param("tenantId") String tenantId, @Param("patientId") Long patientId);
+    @Query("SELECT p FROM Prescription p WHERE p.tenantId = :tenantId AND p.queueItemId = :queueItemId AND p.deleted = false")
+    List<Prescription> findByTenantIdAndQueueItemId(@Param("tenantId") String tenantId, @Param("queueItemId") Long queueItemId);
 
     @Query("SELECT p FROM Prescription p WHERE p.tenantId = :tenantId AND p.patient.id = :patientId AND p.deleted = false")
     Page<Prescription> findByTenantIdAndPatientId(@Param("tenantId") String tenantId, @Param("patientId") Long patientId, Pageable pageable);

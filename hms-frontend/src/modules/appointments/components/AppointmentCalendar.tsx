@@ -45,17 +45,18 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   };
 
-  // Fetch appointments for the current month
-  const { data: appointments, isLoading, error } = useQuery({
+  // Fetch appointments for the current visible range (request large page size to cover window)
+  const { data: pageData, isLoading, error } = useQuery({
     queryKey: ['appointments', 'calendar', providerId, departmentId, startDate.toISOString(), endDate.toISOString(), showTodayOnly],
-    queryFn: () => appointmentApi.getAll({
+    queryFn: () => appointmentApi.getAllPaged({
       providerId,
       departmentId,
       startDate: showTodayOnly ? formatDateForBackend(new Date()) : formatDateForBackend(startDate),
       endDate: showTodayOnly ? formatDateForBackend(new Date()) : formatDateForBackend(endDate),
       todayOnly: showTodayOnly
-    })
+    }, 0, 1000)
   });
+  const appointments: AppointmentDto[] = (pageData as any)?.content ?? [];
 
   // Mutation for updating appointment status
   const updateStatusMutation = useMutation({

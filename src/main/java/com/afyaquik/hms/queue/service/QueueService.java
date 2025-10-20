@@ -1,10 +1,31 @@
 
 package com.afyaquik.hms.queue.service;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.afyaquik.hms.auth.domain.StaffUser;
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.notification.service.NotificationService;
 import com.afyaquik.hms.patient.domain.Patient;
 import com.afyaquik.hms.patient.domain.PatientInsuranceDetails;
-import com.afyaquik.hms.patient.repository.PatientRepository;
 import com.afyaquik.hms.patient.repository.PatientInsuranceDetailsRepository;
+import com.afyaquik.hms.patient.repository.PatientRepository;
 import com.afyaquik.hms.queue.api.QueueAssignmentRequest;
 import com.afyaquik.hms.queue.api.QueueCheckInRequest;
 import com.afyaquik.hms.queue.api.QueueItemResponse;
@@ -16,30 +37,11 @@ import com.afyaquik.hms.queue.domain.QueueTimelineEntry;
 import com.afyaquik.hms.queue.domain.VisitQueueItem;
 import com.afyaquik.hms.queue.dto.QueueSummary;
 import com.afyaquik.hms.queue.dto.QueueTimelineEntryResponse;
+import com.afyaquik.hms.queue.events.QueueEventPublisher;
 import com.afyaquik.hms.queue.repository.QueueTimelineEntryRepository;
 import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
-import com.afyaquik.hms.notification.service.NotificationService;
+
 import jakarta.persistence.EntityNotFoundException;
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import org.springframework.stereotype.Service;
-import com.afyaquik.hms.queue.events.QueueEventPublisher;
-import org.springframework.transaction.annotation.Transactional;
-
-
-import com.afyaquik.hms.auth.repository.StaffUserRepository;
-import com.afyaquik.hms.auth.domain.StaffUser;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Service
 @Transactional(readOnly = true)
@@ -137,46 +139,38 @@ public class QueueService {
     }
 
 
-    public List<QueueSummary> listByStatus(String tenantId, QueueStatus status) {
+    public Page<QueueSummary> listByStatus(String tenantId, QueueStatus status, Pageable pageable) {
         log.debug("Listing queue by status tenant={} status={}", tenantId, status);
         return queueRepository
-                .findByTenantIdAndCurrentStatusOrderByCreatedAtAsc(tenantId, status)
-                .stream()
-                .map(this::toSummary)
-                .toList();
+                .findByTenantIdAndCurrentStatusOrderByCreatedAtAsc(tenantId, status, pageable)
+                .map(this::toSummary);
     }
 
-    public List<QueueSummary> listByStatusAndDate(String tenantId, QueueStatus status, java.time.Instant startDate, java.time.Instant endDate) {
+    public Page<QueueSummary> listByStatusAndDate(String tenantId, QueueStatus status, java.time.Instant startDate, java.time.Instant endDate, Pageable pageable) {
         log.debug("Listing queue by status and date tenant={} status={} startDate={} endDate={}", tenantId, status, startDate, endDate);
         return queueRepository
-                .findByTenantIdAndCurrentStatusAndCreatedAtBetweenOrderByCreatedAtAsc(tenantId, status, startDate, endDate)
-                .stream()
-                .map(this::toSummary)
-                .toList();
+                .findByTenantIdAndCurrentStatusAndCreatedAtBetweenOrderByCreatedAtAsc(tenantId, status, startDate, endDate, pageable)
+                .map(this::toSummary);
     }
 
-    public List<QueueSummary> listByStatusAndAssignee(String tenantId, QueueStatus status, String assigneeId) {
+    public Page<QueueSummary> listByStatusAndAssignee(String tenantId, QueueStatus status, String assigneeId, Pageable pageable) {
         log.debug("Listing queue by status and assignee tenant={} status={} assigneeId={}", tenantId, status, assigneeId);
         if (assigneeId == null || assigneeId.isBlank()) {
-            return List.of();
+            return Page.empty(pageable);
         }
         return queueRepository
-                .findByTenantIdAndCurrentStatusAndCurrentAssigneeIdOrderByCreatedAtAsc(tenantId, status, assigneeId)
-                .stream()
-                .map(this::toSummary)
-                .toList();
+                .findByTenantIdAndCurrentStatusAndCurrentAssigneeIdOrderByCreatedAtAsc(tenantId, status, assigneeId, pageable)
+                .map(this::toSummary);
     }
 
-    public List<QueueSummary> listByStatusAndAssigneeAndDate(String tenantId, QueueStatus status, String assigneeId, java.time.Instant startDate, java.time.Instant endDate) {
+    public Page<QueueSummary> listByStatusAndAssigneeAndDate(String tenantId, QueueStatus status, String assigneeId, java.time.Instant startDate, java.time.Instant endDate, Pageable pageable) {
         log.debug("Listing queue by status, assignee and date tenant={} status={} assigneeId={} startDate={} endDate={}", tenantId, status, assigneeId, startDate, endDate);
         if (assigneeId == null || assigneeId.isBlank()) {
-            return List.of();
+            return Page.empty(pageable);
         }
         return queueRepository
-                .findByTenantIdAndCurrentStatusAndCurrentAssigneeIdAndCreatedAtBetweenOrderByCreatedAtAsc(tenantId, status, assigneeId, startDate, endDate)
-                .stream()
-                .map(this::toSummary)
-                .toList();
+                .findByTenantIdAndCurrentStatusAndCurrentAssigneeIdAndCreatedAtBetweenOrderByCreatedAtAsc(tenantId, status, assigneeId, startDate, endDate, pageable)
+                .map(this::toSummary);
     }
         @Transactional
     public QueueItemResponse updateQueueItem(String tenantId, Long queueItemId, com.afyaquik.hms.queue.api.UpdateQueueItemRequest request) {

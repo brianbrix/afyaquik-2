@@ -43,33 +43,35 @@ export function AppLayout() {
           <Navbar.Toggle aria-controls="primary-nav" />
           <Navbar.Collapse id="primary-nav" className="justify-content-between">
             <Nav className="me-auto gap-1">
-              <Nav.Link as={NavLink} to="/dashboard" className="d-flex align-items-center">
-                <i className="bi bi-speedometer2 me-1"></i>
-                <span className="d-none d-md-inline">Dashboard</span>
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/queue" className="d-flex align-items-center">
-                <i className="bi bi-list-ul me-1"></i>
-                <span className="d-none d-md-inline">Queue</span>
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/patients" className="d-flex align-items-center">
-                <i className="bi bi-people me-1"></i>
-                <span className="d-none d-md-inline">Patients</span>
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/scheduling" className="d-flex align-items-center">
-                <i className="bi bi-calendar3 me-1"></i>
-                <span className="d-none d-md-inline">Scheduling</span>
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/appointments" className="d-flex align-items-center">
-                <i className="bi bi-calendar-check me-1"></i>
-                <span className="d-none d-md-inline">Appointments</span>
-              </Nav.Link>
-                    {CAN_VIEW_REPORTS && (
+              {!isAdmin && (
+                <>
+                  <Nav.Link as={NavLink} to="/dashboard" className="d-flex align-items-center">
+                    <i className="bi bi-speedometer2 me-1"></i>
+                    <span className="d-none d-md-inline">Dashboard</span>
+                  </Nav.Link>
+                  <Nav.Link as={NavLink} to="/queue" className="d-flex align-items-center">
+                    <i className="bi bi-list-ul me-1"></i>
+                    <span className="d-none d-md-inline">Queue</span>
+                  </Nav.Link>
+                  <Nav.Link as={NavLink} to="/patients" className="d-flex align-items-center">
+                    <i className="bi bi-people me-1"></i>
+                    <span className="d-none d-md-inline">Patients</span>
+                  </Nav.Link>
+                  <Nav.Link as={NavLink} to="/scheduling" className="d-flex align-items-center">
+                    <i className="bi bi-calendar3 me-1"></i>
+                    <span className="d-none d-md-inline">Scheduling</span>
+                  </Nav.Link>
+                  <Nav.Link as={NavLink} to="/appointments" className="d-flex align-items-center">
+                    <i className="bi bi-calendar-check me-1"></i>
+                    <span className="d-none d-md-inline">Appointments</span>
+                  </Nav.Link>
+                  {CAN_VIEW_REPORTS && (
                     <Nav.Link as={NavLink} to="/reports" className="d-flex align-items-center">
                       <i className="bi bi-graph-up me-1"></i>
                       <span className="d-none d-md-inline">Reports</span>
                     </Nav.Link>
-                    )}
-                    {CAN_SEE_PHARMACY && (
+                  )}
+                  {CAN_SEE_PHARMACY && (
                     <Dropdown>
                       <Dropdown.Toggle as={Nav.Link} variant="link" className="text-white text-decoration-none d-flex align-items-center">
                         <i className="bi bi-capsule me-1"></i>
@@ -77,52 +79,34 @@ export function AppLayout() {
                       </Dropdown.Toggle>
                       <Dropdown.Menu>
                         {CAN_MANAGE_PHARMACY_MEDICATIONS && (
-                        <Dropdown.Item as={NavLink} to="/pharmacy/medications" className="d-flex align-items-center">
-                          <i className="bi bi-capsule me-2"></i>
-                          Medications
-                        </Dropdown.Item>
+                          <Dropdown.Item as={NavLink} to="/pharmacy/medications" className="d-flex align-items-center">
+                            <i className="bi bi-capsule me-2"></i>
+                            Medications
+                          </Dropdown.Item>
                         )}
-                  
                         {CAN_MANAGE_PHARMACY_INVENTORY && (
-                        <Dropdown.Item as={NavLink} to="/pharmacy/medication-inventory" className="d-flex align-items-center">
-                          <i className="bi bi-capsule me-2"></i>
-                          Medication Inventory
-                        </Dropdown.Item>
+                          <Dropdown.Item as={NavLink} to="/pharmacy/medication-inventory" className="d-flex align-items-center">
+                            <i className="bi bi-capsule me-2"></i>
+                            Medication Inventory
+                          </Dropdown.Item>
                         )}
                         {CAN_MANAGE_PRESCRIPTIONS && (
-                        <Dropdown.Item as={NavLink} to="/pharmacy/prescriptions" className="d-flex align-items-center">
-                          <i className="bi bi-prescription me-2"></i>
-                          Prescriptions
-                        </Dropdown.Item>
+                          <Dropdown.Item as={NavLink} to="/pharmacy/prescriptions" className="d-flex align-items-center">
+                            <i className="bi bi-prescription me-2"></i>
+                            Prescriptions
+                          </Dropdown.Item>
                         )}
                       </Dropdown.Menu>
                     </Dropdown>
-                    )}
-                    {/* {CAN_SEE_BILLING && (
-                    <Dropdown>
-                      <Dropdown.Toggle as={Nav.Link} variant="link" className="text-white text-decoration-none d-flex align-items-center">
-                        <i className="bi bi-currency-dollar me-1"></i>
-                        <span className="d-none d-md-inline">Billing</span>
-                      </Dropdown.Toggle>
-                      <Dropdown.Menu>
-                        <Dropdown.Item as={NavLink} to="/billing/bills" className="d-flex align-items-center">
-                          <i className="bi bi-receipt me-2"></i>
-                          Bills
-                        </Dropdown.Item>
-                        <Dropdown.Item as={NavLink} to="/billing/payments" className="d-flex align-items-center">
-                          <i className="bi bi-credit-card me-2"></i>
-                          Payments
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown>
-                    )} */}
-                    
-                    {flagEnabled('admin-ui') && (
-                      <Nav.Link as={NavLink} to="/admin" className="d-flex align-items-center">
-                        <i className="bi bi-gear me-1"></i>
-                        <span className="d-none d-md-inline">Admin</span>
-                      </Nav.Link>
-                    )}
+                  )}
+                </>
+              )}
+              {flagEnabled('admin-ui') && (
+                <Nav.Link as={NavLink} to="/admin" className="d-flex align-items-center">
+                  <i className="bi bi-gear me-1"></i>
+                  <span className="d-none d-md-inline">Admin</span>
+                </Nav.Link>
+              )}
             </Nav>
             <div className="d-flex align-items-center gap-2">
               <RoleSwitcher />

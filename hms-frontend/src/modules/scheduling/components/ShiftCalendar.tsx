@@ -58,8 +58,8 @@ export const ShiftCalendar: React.FC<ShiftCalendarProps> = ({
     }
   };
 
-  // Fetch shifts for the current month
-  const { data: shifts, isLoading, error } = useQuery({
+  // Fetch shifts for the current visible range (request large page size to cover window)
+  const { data: pageData, isLoading, error } = useQuery({
     queryKey: ['shifts', 'calendar', staffUserId, departmentId, roleId, startDate.toISOString(), endDate.toISOString()],
     queryFn: () => fetchStaffShifts({
       staffUserId,
@@ -67,8 +67,9 @@ export const ShiftCalendar: React.FC<ShiftCalendarProps> = ({
       roleId,
       rangeStart: formatDateForRange(startDate, false),
       rangeEnd: formatDateForRange(endDate, true)
-    })
+    }, 0, 1000)
   });
+  const shifts: StaffShift[] = (pageData as any)?.content ?? [];
 
   // Get shifts for a specific date
   const getShiftsForDate = (date: Date): StaffShift[] => {

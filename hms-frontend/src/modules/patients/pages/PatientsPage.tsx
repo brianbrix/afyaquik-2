@@ -1,11 +1,11 @@
 import { useState, useMemo, useRef } from "react";
 import { Button, Card, Table, Form, Alert, Spinner, Row, Col } from "react-bootstrap";
-import { ReactPaginateComponent } from "../../../components/shared/ReactPaginate";
+import { Pagination as Pager } from "../../../components/shared/Pagination";
 import { FormModal } from "../../../components/shared/FormModal";
 import { FilterBar } from "../../../components/shared/FilterBar";
 import { DynamicForm, type DynamicField } from "../../../components/forms/DynamicForm";
 import { PatientRegistrationForm } from "../../../components/forms/PatientRegistrationForm";
-import { useCreatePatient, usePatients } from "../../../services/patientApi";
+import { useCreatePatient, usePatients, type PageResponse, type PatientSummary } from "../../../services/patientApi";
 import Swal from 'sweetalert2';
 import { useResolvedPermissions, hasPermission } from '../../../hooks/usePermissions';
 import { createQueueForPatient, fetchPatientQueue } from '../../../services/patientQueueApi';
@@ -93,7 +93,7 @@ export function PatientsPage() {
   const [queuePatientId, setQueuePatientId] = useState<number | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
-  const patientsQuery = usePatients(search);
+  const patientsQuery = usePatients(search, currentPage, pageSize);
   const createMutation = useCreatePatient(search);
   // ...existing code...
   const qc = useQueryClient();
@@ -108,16 +108,9 @@ export function PatientsPage() {
     }
   });
   const editMutation = useEditPatient(search);
-  const patients = patientsQuery.data ?? [];
-  
-  // Client-side pagination
-  const paginatedPatients = useMemo(() => {
-    const startIndex = currentPage * pageSize;
-    const endIndex = startIndex + pageSize;
-    return patients.slice(startIndex, endIndex);
-  }, [patients, currentPage, pageSize]);
-
-  const totalPages = Math.ceil(patients.length / pageSize);
+  const pageData: PageResponse<PatientSummary> | undefined = patientsQuery.data as any;
+  const paginatedPatients = pageData?.content ?? [];
+  const totalPages = pageData?.totalPages ?? 0;
 
   const handlePageChange = ({ selected }: { selected: number }) => {
     setCurrentPage(selected);
@@ -208,7 +201,12 @@ export function PatientsPage() {
           <Row className="align-items-center mt-3">
             <Col md={6}>
               <div className="text-muted small">
-                Showing {currentPage * pageSize + 1} to {Math.min((currentPage + 1) * pageSize, patients.length)} of {patients.length} patients
+                {(() => {
+                  const total = pageData?.totalElements ?? 0;
+                  const start = total === 0 ? 0 : currentPage * pageSize + 1;
+                  const end = Math.min((currentPage + 1) * pageSize, total);
+                  return `Showing ${start} to ${end} of ${total} patients`;
+                })()}
               </div>
             </Col>
             <Col md={6}>
@@ -231,10 +229,13 @@ export function PatientsPage() {
                   </select>
                   <span className="small text-muted">entries</span>
                 </div>
-                <ReactPaginateComponent
-                  currentPage={currentPage}
+                <Pager
+                  page={currentPage}
+                  size={pageSize}
+                  totalElements={pageData?.totalElements ?? 0}
                   totalPages={totalPages}
-                  onPageChange={handlePageChange}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(0); }}
                 />
               </div>
             </Col>
@@ -254,7 +255,7 @@ export function PatientsPage() {
         disableSubmit={false}
       >
         {(() => {
-          const patient = patientsQuery.data?.find(pt => pt.id === activePatientId);
+          const patient = (pageData?.content ?? []).find((pt: any) => pt.id === activePatientId);
           if (!patient) return <p className="text-muted mb-0">No patient selected.</p>;
           return (
             <div className="d-flex flex-column gap-4">
@@ -506,7 +507,7 @@ export function PatientsPage() {
         {/* Show patient name if available */}
         {queuePatientId && patientsQuery.data && (
           (() => {
-            const patient = patientsQuery.data.find((p: any) => p.id === queuePatientId);
+            const patient = (pageData?.content ?? []).find((p: any) => p.id === queuePatientId);
             if (!patient) return null;
             return (
               <div className="bg-light rounded p-2 mb-2">

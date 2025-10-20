@@ -6,6 +6,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -238,27 +241,41 @@ public class AppointmentService {
     }
 
     /**
+     * Get appointments with filters (paged)
+     */
+    @Transactional(readOnly = true)
+    public Page<AppointmentDto> getAppointmentsWithFiltersPaged(AppointmentFilterRequest filter, Pageable pageable) {
+        List<AppointmentDto> all = getAppointmentsWithFilters(filter);
+        int start = Math.min((int) pageable.getOffset(), all.size());
+        int end = Math.min(start + pageable.getPageSize(), all.size());
+        List<AppointmentDto> slice = all.subList(start, end);
+        return new PageImpl<>(slice, pageable, all.size());
+    }
+
+    /**
      * Filter appointments based on user permissions
      */
     private List<Appointment> filterByUserPermissions(List<Appointment> appointments) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            return List.of(); // No appointments for unauthenticated users
+            return List.of();
         }
 
         String username = authentication.getName();
-        
-        // Check if user has permission to view all appointments
-        boolean canViewAllAppointments = permissionService.hasPermission(username, "VIEW_ALL_APPOINTMENTS");
-        
+
+        // Admins/managers can see all
+        boolean isAdmin = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(a -> a.equals("ROLE_ADMIN") || a.equals("ADMIN") || a.equals("ROLE_SCHEDULING_MANAGER") || a.equals("SCHEDULING_MANAGER"));
+
+        boolean canViewAllAppointments = isAdmin || permissionService.hasPermission(username, "VIEW_ALL_APPOINTMENTS");
         if (canViewAllAppointments) {
-            return appointments; // Return all appointments
+            return appointments;
         }
-        
-        // Filter to only show appointments where the current user is the provider
+
+        // Otherwise only appointments where current user is the provider
         return appointments.stream()
                 .filter(appointment -> {
-                    // Get the provider's username from the appointment
                     String providerUsername = appointment.getProvider().getUsername();
                     return username.equals(providerUsername);
                 })

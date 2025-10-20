@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Col, Form, InputGroup, Row, Table, Badge, Modal, Alert } from 'react-bootstrap';
+import { Pagination as Pager } from '../../../components/shared/Pagination';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { medicationApi, Medication, MedicationRequest, DOSAGE_FORM_OPTIONS } from '../../../services/pharmacyApi';
 import { MedicationForm } from '../components/MedicationForm';
@@ -12,26 +13,27 @@ export function MedicationsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [medicationToDelete, setMedicationToDelete] = useState<Medication | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'controlled' | 'prescription'>('all');
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
 
   const queryClient = useQueryClient();
 
-  const { data: medications = [], isLoading, error } = useQuery({
-    queryKey: ['medications', filter],
+  const { data: medsPage, isLoading, error } = useQuery({
+    queryKey: ['medications','paged', filter, page, size],
     queryFn: async () => {
       try {
+        if (searchTerm.trim().length > 2) {
+          return await medicationApi.searchPaged(searchTerm.trim(), page, size);
+        }
         switch (filter) {
           case 'active':
-            return await medicationApi.getAll({ active: true });
-          case 'controlled':
-            return await medicationApi.getAll({ controlled: true });
-          case 'prescription':
-            return await medicationApi.getAll({ requiresPrescription: true });
+            return await medicationApi.getAllPaged(page, size, { active: true });
           default:
-            return await medicationApi.getAll();
+            return await medicationApi.getAllPaged(page, size);
         }
       } catch (error) {
         console.error('Error fetching medications:', error);
-        return [];
+        return { content: [], totalElements: 0, totalPages: 0, size, number: page } as any;
       }
     }
   });
@@ -99,7 +101,7 @@ export function MedicationsPage() {
     setEditingMedication(null);
   };
 
-  const displayMedications = searchTerm.length > 2 ? (searchResults || []) : (medications || []);
+  const displayMedications = (medsPage?.content ?? []) as Medication[];
 
   if (error) {
     return (
@@ -158,6 +160,7 @@ export function MedicationsPage() {
               </div>
             </div>
           ) : (
+            <>
             <Table responsive striped hover>
               <thead>
                 <tr>
@@ -197,6 +200,17 @@ export function MedicationsPage() {
                 ))}
               </tbody>
             </Table>
+            <div className="d-flex justify-content-end mt-3">
+              <Pager
+                page={page}
+                size={size}
+                totalElements={medsPage?.totalElements ?? 0}
+                totalPages={medsPage?.totalPages ?? 0}
+                onPageChange={setPage}
+                onPageSizeChange={(s) => { setSize(s); setPage(0); }}
+              />
+            </div>
+            </>
           )}
         </Card.Body>
       </Card>

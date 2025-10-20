@@ -35,20 +35,30 @@ export async function fetchShiftAlerts(): Promise<StaffShift[]> {
 	const response = await apiClient.get<StaffShift[]>("/scheduling/shifts/alerts");
 	return response.data;
 }
-export async function fetchStaffShifts(filters: StaffShiftFilters = {}): Promise<StaffShift[]> {
-	const response = await apiClient.get<StaffShift[]>("/scheduling/shifts", {
-		params: {
-			...filters,
-			staffUserId: filters.staffUserId ?? undefined,
-			status: filters.status ?? undefined,
-			roleId: filters.roleId ?? undefined,
-			departmentId: filters.departmentId ?? undefined,
-			shiftType: filters.shiftType ?? undefined,
-			rangeStart: filters.rangeStart ? formatDateForBackend(filters.rangeStart) : undefined,
-			rangeEnd: filters.rangeEnd ? formatDateForBackend(filters.rangeEnd) : undefined
-		}
-	});
-	return response.data;
+export interface PageResponse<T> {
+    content: T[];
+    totalElements: number;
+    totalPages: number;
+    size: number;
+    number: number;
+}
+
+export async function fetchStaffShifts(filters: StaffShiftFilters = {}, page = 0, size = 20): Promise<PageResponse<StaffShift>> {
+    const response = await apiClient.get<PageResponse<StaffShift>>("/scheduling/shifts", {
+        params: {
+            ...filters,
+            page,
+            size,
+            staffUserId: filters.staffUserId ?? undefined,
+            status: filters.status ?? undefined,
+            roleId: filters.roleId ?? undefined,
+            departmentId: filters.departmentId ?? undefined,
+            shiftType: filters.shiftType ?? undefined,
+            rangeStart: filters.rangeStart ? formatDateForBackend(filters.rangeStart) : undefined,
+            rangeEnd: filters.rangeEnd ? formatDateForBackend(filters.rangeEnd) : undefined
+        }
+    });
+    return response.data as any;
 }
 
 export async function createStaffShift(payload: CreateStaffShiftPayload): Promise<StaffShift> {

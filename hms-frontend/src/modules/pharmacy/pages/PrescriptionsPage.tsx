@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Col, Form, InputGroup, Row, Table, Badge, Modal, Alert, Tab, Tabs } from 'react-bootstrap';
+import { Pagination as Pager } from '../../../components/shared/Pagination';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { prescriptionApi, Prescription, PrescriptionRequest } from '../../../services/pharmacyApi';
 import { PrescriptionForm } from '../components/PrescriptionForm';
@@ -19,28 +20,33 @@ export function PrescriptionsPage() {
   const [prescriptionToDispense, setPrescriptionToDispense] = useState<Prescription | null>(null);
   const [dispenseNotes, setDispenseNotes] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
   const [showAuditTrail, setShowAuditTrail] = useState(false);
   const [selectedPrescriptionForAudit, setSelectedPrescriptionForAudit] = useState<Prescription | null>(null);
 
   const queryClient = useQueryClient();
 
-  const { data: prescriptions = [], isLoading, error } = useQuery({
-    queryKey: ['prescriptions', activeTab],
+  const { data: prescPage, isLoading, error } = useQuery({
+    queryKey: ['prescriptions','paged', activeTab, searchTerm, page, size],
     queryFn: async () => {
       try {
+        if (searchTerm.trim().length > 2) {
+          return await prescriptionApi.searchPaged(searchTerm.trim(), page, size);
+        }
         switch (activeTab) {
           case 'pending':
-            return await prescriptionApi.getAll({ status: 'PENDING' });
+            return await prescriptionApi.getAllPaged(page, size, { status: 'PENDING' });
           case 'dispensed':
-            return await prescriptionApi.getAll({ status: 'DISPENSED' });
+            return await prescriptionApi.getAllPaged(page, size, { status: 'DISPENSED' });
           case 'cancelled':
-            return await prescriptionApi.getAll({ status: 'CANCELLED' });
+            return await prescriptionApi.getAllPaged(page, size, { status: 'CANCELLED' });
           default:
-            return await prescriptionApi.getAll();
+            return await prescriptionApi.getAllPaged(page, size);
         }
       } catch (error) {
         console.error('Error fetching prescriptions:', error);
-        return [];
+        return { content: [], totalElements: 0, totalPages: 0, size, number: page } as any;
       }
     }
   });
@@ -200,7 +206,7 @@ export function PrescriptionsPage() {
     }
   };
 
-  const displayPrescriptions = searchTerm.length > 2 ? (searchResults || []) : (prescriptions || []);
+  const displayPrescriptions = (prescPage?.content ?? []) as Prescription[];
 
   if (error) {
     return (
@@ -260,6 +266,16 @@ export function PrescriptionsPage() {
                 }}
                 getStatusBadge={getStatusBadge}
               />
+              <div className="d-flex justify-content-end mt-3">
+                <Pager
+                  page={page}
+                  size={size}
+                  totalElements={prescPage?.totalElements ?? 0}
+                  totalPages={prescPage?.totalPages ?? 0}
+                  onPageChange={setPage}
+                  onPageSizeChange={(s) => { setSize(s); setPage(0); }}
+                />
+              </div>
             </Tab>
             <Tab eventKey="pending" title="Pending">
               <PrescriptionTable

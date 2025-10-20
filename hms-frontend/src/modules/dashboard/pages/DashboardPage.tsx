@@ -336,7 +336,7 @@ export function DashboardPage() {
               </h5>
             </Card.Header>
             <Card.Body>
-              <Row className="g-3">
+      <Row className="g-3">
                 <Col md={6}>
                   <Card className="border-0 bg-light">
                     <Card.Body>
@@ -358,7 +358,7 @@ export function DashboardPage() {
                 </Col>
                 <Col md={6}>
                   <Card className="border-0 bg-light">
-                    <Card.Body>
+              <Card.Body>
                       <h6 className="text-muted">Diagnostics Overview</h6>
                       <div className="d-flex justify-content-between mb-2">
                         <span>Total Orders:</span>
@@ -368,10 +368,10 @@ export function DashboardPage() {
                         <span>Pending Diagnostics:</span>
                         <strong className="text-warning">{systemStats?.pendingDiagnostics || 0}</strong>
                       </div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
+              </Card.Body>
+            </Card>
+          </Col>
+      </Row>
             </Card.Body>
           </Card>
         </Tab>

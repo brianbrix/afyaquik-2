@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useAdminUsers, useUpdateUser, useUpdateUserRoles, useDeleteUser } from '../../services/adminApi';
+import { useUpdateUser, useUpdateUserRoles, useDeleteUser } from '../../services/adminApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { RoleBadge } from './RoleBadge';
 import { StatusToggle } from './StatusToggle';
@@ -13,7 +13,9 @@ import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 
 export const UserDirectory: React.FC = () => {
-  const { data: users, isLoading, error } = useAdminUsers();
+  const [users, setUsers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<any>(null);
   const { user: currentUser } = useAuth();
   const qc = useQueryClient();
   const updateUser = useUpdateUser();
@@ -22,6 +24,7 @@ export const UserDirectory: React.FC = () => {
   const [q, setQ] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<any|undefined>();
   const [profileStatus, setProfileStatus] = useState<Record<string, boolean>>({});
@@ -53,6 +56,34 @@ export const UserDirectory: React.FC = () => {
       });
     }
   }, [users]);
+
+  // Load users from backend with pagination
+  React.useEffect(() => {
+    let ignore = false;
+    async function load() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const params = new URLSearchParams();
+        params.set('page', String(currentPage));
+        params.set('size', String(pageSize));
+        if (q && q.trim()) params.set('q', q.trim());
+        const { apiClient } = await import('../../services/apiClient');
+        const res = await apiClient.get('/admin/users', { params });
+        const data = res.data?.data ?? res.data;
+        if (!ignore) {
+          setUsers(data?.content ?? []);
+          setTotalPages(data?.totalPages ?? 0);
+        }
+      } catch (e: any) {
+        if (!ignore) setError(e);
+      } finally {
+        if (!ignore) setIsLoading(false);
+      }
+    }
+    load();
+    return () => { ignore = true; };
+  }, [currentPage, pageSize, q]);
 
   const handleEnableProfile = async (user: any) => {
     // Check if user has email
@@ -90,20 +121,8 @@ export const UserDirectory: React.FC = () => {
     }
   };
 
-  const filtered = useMemo(() => {
-    if (!users) return [];
-    const term = q.toLowerCase();
-    return users.filter(u => !term || u.username.toLowerCase().includes(term) || u.displayName.toLowerCase().includes(term));
-  }, [users, q]);
-
-  // Client-side pagination
-  const paginatedUsers = useMemo(() => {
-    const startIndex = currentPage * pageSize;
-    const endIndex = startIndex + pageSize;
-    return filtered.slice(startIndex, endIndex);
-  }, [filtered, currentPage, pageSize]);
-
-  const totalPages = Math.ceil(filtered.length / pageSize);
+  const filtered = users; // already filtered by backend query param
+  const paginatedUsers = users; // already paginated by backend
 
   const handlePageChange = ({ selected }: { selected: number }) => {
     setCurrentPage(selected);
@@ -206,7 +225,9 @@ export const UserDirectory: React.FC = () => {
                 <td><code>{u.username}</code></td>
                 <td>{u.displayName}</td>
                 <td className="small">
-                  {u.roles && u.roles.length ? u.roles.map(r => <RoleBadge key={r.id||r.roleKey||r.displayName} role={(r as any).roleKey ? r : { roleKey: r.roleKey || r.displayName, displayName: r.displayName || r.roleKey }} />) : <span className="text-muted">none</span>}
+                  {u.roles && u.roles.length ? u.roles.map((r: any) => (
+                    <RoleBadge key={r.id || r.roleKey || r.displayName} role={(r as any).roleKey ? r : { roleKey: r.roleKey || r.displayName, displayName: r.displayName || r.roleKey }} />
+                  )) : <span className="text-muted">none</span>}
                 </td>
                 <td>
                   {u.supervisorDisplayName ? (

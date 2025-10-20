@@ -62,6 +62,14 @@ export enum AppointmentStatus {
 }
 
 // API Functions
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
 export const appointmentApi = {
   // Create appointment
   create: async (data: AppointmentRequest): Promise<AppointmentDto> => {
@@ -89,6 +97,24 @@ export const appointmentApi = {
     if (filters?.upcomingOnly) params.append('upcomingOnly', filters.upcomingOnly.toString());
     if (filters?.todayOnly) params.append('todayOnly', filters.todayOnly.toString());
     
+    const response = await apiClient.get(`/appointments?${params.toString()}`);
+    return response.data?.data ?? response.data;
+  },
+
+  // Get all appointments with filters (paged)
+  getAllPaged: async (filters: AppointmentFilterRequest | undefined, page: number, size: number): Promise<PageResponse<AppointmentDto>> => {
+    const params = new URLSearchParams();
+    if (filters?.patientId) params.append('patientId', filters.patientId.toString());
+    if (filters?.providerId) params.append('providerId', filters.providerId.toString());
+    if (filters?.departmentId) params.append('departmentId', filters.departmentId.toString());
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.searchTerm) params.append('searchTerm', filters.searchTerm);
+    if (filters?.upcomingOnly) params.append('upcomingOnly', filters.upcomingOnly.toString());
+    if (filters?.todayOnly) params.append('todayOnly', filters.todayOnly.toString());
+    params.append('page', String(page));
+    params.append('size', String(size));
     const response = await apiClient.get(`/appointments?${params.toString()}`);
     return response.data?.data ?? response.data;
   },

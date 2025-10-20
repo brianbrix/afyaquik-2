@@ -3,7 +3,6 @@
 package com.afyaquik.hms.scheduling.service;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -11,6 +10,8 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -472,4 +473,29 @@ public class StaffSchedulingService {
 				nextDayStart.format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm")))
 		);
 	}
+    public Page<StaffShiftDto> listShiftsPaged(
+            String tenantId,
+            java.util.Optional<Long> staffUserId,
+            java.util.Optional<ShiftStatus> status,
+            java.util.Optional<Long> roleId,
+            java.util.Optional<Long> departmentId,
+            java.util.Optional<Long> shiftTypeId,
+            java.util.Optional<java.time.LocalDateTime> rangeStart,
+            java.util.Optional<java.time.LocalDateTime> rangeEnd,
+            Pageable pageable) {
+        var role = roleId.flatMap(id -> staffRoleRepository.findById(id)).orElse(null);
+        var department = departmentId.flatMap(id -> departmentRepository.findById(id)).orElse(null);
+        var shiftType = shiftTypeId.flatMap(id -> shiftTypeRepository.findById(id)).orElse(null);
+        var spec = com.afyaquik.hms.scheduling.repository.StaffShiftSpecifications.withFilters(
+                tenantId,
+                staffUserId.orElse(null),
+                status.orElse(null),
+                role,
+                department,
+                shiftType,
+                rangeStart.orElse(null),
+                rangeEnd.orElse(null)
+        );
+        return shiftRepository.findAll(spec, pageable).map(this::toDto);
+    }
 }

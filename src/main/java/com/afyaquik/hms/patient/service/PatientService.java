@@ -1,5 +1,17 @@
 package com.afyaquik.hms.patient.service;
 
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.afyaquik.hms.patient.api.CreatePatientRequest;
 import com.afyaquik.hms.patient.api.PatientResponse;
 import com.afyaquik.hms.patient.domain.Patient;
@@ -9,18 +21,9 @@ import com.afyaquik.hms.queue.domain.QueuePriority;
 import com.afyaquik.hms.queue.domain.QueueStatus;
 import com.afyaquik.hms.queue.domain.VisitQueueItem;
 import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
+
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.Predicate;
-
-import java.util.List;
-import java.util.Locale;
-import org.springframework.data.jpa.domain.Specification;
-import java.util.stream.Collectors;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Service
 @Transactional(readOnly = true)
@@ -176,6 +179,29 @@ public class PatientService {
         }
         log.debug("Patient search found {} results for tenant={}", results.size(), tenantId);
         return results;
+    }
+
+    public Page<PatientSummary> searchPaged(String tenantId, String query, Pageable pageable) {
+        log.info("Searching patients (paged) tenant={} query='{}' page={} size={}", tenantId, query, pageable.getPageNumber(), pageable.getPageSize());
+        String sanitizedQuery = query == null ? "" : query.trim();
+        if (sanitizedQuery.isBlank()) {
+            Specification<Patient> tenantSpec = (root, cq, cb) -> cb.equal(root.get("tenantId"), tenantId);
+            return patientRepository.findAll(tenantSpec, pageable).map(PatientService::toSummary);
+        } else {
+            Specification<Patient> spec = (root, cq, cb) -> {
+                Predicate tenantPredicate = cb.equal(root.get("tenantId"), tenantId);
+                String likeQuery = "%" + sanitizedQuery.toLowerCase() + "%";
+                Predicate orPredicate = cb.or(
+                        cb.like(cb.lower(root.get("medicalRecordNumber")), likeQuery),
+                        cb.like(cb.lower(root.get("firstName")), likeQuery),
+                        cb.like(cb.lower(root.get("lastName")), likeQuery),
+                        cb.like(cb.lower(root.get("phone")), likeQuery),
+                        cb.like(cb.lower(root.get("email")), likeQuery)
+                );
+                return cb.and(tenantPredicate, orPredicate);
+            };
+            return patientRepository.findAll(spec, pageable).map(PatientService::toSummary);
+        }
     }
 
     private static PatientSummary toSummary(Patient patient) {

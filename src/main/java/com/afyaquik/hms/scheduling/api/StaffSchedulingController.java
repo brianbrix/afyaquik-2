@@ -9,6 +9,8 @@ import com.afyaquik.hms.scheduling.service.StaffSchedulingService;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -46,19 +48,20 @@ public class StaffSchedulingController {
 
 
 
-	@GetMapping("/shifts")
-	public List<StaffShiftDto> list(
+    @GetMapping("/shifts")
+    public Page<StaffShiftDto> list(
 		@RequestParam(name = "staffUserId", required = false) Long staffUserId,
 		@RequestParam(name = "status", required = false) String status,
 		@RequestParam(name = "roleId", required = false) Long roleId,
 		@RequestParam(name = "departmentId", required = false) Long departmentId,
 		@RequestParam(name = "shiftType", required = false) Long shiftType,
 		@RequestParam(name = "rangeStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime rangeStart,
-		@RequestParam(name = "rangeEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime rangeEnd) {
+            @RequestParam(name = "rangeEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime rangeEnd,
+            Pageable pageable) {
 		String tenantId = TenantHeaderInterceptor.getCurrentTenant();
 		Optional<ShiftStatus> statusFilter = parseStatus(status);
 
-		return schedulingService.listShifts(
+        return schedulingService.listShiftsPaged(
 			tenantId,
 			Optional.ofNullable(staffUserId),
 			statusFilter,
@@ -66,7 +69,8 @@ public class StaffSchedulingController {
 			Optional.ofNullable(departmentId),
 			Optional.ofNullable(shiftType),
 			Optional.ofNullable(rangeStart),
-			Optional.ofNullable(rangeEnd));
+            Optional.ofNullable(rangeEnd),
+            pageable);
 	}
 
 	/**

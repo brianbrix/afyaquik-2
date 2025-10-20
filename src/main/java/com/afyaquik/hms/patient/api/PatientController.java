@@ -1,7 +1,7 @@
 package com.afyaquik.hms.patient.api;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -60,9 +60,10 @@ public class PatientController {
 
     @GetMapping
     @Auditable(action = "SEARCH_PATIENTS", entityType = "Patient", auditGet = true, description = "Search patients")
-    public ApiResponse<List<PatientSummary>> search(
-            @RequestParam(value = "q", required = false) String query) {
+    public ApiResponse<Page<PatientSummary>> search(
+            @RequestParam(value = "q", required = false) String query,
+            Pageable pageable) {
         String tenantId = com.afyaquik.hms.common.web.TenantHeaderInterceptor.getCurrentTenant();
-        return ApiResponse.success(patientService.search(tenantId, query));
+        return ApiResponse.success(patientService.searchPaged(tenantId, query, pageable));
     }
 }
