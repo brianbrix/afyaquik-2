@@ -41,7 +41,7 @@ services:
       - "traefik.http.routers.hms-backend-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.hms-backend-api.service=hms-backend-service"
       - "traefik.http.routers.hms-backend-api.priority=10"
-      - "traefik.http.routers.hms-backend.middlewares=security-headers@file"
+      - "traefik.http.routers.hms-backend-api.middlewares=security-headers@file"
 
       
       # API Service
