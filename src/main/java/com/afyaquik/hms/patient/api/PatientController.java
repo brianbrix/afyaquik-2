@@ -35,7 +35,7 @@ public class PatientController {
     @Auditable(action = "UPDATE_PATIENT", entityType = "Patient", entityIdField = "id", description = "Update patient information")
     public ResponseEntity<ApiResponse<PatientResponse>> updatePatient(
             @PathVariable Long id,
-            @Valid @RequestBody CreatePatientRequest request) {
+            @Valid @RequestBody UpdatePatientRequest request) {
         String tenantId = com.afyaquik.hms.common.web.TenantHeaderInterceptor.getCurrentTenant();
         PatientResponse response = patientService.update(tenantId, id, request);
         return ResponseEntity.ok(ApiResponse.success(response));

@@ -268,7 +268,7 @@ public class FormConfigService {
                 .isEnabled(true)
                 .isRequired(true)
                 .displayOrder(6)
-                .fieldOptions("{\"options\":[{\"value\":\"MALE\",\"label\":\"Male\"},{\"value\":\"FEMALE\",\"label\":\"Female\"},{\"value\":\"OTHER\",\"label\":\"Other\"},{\"value\":\"PREFER_NOT_TO_SAY\",\"label\":\"Prefer not to say\"}]}")
+                .fieldOptions("{\"options\":[{\"value\":\"MALE\",\"label\":\"Male\"},{\"value\":\"FEMALE\",\"label\":\"Female\"}]}")
                 .createdBy("system")
                 .build(),
                 

@@ -124,8 +124,6 @@ export function PersonalInfoSection({ profile, onUpdate, isUpdating }: PersonalI
                       <option value="">Select Gender</option>
                       <option value="MALE">Male</option>
                       <option value="FEMALE">Female</option>
-                      <option value="OTHER">Other</option>
-                      <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
                     </Form.Select>
                   </Form.Group>
                 </Col>

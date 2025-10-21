@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.afyaquik.hms.patient.api.CreatePatientRequest;
 import com.afyaquik.hms.patient.api.PatientResponse;
+import com.afyaquik.hms.patient.api.UpdatePatientRequest;
 import com.afyaquik.hms.patient.domain.Patient;
 import com.afyaquik.hms.patient.dto.PatientSummary;
 import com.afyaquik.hms.patient.repository.PatientRepository;
@@ -32,7 +33,7 @@ public class PatientService {
     private static final Logger log = LoggerFactory.getLogger(PatientService.class);
 
     @Transactional
-    public PatientResponse update(String tenantId, Long id, CreatePatientRequest request) {
+    public PatientResponse update(String tenantId, Long id, UpdatePatientRequest request) {
         log.info("Updating patient tenant={} id={}", tenantId, id);
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> {
@@ -43,16 +44,34 @@ public class PatientService {
             log.warn("Tenant mismatch for update tenant={} id={}", tenantId, id);
             throw new IllegalStateException("Tenant mismatch");
         }
-        patient.setMedicalRecordNumber(request.medicalRecordNumber());
-        patient.setFirstName(request.firstName());
-        patient.setLastName(request.lastName());
-        patient.setPhone(request.phone());
-        patient.setEmail(request.email());
-        patient.setDateOfBirth(request.dateOfBirth());
-        patient.setNationalId(request.nationalId());
-        patient.setGender(request.gender());
         
-        // Set additional fields
+        // Only update fields that are provided (not null)
+        if (request.medicalRecordNumber() != null) {
+            patient.setMedicalRecordNumber(request.medicalRecordNumber());
+        }
+        if (request.firstName() != null) {
+            patient.setFirstName(request.firstName());
+        }
+        if (request.lastName() != null) {
+            patient.setLastName(request.lastName());
+        }
+        if (request.phone() != null) {
+            patient.setPhone(request.phone());
+        }
+        if (request.email() != null) {
+            patient.setEmail(request.email());
+        }
+        if (request.dateOfBirth() != null) {
+            patient.setDateOfBirth(request.dateOfBirth());
+        }
+        if (request.nationalId() != null) {
+            patient.setNationalId(request.nationalId());
+        }
+        if (request.gender() != null) {
+            patient.setGender(request.gender());
+        }
+        
+        // Set additional fields (allow null values to clear fields)
         patient.setMiddleName(request.middleName());
         patient.setAlternatePhone(request.alternatePhone());
         patient.setAddress(request.address());

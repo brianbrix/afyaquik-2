@@ -30,9 +30,7 @@ const patientFields: DynamicField[] = [
   { name: "nationalId", label: "National ID/Passport", type: "text", placeholder: "Enter national ID or passport number" },
   { name: "gender", label: "Gender", type: "select", required: true, options: [
     { value: "FEMALE", label: "Female" },
-    { value: "MALE", label: "Male" },
-    { value: "OTHER", label: "Other" },
-    { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" }
+    { value: "MALE", label: "Male" }
   ]},
   
   // Address Information
