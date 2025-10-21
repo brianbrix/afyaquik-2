@@ -168,7 +168,7 @@ class WebSocketService {
     }
     
     // Otherwise, construct the URL using the current page's protocol and host
-    return `${protocol}//${host}${WS_BASE_URL}/snapshot`;
+    return `${protocol}//${host}/ws/snapshot`;
   }
 
   /**
