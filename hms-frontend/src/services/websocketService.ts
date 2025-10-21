@@ -158,9 +158,17 @@ class WebSocketService {
    */
   private getWebSocketUrl(): string {
     // SockJS expects http/https protocols, not ws/wss
-    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    // Use the same protocol as the current page to avoid mixed content issues
+    const protocol = window.location.protocol;
     const host = window.location.host;
-    return `${WS_BASE_URL}/snapshot`;
+    
+    // If WS_BASE_URL is already a full URL, use it as-is
+    if (WS_BASE_URL.startsWith('http')) {
+      return `${WS_BASE_URL}/snapshot`;
+    }
+    
+    // Otherwise, construct the URL using the current page's protocol and host
+    return `${protocol}//${host}${WS_BASE_URL}/snapshot`;
   }
 
   /**
