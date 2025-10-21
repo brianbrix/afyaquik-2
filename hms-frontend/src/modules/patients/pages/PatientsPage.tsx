@@ -93,7 +93,6 @@ export function PatientsPage() {
   const [queueError, setQueueError] = useState<string | null>(null);
   const patientsQuery = usePatients(search, currentPage, pageSize);
   const createMutation = useCreatePatient(search);
-  // ...existing code...
   const qc = useQueryClient();
   
   // ...existing code...
@@ -419,8 +418,7 @@ export function PatientsPage() {
           }
 
           const data = await editPatientFormRef.current.getFormData();
-          console.log('Form data collected:', data);
-          console.log('Edit form data:', editForm);
+      
           
           // Validate form using the form's validation method
           const validation = editPatientFormRef.current.validateForm();

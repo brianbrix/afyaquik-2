@@ -1,13 +1,12 @@
-import { apiClient } from "./apiClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Patient, CreatePatientPayload } from "./patientApi";
+import { updatePatient } from "./patientApi";
 
 export type EditPatientPayload = Partial<CreatePatientPayload> & { id: number };
 
 export async function editPatient(payload: EditPatientPayload): Promise<Patient> {
   const { id, ...rest } = payload;
-  const res = await apiClient.put(`/patients/${id}`, rest);
-  return res.data?.data ?? res.data;
+  return await updatePatient(id, rest as CreatePatientPayload);
 }
 
 export function useEditPatient(currentQuery: string) {

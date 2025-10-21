@@ -12,3 +12,45 @@ body {
 .card {
   border-radius: 0.75rem;
 }
+
+// Dropdown positioning to prevent overflow
+.dropdown-menu {
+  max-width: 300px;
+  
+  // Ensure dropdowns align to the right edge of their toggle
+  &.dropdown-menu-end {
+    right: 0;
+    left: auto;
+  }
+  
+  // Prevent dropdown from extending beyond viewport
+  &.dropdown-menu-constrained {
+    max-width: min(300px, calc(100vw - 20px));
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+}
+
+// Sidebar transitions and collapsed state
+.transition-all {
+  transition: width 0.3s ease-in-out;
+}
+
+aside.collapsed {
+  .nav-link {
+    justify-content: center;
+    padding: 0.5rem;
+    
+    i {
+      margin-right: 0 !important;
+    }
+  }
+  
+  h6 {
+    display: none;
+  }
+  
+  .d-flex.flex-column.gap-1 {
+    gap: 0.25rem !important;
+  }
+}

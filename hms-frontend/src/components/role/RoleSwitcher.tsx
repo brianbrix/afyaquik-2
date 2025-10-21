@@ -37,7 +37,7 @@ export function RoleSwitcher() {
         <Dropdown.Toggle size="sm" variant="outline-light" disabled={isSaving}>
           {activeRole}
         </Dropdown.Toggle>
-        <Dropdown.Menu>
+        <Dropdown.Menu className="dropdown-menu-constrained">
           {availableRoles.map((role: typeof activeRole) => (
             <Dropdown.Item key={role} eventKey={role} active={role === activeRole}>
               {role}

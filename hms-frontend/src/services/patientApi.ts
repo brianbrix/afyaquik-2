@@ -83,6 +83,16 @@ export async function createPatient(payload: CreatePatientPayload): Promise<Pati
   return data as Patient;
 }
 
+export async function updatePatient(id: number, payload: CreatePatientPayload): Promise<Patient> {
+  const res = await apiClient.put(`/patients/${id}`, payload);
+  const data = res.data?.data ?? res.data;
+  return data as Patient;
+}
+
+export async function deletePatient(id: number): Promise<void> {
+  await apiClient.delete(`/patients/${id}`);
+}
+
 export function usePatients(query: string, page: number, size: number) {
   return useQuery({
     queryKey: [...PATIENTS_KEY(query), page, size],

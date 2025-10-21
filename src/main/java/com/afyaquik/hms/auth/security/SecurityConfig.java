@@ -50,6 +50,8 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.GET, "/api/v1/settings ").permitAll()
             // Allow websocket handshake + SockJS info/endpoints (authentication will be enforced at message level if needed)
             .requestMatchers("/ws/**").permitAll()
+            // Snapshot endpoints for offline functionality - require authentication
+            .requestMatchers("/api/v1/snapshots/**").authenticated()
                 .requestMatchers(HttpMethod.GET,"/api/v1/admin/triage-titles**").authenticated()
                 .requestMatchers(HttpMethod.GET,"/api/v1/admin/consultation-titles/**").authenticated()
                 .requestMatchers(HttpMethod.GET,"/api/v1/admin/queue-status-role-matrix**").authenticated()

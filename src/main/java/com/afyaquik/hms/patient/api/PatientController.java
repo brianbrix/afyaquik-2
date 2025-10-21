@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -65,5 +66,13 @@ public class PatientController {
             Pageable pageable) {
         String tenantId = com.afyaquik.hms.common.web.TenantHeaderInterceptor.getCurrentTenant();
         return ApiResponse.success(patientService.searchPaged(tenantId, query, pageable));
+    }
+
+    @DeleteMapping("/{id}")
+    @Auditable(action = "DELETE_PATIENT", entityType = "Patient", entityIdField = "id", description = "Delete patient")
+    public ResponseEntity<ApiResponse<String>> deletePatient(@PathVariable Long id) {
+        String tenantId = com.afyaquik.hms.common.web.TenantHeaderInterceptor.getCurrentTenant();
+        patientService.delete(tenantId, id);
+        return ResponseEntity.ok(ApiResponse.success("Patient deleted successfully"));
     }
 }

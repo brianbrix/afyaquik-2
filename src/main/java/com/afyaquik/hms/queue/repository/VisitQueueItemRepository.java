@@ -52,6 +52,17 @@ public interface VisitQueueItemRepository extends TenantAwareRepository<VisitQue
     long countByTenantIdAndDeletedFalse(String tenantId);
     long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
     
+    // Find queue items by tenant and date range for snapshots
+    List<VisitQueueItem> findByTenantIdAndCreatedAtBetweenOrderByCreatedAtAsc(
+        String tenantId, java.time.Instant startDate, java.time.Instant endDate);
+    
+    // Find queue items by tenant and date range (last 7 days) for snapshots
+    @Query("SELECT q FROM VisitQueueItem q WHERE q.tenantId = :tenantId " +
+           "AND q.createdAt >= :startDate " +
+           "AND q.deleted = false " +
+           "ORDER BY q.createdAt ASC")
+    List<VisitQueueItem> findRecentQueueItemsForSnapshot(@Param("tenantId") String tenantId, @Param("startDate") java.time.Instant startDate);
+
     // Find queue items that have been waiting for notification (30+ minutes in waiting status)
     @Query("SELECT q FROM VisitQueueItem q WHERE q.tenantId = :tenantId " +
            "AND q.currentStatus IN ('WAITING_TRIAGE', 'WAITING_PROVIDER', 'WAITING_DIAGNOSTICS', 'WAITING_PHARMACY', 'WAITING_BILLING') " +

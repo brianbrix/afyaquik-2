@@ -217,8 +217,8 @@ public class PatientService {
     }
 
     private static PatientSummary toSummary(Patient patient) {
-        Logger log = LoggerFactory.getLogger(PatientService.class);
-        log.debug("Mapping patient to summary id={}", patient.getId());
+        Logger logger = LoggerFactory.getLogger(PatientService.class);
+        logger.debug("Mapping patient to summary id={}", patient.getId());
         return new PatientSummary(
                 patient.getId(),
                 patient.getMedicalRecordNumber(),
@@ -289,5 +289,27 @@ public class PatientService {
     private String generateTicketNumber(String tenantId, Long id) {
         String prefix = tenantId.length() > 3 ? tenantId.substring(0, 3).toUpperCase(Locale.ROOT) : tenantId.toUpperCase(Locale.ROOT);
         return prefix + "-T" + String.format("%05d", id);
+    }
+
+    @Transactional
+    public void delete(String tenantId, Long id) {
+        log.info("Deleting patient tenant={} id={}", tenantId, id);
+        
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.warn("Patient not found for deletion tenant={} id={}", tenantId, id);
+                    return new EntityNotFoundException("Patient not found");
+                });
+        
+        if (!patient.getTenantId().equals(tenantId)) {
+            log.warn("Tenant mismatch for deletion tenant={} id={}", tenantId, id);
+            throw new IllegalStateException("Tenant mismatch");
+        }
+        
+        // Soft delete using BaseEntity method
+        patient.softDelete();
+        patientRepository.save(patient);
+        
+        log.info("Patient deleted tenant={} id={}", tenantId, id);
     }
 }

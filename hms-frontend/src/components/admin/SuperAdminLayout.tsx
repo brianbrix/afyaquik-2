@@ -24,7 +24,7 @@ export const SuperAdminLayout: React.FC = () => {
                   <i className="bi bi-person-circle me-1"></i>
                   <span className="d-none d-sm-inline">{user?.displayName ?? user?.username ?? "Super Admin"}</span>
                 </Dropdown.Toggle>
-                <Dropdown.Menu className="text-start">
+                <Dropdown.Menu className="text-start dropdown-menu-constrained">
                   <Dropdown.Header className="d-flex align-items-center">
                     <i className="bi bi-shield-fill me-2"></i>
                     Super Administrator
