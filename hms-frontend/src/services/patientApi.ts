@@ -48,6 +48,21 @@ export type CreatePatientPayload = {
   gender?: string;
   visitReason?: string;
   priority?: string;
+  // Additional fields
+  middleName?: string;
+  alternatePhone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelationship?: string;
+  allergies?: string;
+  medications?: string;
+  medicalHistory?: string;
+  notes?: string;
 };
 
 const PATIENTS_KEY = (q: string | null) => ["patients", q ?? "all"]; 

@@ -168,6 +168,7 @@ export function PatientsPage() {
                       {CAN_EDIT && (
                         <Button size="sm" variant="outline-warning" className="ms-2" onClick={e => {
                           e.stopPropagation();
+                          console.log('Edit button clicked, patient data:', p);
                           setActivePatientId(p.id);
                           setEditForm({ ...p });
                           setShowEditModal(true);
@@ -417,7 +418,9 @@ export function PatientsPage() {
             return;
           }
 
-          const data = editPatientFormRef.current.getFormData();
+          const data = await editPatientFormRef.current.getFormData();
+          console.log('Form data collected:', data);
+          console.log('Edit form data:', editForm);
           
           // Validate form using the form's validation method
           const validation = editPatientFormRef.current.validateForm();

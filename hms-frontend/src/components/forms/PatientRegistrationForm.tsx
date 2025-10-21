@@ -29,8 +29,10 @@ export const PatientRegistrationForm = forwardRef<any, PatientRegistrationFormPr
 
   // Update formData when initialData changes
   useEffect(() => {
+    console.log('PatientRegistrationForm initialData changed:', initialData);
     if (initialData) {
       setFormData(initialData);
+      console.log('Form data set to:', initialData);
     }
   }, [initialData]);
 
@@ -134,8 +136,10 @@ export const PatientRegistrationForm = forwardRef<any, PatientRegistrationFormPr
   // Expose form data to parent component when used in modal
   useImperativeHandle(ref, () => ({
     getFormData: async () => {
+      console.log('getFormData called, current formData:', formData);
       // Auto-generate MRN if not provided with confirmation
       const processedData = { ...formData };
+      console.log('Processed data before MRN check:', processedData);
       if (!processedData.medicalRecordNumber || processedData.medicalRecordNumber.trim() === '') {
         const result = await Swal.fire({
           title: 'Generate MRN?',

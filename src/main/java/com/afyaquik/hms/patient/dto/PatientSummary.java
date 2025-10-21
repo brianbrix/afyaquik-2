@@ -9,5 +9,22 @@ public record PatientSummary(
         String lastName,
         String phone,
         String email,
-        LocalDate dateOfBirth) {
+        LocalDate dateOfBirth,
+        String nationalId,
+        String gender,
+        // Additional fields
+        String middleName,
+        String alternatePhone,
+        String address,
+        String city,
+        String state,
+        String postalCode,
+        String country,
+        String emergencyContactName,
+        String emergencyContactPhone,
+        String emergencyContactRelationship,
+        String allergies,
+        String medications,
+        String medicalHistory,
+        String notes) {
 }

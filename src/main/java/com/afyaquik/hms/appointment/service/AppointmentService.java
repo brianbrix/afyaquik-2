@@ -1,6 +1,7 @@
 package com.afyaquik.hms.appointment.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.patient.domain.Patient;
 import com.afyaquik.hms.patient.repository.PatientRepository;
 
+import jakarta.persistence.criteria.Predicate;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -241,15 +244,37 @@ public class AppointmentService {
     }
 
     /**
-     * Get appointments with filters (paged)
+     * Get appointments with filters (paged) - using repository-level pagination
      */
     @Transactional(readOnly = true)
     public Page<AppointmentDto> getAppointmentsWithFiltersPaged(AppointmentFilterRequest filter, Pageable pageable) {
-        List<AppointmentDto> all = getAppointmentsWithFilters(filter);
-        int start = Math.min((int) pageable.getOffset(), all.size());
-        int end = Math.min(start + pageable.getPageSize(), all.size());
-        List<AppointmentDto> slice = all.subList(start, end);
-        return new PageImpl<>(slice, pageable, all.size());
+        String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+        if (tenantId == null) {
+            log.warn("No tenant context available for appointment query");
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+        
+        try {
+            // Build JPA Specification for filtering
+            Specification<Appointment> spec = buildAppointmentSpecification(tenantId, filter);
+            
+            // Apply user permissions
+            spec = applyUserPermissionFilter(spec);
+            
+            // Execute paginated query
+            Page<Appointment> appointmentPage = appointmentRepository.findAll(spec, pageable);
+            
+            // Convert to DTOs
+            List<AppointmentDto> appointmentDtos = appointmentPage.getContent()
+                    .stream()
+                    .map(this::convertToDto)
+                    .collect(Collectors.toList());
+            
+            return new PageImpl<>(appointmentDtos, pageable, appointmentPage.getTotalElements());
+        } catch (Exception e) {
+            log.error("Error fetching appointments for tenant {}: {}", tenantId, e.getMessage(), e);
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
     }
 
     /**
@@ -482,5 +507,103 @@ public class AppointmentService {
                 appointment.getCreatedAt() != null ? appointment.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime() : null,
                 appointment.getUpdatedAt() != null ? appointment.getUpdatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime() : null
         );
+    }
+
+    /**
+     * Build JPA Specification for appointment filtering
+     */
+    private Specification<Appointment> buildAppointmentSpecification(String tenantId, AppointmentFilterRequest filter) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // Always filter by tenant
+            if (tenantId != null) {
+                predicates.add(cb.equal(root.get("tenantId"), tenantId));
+            }
+            
+            // Filter by patient ID
+            if (filter.patientId() != null) {
+                predicates.add(cb.equal(root.get("patient").get("id"), filter.patientId()));
+            }
+            
+            // Filter by provider ID
+            if (filter.providerId() != null) {
+                predicates.add(cb.equal(root.get("provider").get("id"), filter.providerId()));
+            }
+            
+            // Filter by department ID
+            if (filter.departmentId() != null) {
+                predicates.add(cb.equal(root.get("department").get("id"), filter.departmentId()));
+            }
+            
+            // Filter by status
+            if (filter.status() != null) {
+                predicates.add(cb.equal(root.get("status"), filter.status()));
+            }
+            
+            // Filter by date range
+            if (filter.startDate() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("appointmentDateTime"), filter.startDate()));
+            }
+            
+            if (filter.endDate() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("appointmentDateTime"), filter.endDate()));
+            }
+            
+            // Filter by search term (patient name or MRN)
+            if (filter.searchTerm() != null && !filter.searchTerm().trim().isEmpty()) {
+                String searchTerm = "%" + filter.searchTerm().trim().toLowerCase() + "%";
+                Predicate patientNamePredicate = cb.or(
+                    cb.like(cb.lower(root.get("patient").get("firstName")), searchTerm),
+                    cb.like(cb.lower(root.get("patient").get("lastName")), searchTerm),
+                    cb.like(cb.lower(root.get("patient").get("medicalRecordNumber")), searchTerm)
+                );
+                predicates.add(patientNamePredicate);
+            }
+            
+            // Filter upcoming appointments
+            if (Boolean.TRUE.equals(filter.upcomingOnly())) {
+                predicates.add(cb.greaterThan(root.get("appointmentDateTime"), LocalDateTime.now()));
+            }
+            
+            // Filter today's appointments
+            if (Boolean.TRUE.equals(filter.todayOnly())) {
+                LocalDateTime today = LocalDateTime.now();
+                LocalDateTime startOfDay = today.toLocalDate().atStartOfDay();
+                LocalDateTime endOfDay = today.toLocalDate().atTime(23, 59, 59);
+                predicates.add(cb.between(root.get("appointmentDateTime"), startOfDay, endOfDay));
+            }
+            
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    /**
+     * Apply user permission filtering to the specification
+     */
+    private Specification<Appointment> applyUserPermissionFilter(Specification<Appointment> spec) {
+        return spec.and((root, query, cb) -> {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return cb.disjunction(); // Return no results if not authenticated
+            }
+
+            String username = authentication.getName();
+
+            // Check if user is admin or has permission to view all appointments
+            boolean isAdmin = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
+                    .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                    .anyMatch(a -> a.equals("ROLE_ADMIN") || a.equals("ADMIN") || 
+                                 a.equals("ROLE_SCHEDULING_MANAGER") || a.equals("SCHEDULING_MANAGER"));
+
+            boolean canViewAllAppointments = isAdmin || permissionService.hasPermission(username, "VIEW_ALL_APPOINTMENTS");
+            
+            if (canViewAllAppointments) {
+                return cb.conjunction(); // Return all results
+            }
+
+            // Otherwise, only show appointments where current user is the provider
+            return cb.equal(root.get("provider").get("username"), username);
+        });
     }
 }

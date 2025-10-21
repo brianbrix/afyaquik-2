@@ -35,6 +35,9 @@ public class PatientService {
     @Transactional
     public PatientResponse update(String tenantId, Long id, UpdatePatientRequest request) {
         log.info("Updating patient tenant={} id={}", tenantId, id);
+        log.debug("Update request: firstName={}, lastName={}, medicalRecordNumber={}", 
+                request.firstName(), request.lastName(), request.medicalRecordNumber());
+        
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> {
                     log.warn("Patient not found for update tenant={} id={}", tenantId, id);
@@ -45,31 +48,18 @@ public class PatientService {
             throw new IllegalStateException("Tenant mismatch");
         }
         
-        // Only update fields that are provided (not null)
-        if (request.medicalRecordNumber() != null) {
-            patient.setMedicalRecordNumber(request.medicalRecordNumber());
-        }
-        if (request.firstName() != null) {
-            patient.setFirstName(request.firstName());
-        }
-        if (request.lastName() != null) {
-            patient.setLastName(request.lastName());
-        }
-        if (request.phone() != null) {
-            patient.setPhone(request.phone());
-        }
-        if (request.email() != null) {
-            patient.setEmail(request.email());
-        }
-        if (request.dateOfBirth() != null) {
-            patient.setDateOfBirth(request.dateOfBirth());
-        }
-        if (request.nationalId() != null) {
-            patient.setNationalId(request.nationalId());
-        }
-        if (request.gender() != null) {
-            patient.setGender(request.gender());
-        }
+        log.debug("Before update: firstName={}, lastName={}, medicalRecordNumber={}", 
+                patient.getFirstName(), patient.getLastName(), patient.getMedicalRecordNumber());
+        
+        // Update all fields - frontend sends all fields in update requests
+        patient.setMedicalRecordNumber(request.medicalRecordNumber());
+        patient.setFirstName(request.firstName());
+        patient.setLastName(request.lastName());
+        patient.setPhone(request.phone());
+        patient.setEmail(request.email());
+        patient.setDateOfBirth(request.dateOfBirth());
+        patient.setNationalId(request.nationalId());
+        patient.setGender(request.gender());
         
         // Set additional fields (allow null values to clear fields)
         patient.setMiddleName(request.middleName());
@@ -88,6 +78,9 @@ public class PatientService {
         patient.setNotes(request.notes());
         
         Patient saved = patientRepository.save(patient);
+        log.debug("After update: firstName={}, lastName={}, medicalRecordNumber={}", 
+                saved.getFirstName(), saved.getLastName(), saved.getMedicalRecordNumber());
+        
         VisitQueueItem queueItem = queueRepository.findFirstByTenantIdAndPatientIdOrderByCreatedAtDesc(tenantId, saved.getId()).orElse(null);
         log.info("Patient updated tenant={} id={}", tenantId, saved.getId());
         return toPatientResponse(saved, queueItem);
@@ -233,7 +226,24 @@ public class PatientService {
                 patient.getLastName(),
                 patient.getPhone(),
                 patient.getEmail(),
-                patient.getDateOfBirth());
+                patient.getDateOfBirth(),
+                patient.getNationalId(),
+                patient.getGender(),
+                // Additional fields
+                patient.getMiddleName(),
+                patient.getAlternatePhone(),
+                patient.getAddress(),
+                patient.getCity(),
+                patient.getState(),
+                patient.getPostalCode(),
+                patient.getCountry(),
+                patient.getEmergencyContactName(),
+                patient.getEmergencyContactPhone(),
+                patient.getEmergencyContactRelationship(),
+                patient.getAllergies(),
+                patient.getMedications(),
+                patient.getMedicalHistory(),
+                patient.getNotes());
     }
 
     private PatientResponse toPatientResponse(Patient patient, VisitQueueItem queueItem) {

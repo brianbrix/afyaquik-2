@@ -5,6 +5,8 @@ import { appointmentApi, AppointmentRequest, AppointmentDto, AppointmentStatus }
 import { searchPatients, Patient } from '../../../services/patientApi';
 import { useStaffDirectory, StaffDirectoryEntry } from '../../../services/staffDirectoryApi';
 import { departmentApi, Department } from '../../../services/departmentApi';
+import { PatientSearchSelect } from '../../../components/shared/PatientSearchSelect';
+import { SearchableStaffSelect } from '../../../components/shared/SearchableStaffSelect';
 import Swal from 'sweetalert2';
 
 interface AppointmentFormProps {
@@ -35,6 +37,8 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [selectedProvider, setSelectedProvider] = useState<StaffDirectoryEntry | null>(null);
 
   // Fetch data for dropdowns
   const { data: patientsRaw } = useQuery({
@@ -101,6 +105,26 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
           reason: existingAppointment.reason,
           notes: existingAppointment.notes || ''
         });
+        
+        // Set selected patient and provider for searchable selects
+        if (existingAppointment.patientId) {
+          const patient = patients?.find(p => p.id === existingAppointment.patientId);
+          if (patient) {
+            setSelectedPatient({
+              id: patient.id,
+              firstName: patient.firstName,
+              lastName: patient.lastName,
+              medicalRecordNumber: patient.medicalRecordNumber
+            });
+          }
+        }
+        
+        if (existingAppointment.providerId) {
+          const provider = staff?.find(s => s.id === existingAppointment.providerId);
+          if (provider) {
+            setSelectedProvider(provider);
+          }
+        }
       } else if (initialData) {
         setFormData({ ...formData, ...initialData });
       } else {
@@ -121,7 +145,7 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
       }
       setErrors({});
     }
-  }, [show, existingAppointment, initialData]);
+  }, [show, existingAppointment, initialData, patients, staff]);
 
   // Handle form field changes
   const handleChange = (field: keyof AppointmentRequest, value: any) => {
@@ -130,6 +154,32 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  // Handle patient selection
+  const handlePatientSelect = (patient: any) => {
+    setSelectedPatient(patient);
+    if (patient) {
+      setFormData(prev => ({ ...prev, patientId: patient.id }));
+    } else {
+      setFormData(prev => ({ ...prev, patientId: 0 }));
+    }
+    if (errors.patientId) {
+      setErrors(prev => ({ ...prev, patientId: '' }));
+    }
+  };
+
+  // Handle provider selection
+  const handleProviderSelect = (provider: StaffDirectoryEntry | null) => {
+    setSelectedProvider(provider);
+    if (provider) {
+      setFormData(prev => ({ ...prev, providerId: provider.id }));
+    } else {
+      setFormData(prev => ({ ...prev, providerId: 0 }));
+    }
+    if (errors.providerId) {
+      setErrors(prev => ({ ...prev, providerId: '' }));
     }
   };
 
@@ -190,6 +240,8 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
       reason: '',
       notes: ''
     });
+    setSelectedPatient(null);
+    setSelectedProvider(null);
     setErrors({});
     onHide();
   };
@@ -205,44 +257,33 @@ export const AppointmentForm: React.FC<AppointmentFormProps> = ({
         <Modal.Body>
           <Row>
             <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>Patient *</Form.Label>
-                <Form.Select
-                  value={formData.patientId}
-                  onChange={(e) => handleChange('patientId', parseInt(e.target.value))}
-                  isInvalid={!!errors.patientId}
-                >
-                  <option value={0}>Select Patient</option>
-                  {patients.map((patient: Patient) => (
-                    <option key={patient.id} value={patient.id}>
-                      {patient.firstName} {patient.lastName} ({patient.medicalRecordNumber})
-                    </option>
-                  ))}
-                </Form.Select>
-                <Form.Control.Feedback type="invalid">
+              <PatientSearchSelect
+                value={selectedPatient}
+                onChange={handlePatientSelect}
+                placeholder="Search patients by name, phone, email, or ID..."
+                required={true}
+              />
+              {errors.patientId && (
+                <div className="text-danger small mt-1">
                   {errors.patientId}
-                </Form.Control.Feedback>
-              </Form.Group>
+                </div>
+              )}
             </Col>
             <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>Provider *</Form.Label>
-                <Form.Select
-                  value={formData.providerId}
-                  onChange={(e) => handleChange('providerId', parseInt(e.target.value))}
-                  isInvalid={!!errors.providerId}
-                >
-                  <option value={0}>Select Provider</option>
-                  {staff?.map((provider: StaffDirectoryEntry) => (
-                    <option key={provider.id} value={provider.id}>
-                      {provider.displayName}
-                    </option>
-                  ))}
-                </Form.Select>
-                <Form.Control.Feedback type="invalid">
+              <SearchableStaffSelect
+                value={selectedProvider}
+                onChange={handleProviderSelect}
+                placeholder="Search staff by name or role..."
+                required={true}
+                label="Provider"
+                showRole={true}
+                showDepartment={true}
+              />
+              {errors.providerId && (
+                <div className="text-danger small mt-1">
                   {errors.providerId}
-                </Form.Control.Feedback>
-              </Form.Group>
+                </div>
+              )}
             </Col>
           </Row>
 

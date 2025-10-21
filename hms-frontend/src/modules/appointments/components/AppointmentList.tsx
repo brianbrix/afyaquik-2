@@ -5,6 +5,7 @@ import { appointmentApi, AppointmentDto, AppointmentStatus, AppointmentFilterReq
 import { AppointmentForm } from './AppointmentForm';
 import { Pagination as Pager } from '../../../components/shared/Pagination';
 import Swal from 'sweetalert2';
+import { hasPermission, useResolvedPermissions } from '../../../hooks/usePermissions';
 
 interface AppointmentListProps {
   providerId?: number;
@@ -34,7 +35,9 @@ export const AppointmentList: React.FC<AppointmentListProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentDto | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-
+  const { permissions } = useResolvedPermissions();
+  const CAN_CREATE = hasPermission(permissions, 'CREATE_APPOINTMENTS');
+  const CAN_EDIT = hasPermission(permissions, 'EDIT_APPOINTMENTS');
   // Fetch appointments
   const { data: pageData, isLoading, error } = useQuery({
     queryKey: ['appointments', 'list', filters, currentPage, pageSize],
@@ -319,7 +322,7 @@ export const AppointmentList: React.FC<AppointmentListProps> = ({
                 <Button variant="outline-secondary" onClick={handleClearFilters} className="me-2">
                   Clear Filters
                 </Button>
-                {showActions && (
+                {showActions && CAN_CREATE && (
                   <Button variant="primary" onClick={() => setShowForm(true)}>
                     <i className="bi bi-plus"></i> New Appointment
                   </Button>
@@ -382,6 +385,7 @@ export const AppointmentList: React.FC<AppointmentListProps> = ({
                     {showActions && (
                       <td>
                         <div className="d-flex gap-1">
+                          {CAN_EDIT && (
                           <Button
                             size="sm"
                             variant="outline-primary"
@@ -390,6 +394,7 @@ export const AppointmentList: React.FC<AppointmentListProps> = ({
                           >
                             <i className="bi bi-pencil"></i>
                           </Button>
+                          )}
                           
                           {appointment.status === AppointmentStatus.SCHEDULED && (
                             <Button

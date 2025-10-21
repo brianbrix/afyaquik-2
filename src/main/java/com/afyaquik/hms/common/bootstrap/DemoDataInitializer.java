@@ -18,6 +18,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.afyaquik.hms.appointment.domain.Appointment;
+import com.afyaquik.hms.appointment.domain.AppointmentStatus;
+import com.afyaquik.hms.appointment.repository.AppointmentRepository;
 import com.afyaquik.hms.auth.domain.Department;
 import com.afyaquik.hms.auth.domain.StaffRole;
 import com.afyaquik.hms.auth.domain.StaffUser;
@@ -77,6 +80,7 @@ public class DemoDataInitializer implements CommandLineRunner {
     private final StaffShiftRepository staffShiftRepository;
     private final DepartmentRepository departmentRepository;
     private final PatientRepository patientRepository;
+    private final AppointmentRepository appointmentRepository;
     private final VisitQueueItemRepository visitQueueItemRepository;
     private final QueueService queueService;
     private final FormDefinitionService formDefinitionService;
@@ -96,6 +100,7 @@ public class DemoDataInitializer implements CommandLineRunner {
             DepartmentRepository departmentRepository,
             FormDefinitionService formDefinitionService,
             PatientRepository patientRepository,
+            AppointmentRepository appointmentRepository,
             VisitQueueItemRepository visitQueueItemRepository,
             QueueService queueService,
             RoleRedirectUrlService roleRedirectUrlService,
@@ -113,6 +118,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         this.departmentRepository = departmentRepository;
         this.formDefinitionService = formDefinitionService;
         this.patientRepository = patientRepository;
+        this.appointmentRepository = appointmentRepository;
         this.visitQueueItemRepository = visitQueueItemRepository;
         this.queueService = queueService;
         this.roleRedirectUrlService = roleRedirectUrlService;
@@ -185,6 +191,7 @@ public class DemoDataInitializer implements CommandLineRunner {
         // seedSystemSettings(tenantId);
 
         seedQueue(tenantId, doctor, nurse, receptionist);
+        seedAppointments(tenantId, doctor, nurse, receptionist);
 
         if (staffShiftRepository.existsByTenantId(tenantId)) {
             return; // already seeded shifts (and likely queue) keep idempotent
@@ -700,4 +707,91 @@ public class DemoDataInitializer implements CommandLineRunner {
     //         TenantHeaderInterceptor.clearCurrentTenant();
     //     }
     // }
+
+    private void seedAppointments(String tenantId, StaffUser doctor, StaffUser nurse, StaffUser receptionist) {
+        if (appointmentRepository.count() > 0) {
+            return; // already seeded appointments
+        }
+        log.info("Seeding sample appointments for tenant {}", tenantId);
+
+        // Get some patients
+        Patient p1 = patientRepository.findByTenantIdAndMedicalRecordNumber(tenantId, "MRN-" + tenantId + "-001").orElse(null);
+        Patient p2 = patientRepository.findByTenantIdAndMedicalRecordNumber(tenantId, "MRN-" + tenantId + "-002").orElse(null);
+        Patient p3 = patientRepository.findByTenantIdAndMedicalRecordNumber(tenantId, "MRN-" + tenantId + "-003").orElse(null);
+
+        if (p1 == null || p2 == null || p3 == null) {
+            log.warn("Patients not found for appointment seeding, skipping");
+            return;
+        }
+
+        // Get departments
+        Department cardiology = departmentRepository.findByTenantIdAndDepartmentId(tenantId, "cardiology").orElse(null);
+        Department emergency = departmentRepository.findByTenantIdAndDepartmentId(tenantId, "emergency").orElse(null);
+        Department surgery = departmentRepository.findByTenantIdAndDepartmentId(tenantId, "surgery").orElse(null);
+
+        if (cardiology == null || emergency == null || surgery == null) {
+            log.warn("Departments not found for appointment seeding, skipping");
+            return;
+        }
+
+        // Create sample appointments
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        
+        // Past appointment (completed)
+        createAppointment(tenantId, p1, doctor, cardiology, 
+            now.minusDays(2).withHour(10).withMinute(0), 
+            30, AppointmentStatus.COMPLETED, "Follow-up consultation", "Patient showed good recovery");
+
+        // Today's appointment (confirmed)
+        createAppointment(tenantId, p2, doctor, cardiology, 
+            now.withHour(14).withMinute(0), 
+            45, AppointmentStatus.CONFIRMED, "Initial consultation", "New patient consultation");
+
+        // Tomorrow's appointment (scheduled)
+        createAppointment(tenantId, p3, nurse, emergency, 
+            now.plusDays(1).withHour(9).withMinute(30), 
+            30, AppointmentStatus.SCHEDULED, "Post-surgery check", "Follow-up after surgery");
+
+        // Next week appointment (scheduled)
+        createAppointment(tenantId, p1, doctor, surgery, 
+            now.plusDays(7).withHour(11).withMinute(0), 
+            60, AppointmentStatus.SCHEDULED, "Pre-surgery consultation", "Preparation for upcoming surgery");
+
+        // Cancelled appointment
+        Appointment cancelledAppointment = createAppointment(tenantId, p2, nurse, emergency, 
+            now.plusDays(3).withHour(15).withMinute(0), 
+            30, AppointmentStatus.CANCELLED, "Emergency consultation", "Patient cancelled due to conflict");
+        
+        if (cancelledAppointment != null) {
+            cancelledAppointment.setCancellationReason("Patient had to reschedule");
+            cancelledAppointment.setCancelledAt(now.minusDays(1).toLocalDateTime());
+            appointmentRepository.save(cancelledAppointment);
+        }
+
+        log.info("Seeded {} appointments for tenant {}", appointmentRepository.count(), tenantId);
+    }
+
+    private Appointment createAppointment(String tenantId, Patient patient, StaffUser provider, Department department,
+                                       OffsetDateTime appointmentDateTime, int durationMinutes, 
+                                       AppointmentStatus status, String reason, String notes) {
+        try {
+            Appointment appointment = new Appointment();
+            appointment.setTenantId(tenantId);
+            appointment.setPatient(patient);
+            appointment.setProvider(provider);
+            appointment.setDepartment(department);
+            appointment.setAppointmentDateTime(appointmentDateTime.toLocalDateTime());
+            appointment.setDurationMinutes(durationMinutes);
+            appointment.setStatus(status);
+            appointment.setAppointmentType("CONSULTATION");
+            appointment.setReason(reason);
+            appointment.setNotes(notes);
+            appointment.setReminderSent(false);
+            
+            return appointmentRepository.save(appointment);
+        } catch (Exception e) {
+            log.error("Failed to create appointment: {}", e.getMessage(), e);
+            return null;
+        }
+    }
 }
