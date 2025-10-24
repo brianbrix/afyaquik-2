@@ -8,18 +8,25 @@ services:
     # container_name: hms-backend  # Remove for scaling
     environment:
       - SPRING_PROFILES_ACTIVE=production
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://hms-db:5432/hms_db
-      - SPRING_DATASOURCE_USERNAME=hms_user
-      - SPRING_DATASOURCE_PASSWORD=hms_password
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - SPRING_JPA_SHOW_SQL=false
-      - SERVER_PORT=8080
-      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info
-      - MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS=always
-      - MINIO_ENDPOINT=http://hms-minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
-      - MINIO_BUCKET_NAME=hms-files
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://hms-db:5432/hms_db}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-hms_user}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-hms_password}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=${SPRING_JPA_HIBERNATE_DDL_AUTO:-validate}
+      - SPRING_JPA_SHOW_SQL=${SPRING_JPA_SHOW_SQL:-false}
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:-health,info}
+      - MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS=${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:-always}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://hms-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin123}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-hms-files}
+      - JWT_SECRET=${JWT_SECRET:-change-this-secret-key-change-this-secret-key}
+      - JWT_ACCESS_TTL=${JWT_ACCESS_TTL:-86400}
+      - JWT_REFRESH_TTL=${JWT_REFRESH_TTL:-604800}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
     networks:
       - hms-network
       - traefik_proxy
