@@ -51,6 +51,7 @@ type AuthContextValue = {
   isInitializing: boolean;
   isAuthenticating: boolean;
   authError: string | null;
+  isTokenExpired: boolean;
   login: (tenantId: string, credentials: Credentials) => Promise<{ roleRedirects: RoleRedirectUrl[] } | void>;
   logout: () => void;
   clearError: () => void;
@@ -111,13 +112,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persistSession]
   );
 
-  const resetSession = useCallback(() => {
+  const resetSession = useCallback((reason?: string) => {
     clearRefreshTimer();
     setAuthToken(null);
     setTenantHeader(DEFAULT_TENANT_ID);
     setState(defaultState);
     persistSession(null);
-    setAuthError(null);
+    
+    // Set appropriate error message based on reason
+    if (reason === 'token_expired') {
+      setAuthError("Your session has expired. Please login again.");
+    } else {
+      setAuthError(null);
+    }
     
     // Clear activeRole from localStorage on logout
     try {
@@ -133,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const now = Date.now();
       const refreshDeadline = session.refreshTokenExpiresAt - now;
       if (refreshDeadline <= 0) {
-        resetSession();
+        resetSession('token_expired');
         return;
       }
 
@@ -142,6 +149,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       refreshTimerRef.current = setTimeout(async () => {
         try {
+          // Check if we're offline before attempting refresh
+          if (!navigator.onLine) {
+            console.log("Offline - cannot refresh token, checking if expired");
+            const accessTokenExpired = session.accessTokenExpiresAt <= Date.now();
+            if (accessTokenExpired) {
+              console.log("Access token expired while offline - logging out user");
+              resetSession('token_expired');
+              return;
+            }
+            // Token is still valid, reschedule check
+            scheduleRefresh(session);
+            return;
+          }
+          
           const fresh = await refreshAccessToken(session.tenantId, session.refreshToken);
           const updatedSession: StoredSession = {
             ...session,
@@ -152,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           scheduleRefresh(updatedSession);
         } catch (error) {
           console.error("Failed to refresh access token", error);
-          resetSession();
+          resetSession('token_expired');
         }
       }, triggerIn);
     },
@@ -170,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const bootstrap = useCallback(async () => {
     const stored = (() => {
       try {
-  const raw = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+        const raw = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
         if (!raw) return null;
         return JSON.parse(raw) as StoredSession;
       } catch (error) {
@@ -186,6 +207,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (stored.refreshTokenExpiresAt <= Date.now()) {
       resetSession();
+      setIsInitializing(false);
+      return;
+    }
+
+    // Check if we're offline
+    const isOffline = !navigator.onLine;
+    
+    if (isOffline) {
+      console.log("Offline mode detected - using cached session data");
+      
+      // Check if access token has expired
+      const accessTokenExpired = stored.accessTokenExpiresAt <= Date.now();
+      
+      if (accessTokenExpired) {
+        console.log("Access token expired in offline mode - logging out user");
+        // Token expired, logout user and show clear message
+        resetSession('token_expired');
+        setIsInitializing(false);
+        return;
+      }
+      
+      // Use cached session data directly without network requests
+      setTenantHeader(stored.tenantId);
+      setAuthToken(stored.accessToken);
+      setState({
+        user: stored.user,
+        tenantId: stored.tenantId,
+        accessToken: stored.accessToken,
+        refreshToken: stored.refreshToken,
+        accessTokenExpiresAt: stored.accessTokenExpiresAt,
+        refreshTokenExpiresAt: stored.refreshTokenExpiresAt
+      });
       setIsInitializing(false);
       return;
     }
@@ -212,7 +265,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       scheduleRefresh(hydratedSession);
     } catch (error) {
       console.error("Failed to restore session", error);
-      resetSession();
+      // If online but network fails, try to use cached data as fallback
+      if (stored.user) {
+        console.log("Network failed - falling back to cached session data");
+        setTenantHeader(stored.tenantId);
+        setAuthToken(stored.accessToken);
+        setState({
+          user: stored.user,
+          tenantId: stored.tenantId,
+          accessToken: stored.accessToken,
+          refreshToken: stored.refreshToken,
+          accessTokenExpiresAt: stored.accessTokenExpiresAt,
+          refreshTokenExpiresAt: stored.refreshTokenExpiresAt
+        });
+      } else {
+        resetSession();
+      }
     } finally {
       setIsInitializing(false);
     }
@@ -220,13 +288,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     bootstrap();
-    return () => clearRefreshTimer();
-  }, [bootstrap, clearRefreshTimer]);
+    
+    // Listen for online events to handle token expiration recovery
+    const handleOnline = () => {
+      console.log("Network connection restored");
+      // If user was logged out due to token expiration, they can now login again
+      if (authError && authError.includes("session has expired")) {
+        console.log("User can now login again after token expiration");
+        setAuthError(null); // Clear the error so user can attempt login
+      }
+    };
+    
+    window.addEventListener('online', handleOnline);
+    
+    return () => {
+      clearRefreshTimer();
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [bootstrap, clearRefreshTimer, authError]);
 
   const login = useCallback(
     async (tenantId: string, credentials: Credentials) => {
       setIsAuthenticating(true);
       setAuthError(null);
+      
+      // Check if we're offline
+      const isOffline = !navigator.onLine;
+      
+      if (isOffline) {
+        console.log("Offline mode detected - attempting offline login");
+        
+        // Try to find existing session for the user
+        const stored = (() => {
+          try {
+            const raw = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+            if (!raw) return null;
+            return JSON.parse(raw) as StoredSession;
+          } catch (error) {
+            console.warn("Failed to parse stored session", error);
+            return null;
+          }
+        })();
+        
+        if (stored && stored.user && stored.refreshTokenExpiresAt > Date.now()) {
+          console.log("Found valid cached session for offline login");
+          
+          // Check if access token has expired
+          const accessTokenExpired = stored.accessTokenExpiresAt <= Date.now();
+          
+          if (accessTokenExpired) {
+            console.log("Access token expired in offline mode - logging out user");
+            resetSession('token_expired');
+            setIsAuthenticating(false);
+            throw new Error("Access token expired - session cleared");
+          }
+          
+          // Use cached session data
+          setTenantHeader(stored.tenantId);
+          setAuthToken(stored.accessToken);
+          setState({
+            user: stored.user,
+            tenantId: stored.tenantId,
+            accessToken: stored.accessToken,
+            refreshToken: stored.refreshToken,
+            accessTokenExpiresAt: stored.accessTokenExpiresAt,
+            refreshTokenExpiresAt: stored.refreshTokenExpiresAt
+          });
+          setIsAuthenticating(false);
+          return { roleRedirects: [] }; // Return empty role redirects for offline
+        } else {
+          console.log("No valid cached session found for offline login");
+          setAuthError("No cached session found. Please connect to the internet to login.");
+          setIsAuthenticating(false);
+          throw new Error("No cached session found for offline login");
+        }
+      }
+      
       try {
         const response = await loginRequest(tenantId, credentials);
         const normalizedUser = normalizeUser(response.user);
@@ -265,6 +402,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!accessToken || !accessTokenExpiresAt || !refreshToken || !refreshTokenExpiresAt) {
       return null;
     }
+    
+    // Check if we're offline
+    const isOffline = !navigator.onLine;
+    
+    if (isOffline) {
+      console.log("Offline mode - checking token validity");
+      
+      // Check if access token has expired
+      const accessTokenExpired = accessTokenExpiresAt <= Date.now();
+      
+      if (accessTokenExpired) {
+        console.log("Access token expired in offline mode - logging out user");
+        // Token expired, logout user and show clear message
+        resetSession('token_expired');
+        return null;
+      }
+      
+      // In offline mode, return the existing token if it's still valid
+      console.log("Offline mode - using existing valid token");
+      return accessToken;
+    }
+    
     const now = Date.now();
     if (accessTokenExpiresAt - now > ACCESS_REFRESH_BUFFER_MS) {
       return accessToken;
@@ -288,6 +447,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return session.accessToken;
     } catch (error) {
       console.error("Failed to ensure fresh token", error);
+      // If online but network fails, try to use existing token as fallback
+      if (isOffline || !navigator.onLine) {
+        console.log("Network failed - using existing token as fallback");
+        return accessToken;
+      }
       resetSession();
       return null;
     }
@@ -295,6 +459,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(() => {
     const isAuthenticated = Boolean(state.accessToken && state.user);
+    const isTokenExpired = Boolean(
+      state.accessToken && 
+      state.accessTokenExpiresAt && 
+      state.accessTokenExpiresAt <= Date.now()
+    );
     return {
       user: state.user,
       tenantId: state.tenantId,
@@ -302,12 +471,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitializing,
       isAuthenticating,
       authError,
+      isTokenExpired,
       login,
       logout,
       clearError: () => setAuthError(null),
       ensureFreshAccessToken
     };
-  }, [authError, ensureFreshAccessToken, isAuthenticating, isInitializing, login, logout, state.user, state.tenantId, state.accessToken]);
+  }, [authError, ensureFreshAccessToken, isAuthenticating, isInitializing, login, logout, state.user, state.tenantId, state.accessToken, state.accessTokenExpiresAt]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
