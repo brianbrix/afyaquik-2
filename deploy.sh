@@ -86,8 +86,8 @@ prepare_production_config() {
     print_status "Preparing production configuration..."
     
     # Check if application-prod.yml exists
-    if [ ! -f "src/main/resources/application-prod.yml" ]; then
-        print_error "application-prod.yml not found in src/main/resources/"
+    if [ ! -f "src/main/resources/application-production.yml" ]; then
+        print_error "application-production.yml not found in src/main/resources/"
         exit 1
     fi
     
