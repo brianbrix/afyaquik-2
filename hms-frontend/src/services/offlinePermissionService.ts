@@ -77,6 +77,7 @@ class OfflinePermissionService {
     }
   }
 
+
   /**
    * Check if user has a specific permission offline
    */
@@ -193,11 +194,17 @@ class OfflinePermissionService {
   /**
    * Get all cached permissions
    */
-  getCachedPermissions(): Record<string, 'UNSET' | 'ALLOWED' | 'NOT_ALLOWED'> {
-    if (!this.session?.user?.permissions) {
-      console.log('OfflinePermissionService: No cached permissions available');
-      return {};
+  getCachedPermissions(): Record<string, 'UNSET' | 'ALLOWED' | 'NOT_ALLOWED'> | null {
+    if (!this.session) {
+      console.log('OfflinePermissionService: No session found for cached permissions');
+      return null;
     }
+
+    if (!this.session.user?.permissions) {
+      console.log('OfflinePermissionService: No permissions cached in session');
+      return null;
+    }
+
     console.log('OfflinePermissionService: Returning cached permissions:', Object.keys(this.session.user.permissions).length);
     return this.session.user.permissions;
   }
@@ -286,7 +293,7 @@ class OfflinePermissionService {
       resourceType,
       timestamp: new Date().toISOString(),
       offline: true,
-      permissions: Object.keys(this.getCachedPermissions()),
+      permissions: Object.keys(this.getCachedPermissions() || {}),
       success,
       error: success ? undefined : message
     };
