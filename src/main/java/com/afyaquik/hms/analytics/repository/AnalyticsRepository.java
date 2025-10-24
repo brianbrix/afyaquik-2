@@ -1,20 +1,24 @@
 package com.afyaquik.hms.analytics.repository;
 
-import com.afyaquik.hms.analytics.domain.AnalyticsMetrics;
-import com.afyaquik.hms.auth.repository.StaffUserRepository;
-import com.afyaquik.hms.patient.repository.PatientRepository;
-import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
-import com.afyaquik.hms.billing.repository.BillRepository;
-import com.afyaquik.hms.pharmacy.repository.PrescriptionRepository;
-import com.afyaquik.hms.diagnostics.repository.DiagnosticOrderRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Repository;
-
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.stereotype.Repository;
+
+import com.afyaquik.hms.analytics.domain.AnalyticsMetrics;
+import com.afyaquik.hms.auth.repository.StaffUserRepository;
+import com.afyaquik.hms.billing.repository.BillRepository;
+import com.afyaquik.hms.diagnostics.repository.DiagnosticOrderRepository;
+import com.afyaquik.hms.patient.repository.PatientRepository;
+import com.afyaquik.hms.pharmacy.repository.PrescriptionRepository;
+import com.afyaquik.hms.queue.repository.VisitQueueItemRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Repository for analytics data queries.
@@ -100,23 +104,31 @@ public class AnalyticsRepository {
     // Date Range Methods
     public long getTotalUsersForDateRange(String tenantId, LocalDate startDate, LocalDate endDate) {
         log.debug("Getting total users for date range {} to {} for tenant: {}", startDate, endDate, tenantId);
-        return staffUserRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startDate.atStartOfDay(), endDate.atTime(23, 59, 59));
+        Instant startInstant = startDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant();
+        Instant endInstant = endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+        return staffUserRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startInstant, endInstant);
     }
 
     public long getActiveUsersForDateRange(String tenantId, LocalDate startDate, LocalDate endDate) {
         log.debug("Getting active users for date range {} to {} for tenant: {}", startDate, endDate, tenantId);
         // For now, return total users in date range as active users
-        return staffUserRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startDate.atStartOfDay(), endDate.atTime(23, 59, 59));
+        Instant startInstant = startDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant();
+        Instant endInstant = endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+        return staffUserRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startInstant, endInstant);
     }
 
     public long getTotalPatientsForDateRange(String tenantId, LocalDate startDate, LocalDate endDate) {
         log.debug("Getting total patients for date range {} to {} for tenant: {}", startDate, endDate, tenantId);
-        return patientRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startDate.atStartOfDay(), endDate.atTime(23, 59, 59));
+        Instant startInstant = startDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant();
+        Instant endInstant = endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+        return patientRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startInstant, endInstant);
     }
 
     public long getTotalQueueItemsForDateRange(String tenantId, LocalDate startDate, LocalDate endDate) {
         log.debug("Getting total queue items for date range {} to {} for tenant: {}", startDate, endDate, tenantId);
-        return visitQueueItemRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startDate.atStartOfDay(), endDate.atTime(23, 59, 59));
+        Instant startInstant = startDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant();
+        Instant endInstant = endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+        return visitQueueItemRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startInstant, endInstant);
     }
 
     public long getTotalBillsForDateRange(String tenantId, LocalDate startDate, LocalDate endDate) {
@@ -131,12 +143,16 @@ public class AnalyticsRepository {
 
     public long getTotalPrescriptionsForDateRange(String tenantId, LocalDate startDate, LocalDate endDate) {
         log.debug("Getting total prescriptions for date range {} to {} for tenant: {}", startDate, endDate, tenantId);
-        return prescriptionRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startDate.atStartOfDay(), endDate.atTime(23, 59, 59));
+        Instant startInstant = startDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant();
+        Instant endInstant = endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+        return prescriptionRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startInstant, endInstant);
     }
 
     public long getTotalDiagnosticOrdersForDateRange(String tenantId, LocalDate startDate, LocalDate endDate) {
         log.debug("Getting total diagnostic orders for date range {} to {} for tenant: {}", startDate, endDate, tenantId);
-        return diagnosticOrderRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startDate.atStartOfDay(), endDate.atTime(23, 59, 59));
+        Instant startInstant = startDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant();
+        Instant endInstant = endDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+        return diagnosticOrderRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(tenantId, startInstant, endInstant);
     }
 
     // User Analytics Methods

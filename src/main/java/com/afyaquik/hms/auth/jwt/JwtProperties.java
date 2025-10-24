@@ -10,8 +10,8 @@ public class JwtProperties {
     /** Secret key for HMAC signing. */
     private String secret;
 
-    /** Access token lifetime in seconds (default 15 minutes). */
-    private long accessTokenTtlSeconds = 900;
+    /** Access token lifetime in seconds (default 1 day). */
+    private long accessTokenTtlSeconds = 86400;
 
     /** Refresh token lifetime in seconds (default 7 days). */
     private long refreshTokenTtlSeconds = 604800;

@@ -7,3 +7,4 @@ public enum ConflictType {
     DELETION_CONFLICT,
     PERMISSION_CONFLICT
 }
+

@@ -50,3 +50,4 @@ public class DeviceConnection {
         this.lastSeen = lastSeen;
     }
 }
+

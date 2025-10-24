@@ -3,7 +3,6 @@ package com.afyaquik.hms.snapshot.api;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.afyaquik.hms.audit.annotation.Auditable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.afyaquik.hms.audit.annotation.Auditable;
 import com.afyaquik.hms.common.web.ApiResponse;
 import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
 import com.afyaquik.hms.snapshot.domain.DeviceSnapshot;
@@ -178,7 +178,7 @@ public class SnapshotController {
         
         try {
             LocalDateTime sinceTime = since != null ? 
-                    LocalDateTime.parse(since) : LocalDateTime.now().minusHours(1);
+                    parseIsoTimestamp(since) : LocalDateTime.now().minusHours(1);
             
             DeviceSnapshot snapshot = snapshotService.createIncrementalSnapshot(deviceId, tenantId, sinceTime);
             
@@ -255,7 +255,7 @@ public class SnapshotController {
                 deviceId, tenantId, since);
         
         try {
-            LocalDateTime sinceTime = LocalDateTime.parse(since);
+            LocalDateTime sinceTime = parseIsoTimestamp(since);
             boolean hasChanges = snapshotService.hasDataChanged(tenantId, sinceTime);
             
             return ResponseEntity.ok(ApiResponse.success(hasChanges));
@@ -285,5 +285,14 @@ public class SnapshotController {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to cleanup snapshots: " + e.getMessage()));
         }
+    }
+    
+    /**
+     * Parse ISO 8601 timestamp with timezone (e.g., "2025-10-24T07:40:05.485Z")
+     * Convert to LocalDateTime by first parsing as Instant, then converting to LocalDateTime
+     */
+    private LocalDateTime parseIsoTimestamp(String timestamp) {
+        java.time.Instant instant = java.time.Instant.parse(timestamp);
+        return LocalDateTime.ofInstant(instant, java.time.ZoneOffset.UTC);
     }
 }

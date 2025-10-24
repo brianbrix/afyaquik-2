@@ -504,6 +504,8 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
             (event.currentTarget as HTMLFormElement).reset();
           }
           handleCloseModal();
+          // Automatically select and filter by the status that was transitioned to
+          setSelectedStatus(targetStatus);
           // Force a refetch to ensure UI is updated immediately
           queueQuery.refetch();
         },
@@ -752,57 +754,12 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
                             <details>
                               <summary className="fw-semibold">Triage Actions</summary>
                               <div className="mt-3">
-                                <TriageTitlesLoader>
-                                  {(triageTitles) => (
-                                    <TriageEntriesLoader queueItemId={item.id}>
-                                      {(triageEntries, { onAdd, onUpdate, onDelete, loading }) => (
-                                        <TriageActionsSection
-                                          triageTitles={triageTitles}
-                                          initialItems={triageEntries.map(e => ({
-                                            id: e.id,
-                                            title: e.title,
-                                            details: e.details,
-                                            isCustom: false
-                                          }))}
-                                          // onAdd, onUpdate, onDelete removed
-                                          loading={loading}
-                                          isReadonly={isReadonly}
-                                          onSubmit={async (items) => {
-                                            try {
-                                              // Only send changed items, and use bulk API
-                                              // 1. Find deleted items (in triageEntries but not in items)
-                                              const deletedIds = triageEntries
-                                                .filter(e => !items.some(i => i.id === e.id))
-                                                .map(e => e.id);
-                                              // 2. Find new or updated items
-                                              const upserts = items.map(i => ({
-                                                id: i.id > 0 ? i.id : undefined, // id may be undefined for new
-                                                title: i.title,
-                                                details: i.details
-                                              }));
-                                              if (deletedIds.length > 0) {
-                                                await bulkDeleteTriageEntries(item.id, deletedIds);
-                                              }
-                                              if (upserts.length > 0) {
-                                                await bulkUpsertTriageEntries(item.id, upserts);
-                                              }
-                                              Swal.fire({ icon: 'success', title: 'Triage items submitted', timer: 1200, showConfirmButton: false });
-                                            } catch (error: any) {
-                                              console.error('Failed to submit triage items:', error);
-                                              const errorMessage = error?.response?.data?.message || error?.message || 'Failed to submit triage items';
-                                              Swal.fire({ 
-                                                icon: 'error', 
-                                                title: 'Error', 
-                                                text: errorMessage,
-                                                confirmButtonText: 'OK'
-                                              });
-                                            }
-                                          }}
-                                        />
-                                      )}
-                                    </TriageEntriesLoader>
-                                  )}
-                                </TriageTitlesLoader>
+                                <TriageActionsSection
+                                  queueItemId={item.id}
+                                  patientId={item.patientId}
+                                  staffId={user?.id || 0}
+                                  isReadonly={isReadonly}
+                                />
                               </div>
                             </details>
                           </td>

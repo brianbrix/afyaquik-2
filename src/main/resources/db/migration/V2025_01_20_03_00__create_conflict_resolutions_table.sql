@@ -29,3 +29,4 @@ CREATE INDEX idx_conflict_resolutions_created_at ON conflict_resolutions(created
 -- Note: These would need to reference actual tables in your schema
 -- ALTER TABLE conflict_resolutions ADD CONSTRAINT fk_conflict_resolutions_tenant 
 --     FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+

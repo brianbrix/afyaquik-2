@@ -40,3 +40,4 @@ public class NoChangesMessage {
         this.timestamp = timestamp;
     }
 }
+

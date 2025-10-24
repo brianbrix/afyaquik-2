@@ -37,7 +37,7 @@ app:
   security:
     jwt:
       secret: ${JWT_SECRET:change-this-secret-key-change-this-secret-key}
-      access-token-ttl-seconds: ${JWT_ACCESS_TTL:900}
+      access-token-ttl-seconds: ${JWT_ACCESS_TTL:86400}
       refresh-token-ttl-seconds: ${JWT_REFRESH_TTL:604800}
 
 minio:
@@ -57,3 +57,4 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level"
+

@@ -96,6 +96,11 @@ export const AdminLayout: React.FC = () => {
                 <i className="bi bi-clipboard-pulse me-2"></i>
                 Triage Titles
               </NavLink>
+              {/* Triage Items Management */}
+              <NavLink to="triage-items" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-clipboard2-pulse me-2"></i>
+                Triage Items
+              </NavLink>
               <NavLink to="consultation-titles" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
                 <i className="bi bi-clipboard-data me-2"></i>
                 Consultation Titles

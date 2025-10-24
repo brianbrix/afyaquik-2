@@ -203,3 +203,4 @@ public class ConflictResolution {
         this.updatedAt = updatedAt;
     }
 }
+

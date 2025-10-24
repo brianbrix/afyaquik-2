@@ -90,3 +90,4 @@ public interface ConflictResolutionRepository extends JpaRepository<ConflictReso
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 }
+

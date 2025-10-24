@@ -50,3 +50,4 @@ public class ConnectionAcknowledgment {
         this.message = message;
     }
 }
+

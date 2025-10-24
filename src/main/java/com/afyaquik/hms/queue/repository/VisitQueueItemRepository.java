@@ -1,6 +1,5 @@
 package com.afyaquik.hms.queue.repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,7 +49,7 @@ public interface VisitQueueItemRepository extends TenantAwareRepository<VisitQue
     
     // Analytics methods
     long countByTenantIdAndDeletedFalse(String tenantId);
-    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
+    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, java.time.Instant startDate, java.time.Instant endDate);
     
     // Find queue items by tenant and date range for snapshots
     List<VisitQueueItem> findByTenantIdAndCreatedAtBetweenOrderByCreatedAtAsc(

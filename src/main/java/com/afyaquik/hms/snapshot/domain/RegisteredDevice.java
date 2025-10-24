@@ -209,3 +209,4 @@ public class RegisteredDevice extends BaseEntity {
                 '}';
     }
 }
+

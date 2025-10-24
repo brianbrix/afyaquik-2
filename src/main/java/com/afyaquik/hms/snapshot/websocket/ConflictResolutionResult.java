@@ -70,3 +70,4 @@ public class ConflictResolutionResult {
         this.timestamp = timestamp;
     }
 }
+

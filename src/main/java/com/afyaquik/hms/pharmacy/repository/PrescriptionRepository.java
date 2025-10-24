@@ -83,6 +83,6 @@ public interface PrescriptionRepository extends TenantAwareRepository<Prescripti
     
     // Analytics methods
     long countByTenantIdAndDeletedFalse(String tenantId);
-    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
+    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, java.time.Instant startDate, java.time.Instant endDate);
 }
 

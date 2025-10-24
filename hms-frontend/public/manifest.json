@@ -1,0 +1,36 @@
+{
+  "name": "AfyaQuik HMS",
+  "short_name": "AfyaQuik",
+  "description": "Hospital Management System with offline capabilities",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d6efd",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["healthcare", "medical", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "form_factor": "wide"
+    }
+  ],
+  "features": [
+    "offline-support",
+    "background-sync",
+    "push-notifications"
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

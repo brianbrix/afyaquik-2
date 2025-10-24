@@ -40,3 +40,4 @@ public class SnapshotUpdateMessage {
         this.timestamp = timestamp;
     }
 }
+

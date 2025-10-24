@@ -40,3 +40,4 @@ public class ErrorMessage {
         this.timestamp = timestamp;
     }
 }
+

@@ -2,6 +2,7 @@ package com.afyaquik.hms.snapshot.service;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -432,13 +433,17 @@ public class SnapshotService {
      */
     public boolean hasDataChanged(String tenantId, LocalDateTime since) {
         try {
+            // Convert LocalDateTime to Instant for repository calls
+            Instant sinceInstant = since.atZone(ZoneId.systemDefault()).toInstant();
+            Instant nowInstant = Instant.now();
+            
             // Check if there are any new patients since the timestamp
             long patientCount = patientRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(
-                tenantId, since, LocalDateTime.now());
+                tenantId, sinceInstant, nowInstant);
             
             // Check if there are any new staff since the timestamp
             long staffCount = staffUserRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(
-                tenantId, since, LocalDateTime.now());
+                tenantId, sinceInstant, nowInstant);
             
             // Check if there are any new appointments since the timestamp
             List<Appointment> appointments = appointmentRepository
@@ -480,10 +485,12 @@ public class SnapshotService {
             
             // Get recent activity (last 24 hours)
             LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
+            Instant yesterdayInstant = yesterday.atZone(ZoneId.systemDefault()).toInstant();
+            Instant nowInstant = Instant.now();
             long recentPatients = patientRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(
-                tenantId, yesterday, LocalDateTime.now());
+                tenantId, yesterdayInstant, nowInstant);
             long recentStaff = staffUserRepository.countByTenantIdAndCreatedAtBetweenAndDeletedFalse(
-                tenantId, yesterday, LocalDateTime.now());
+                tenantId, yesterdayInstant, nowInstant);
             
             stats.put("totalPatients", patientCount);
             stats.put("totalStaff", staffCount);

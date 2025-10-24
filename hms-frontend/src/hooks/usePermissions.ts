@@ -2,6 +2,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useRoleContext } from '../hooks/useRoleContext';
 import { apiClient } from '../services/apiClient';
 import { useQuery } from '@tanstack/react-query';
+import { offlinePermissionService } from '../services/offlinePermissionService';
+import { useEffect } from 'react';
 
 export type PermissionMatrix = Record<string, 'UNSET' | 'ALLOWED' | 'NOT_ALLOWED'>;
 
@@ -23,6 +25,13 @@ export function useResolvedPermissions() {
     refetchOnWindowFocus: true, // Refetch when window regains focus
     refetchOnMount: true, // Always refetch on mount
   });
+
+  // Update offline permission service when permissions are fetched
+  useEffect(() => {
+    if (permissions && Object.keys(permissions).length > 0) {
+      offlinePermissionService.updateSessionPermissions(permissions);
+    }
+  }, [permissions]);
 
   return { permissions, loading, error, refetch };
 }

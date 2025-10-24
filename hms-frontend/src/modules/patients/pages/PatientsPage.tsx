@@ -201,6 +201,7 @@ export function PatientsPage() {
               <div className="text-muted small">
                 {(() => {
                   const total = pageData?.totalElements ?? 0;
+                  const currentPageItems = paginatedPatients.length;
                   const start = total === 0 ? 0 : currentPage * pageSize + 1;
                   const end = Math.min((currentPage + 1) * pageSize, total);
                   return `Showing ${start} to ${end} of ${total} patients`;

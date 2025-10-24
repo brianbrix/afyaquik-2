@@ -6,3 +6,4 @@ public enum SnapshotType {
     EMERGENCY,      // Emergency snapshot for critical updates
     VERIFICATION    // Verification snapshot to ensure data consistency
 }
+

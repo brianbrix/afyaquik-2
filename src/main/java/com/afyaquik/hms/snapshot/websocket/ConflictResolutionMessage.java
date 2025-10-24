@@ -69,3 +69,4 @@ public class ConflictResolutionMessage {
         this.timestamp = timestamp;
     }
 }
+

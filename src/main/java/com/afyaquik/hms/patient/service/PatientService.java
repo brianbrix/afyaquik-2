@@ -168,13 +168,18 @@ public class PatientService {
         String sanitizedQuery = query == null ? "" : query.trim();
         List<PatientSummary> results;
         if (sanitizedQuery.isBlank()) {
-            Specification<Patient> tenantSpec = (root, cq, cb) -> cb.equal(root.get("tenantId"), tenantId);
-            results = patientRepository.findAll(tenantSpec).stream()
+            Specification<Patient> spec = (root, cq, cb) -> {
+                Predicate tenantPredicate = cb.equal(root.get("tenantId"), tenantId);
+                Predicate notDeletedPredicate = cb.equal(root.get("deleted"), false);
+                return cb.and(tenantPredicate, notDeletedPredicate);
+            };
+            results = patientRepository.findAll(spec).stream()
                 .map(PatientService::toSummary)
                 .collect(Collectors.toList());
         } else {
             Specification<Patient> spec = (root, cq, cb) -> {
                 Predicate tenantPredicate = cb.equal(root.get("tenantId"), tenantId);
+                Predicate notDeletedPredicate = cb.equal(root.get("deleted"), false);
                 String likeQuery = "%" + sanitizedQuery.toLowerCase() + "%";
                 Predicate orPredicate = cb.or(
                         cb.like(cb.lower(root.get("medicalRecordNumber")), likeQuery),
@@ -183,7 +188,7 @@ public class PatientService {
                         cb.like(cb.lower(root.get("phone")), likeQuery),
                         cb.like(cb.lower(root.get("email")), likeQuery)
                 );
-                return cb.and(tenantPredicate, orPredicate);
+                return cb.and(tenantPredicate, notDeletedPredicate, orPredicate);
             };
             results = patientRepository.findAll(spec).stream()
                 .map(PatientService::toSummary)
@@ -196,12 +201,26 @@ public class PatientService {
     public Page<PatientSummary> searchPaged(String tenantId, String query, Pageable pageable) {
         log.info("Searching patients (paged) tenant={} query='{}' page={} size={}", tenantId, query, pageable.getPageNumber(), pageable.getPageSize());
         String sanitizedQuery = query == null ? "" : query.trim();
+        
+        // Debug: Check total patients in database
+        long totalPatientsInDb = patientRepository.count();
+        long totalPatientsForTenant = patientRepository.countByTenantId(tenantId);
+        log.info("DEBUG: Total patients in DB: {}, Total for tenant {}: {}", totalPatientsInDb, tenantId, totalPatientsForTenant);
+        
         if (sanitizedQuery.isBlank()) {
-            Specification<Patient> tenantSpec = (root, cq, cb) -> cb.equal(root.get("tenantId"), tenantId);
-            return patientRepository.findAll(tenantSpec, pageable).map(PatientService::toSummary);
+            Specification<Patient> spec = (root, cq, cb) -> {
+                Predicate tenantPredicate = cb.equal(root.get("tenantId"), tenantId);
+                Predicate notDeletedPredicate = cb.equal(root.get("deleted"), false);
+                return cb.and(tenantPredicate, notDeletedPredicate);
+            };
+            Page<PatientSummary> result = patientRepository.findAll(spec, pageable).map(PatientService::toSummary);
+            log.info("DEBUG: Pagination result - totalElements: {}, totalPages: {}, numberOfElements: {}", 
+                    result.getTotalElements(), result.getTotalPages(), result.getNumberOfElements());
+            return result;
         } else {
             Specification<Patient> spec = (root, cq, cb) -> {
                 Predicate tenantPredicate = cb.equal(root.get("tenantId"), tenantId);
+                Predicate notDeletedPredicate = cb.equal(root.get("deleted"), false);
                 String likeQuery = "%" + sanitizedQuery.toLowerCase() + "%";
                 Predicate orPredicate = cb.or(
                         cb.like(cb.lower(root.get("medicalRecordNumber")), likeQuery),
@@ -210,9 +229,12 @@ public class PatientService {
                         cb.like(cb.lower(root.get("phone")), likeQuery),
                         cb.like(cb.lower(root.get("email")), likeQuery)
                 );
-                return cb.and(tenantPredicate, orPredicate);
+                return cb.and(tenantPredicate, notDeletedPredicate, orPredicate);
             };
-            return patientRepository.findAll(spec, pageable).map(PatientService::toSummary);
+            Page<PatientSummary> result = patientRepository.findAll(spec, pageable).map(PatientService::toSummary);
+            log.info("DEBUG: Pagination result with query - totalElements: {}, totalPages: {}, numberOfElements: {}", 
+                    result.getTotalElements(), result.getTotalPages(), result.getNumberOfElements());
+            return result;
         }
     }
 

@@ -50,3 +50,4 @@ public class DeviceConnectionNotification {
         this.timestamp = timestamp;
     }
 }
+

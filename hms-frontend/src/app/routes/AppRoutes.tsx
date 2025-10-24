@@ -1,6 +1,7 @@
 import { TriageTitlesAdminPage } from "../../modules/admin/pages/TriageTitlesAdminPage";
 import { ConsultationTitlesAdminPage } from "../../modules/admin/pages/ConsultationTitlesAdminPage";
 import QueueStatusRoleMatrixAdminPage from "../../modules/admin/pages/QueueStatusRoleMatrixAdminPage";
+import { TriageItemAdmin } from "../../components/admin/TriageItemAdmin";
 import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { DashboardPage } from "../../modules/dashboard";
@@ -86,6 +87,7 @@ export function AppRoutes() {
           <Route path="forms/:formKey" element={<DynamicFormPage />} />
           <Route path="insurance" element={<InsuranceAdminPage />} />
           <Route path="triage-titles" element={<TriageTitlesAdminPage />} />
+          <Route path="triage-items" element={<TriageItemAdmin />} />
           <Route path="consultation-titles" element={<ConsultationTitlesAdminPage />} />
           <Route path="queue-status-role-matrix" element={<QueueStatusRoleMatrixAdminPage />} />
           <Route path="diagnostics" element={<DiagnosticsAdminPage />} />

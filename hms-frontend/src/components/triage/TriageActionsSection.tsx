@@ -1,150 +1,182 @@
-import React, { useState } from 'react';
-import RichTextEditor from '../shared/RichTextEditor';
-import { Button, Form, Row, Col, InputGroup } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Button, Form, Row, Col, InputGroup, Card, Badge, Alert, Spinner } from 'react-bootstrap';
 import Swal from 'sweetalert2';
+import { TriageInput } from './TriageInput';
+import { TriageResult } from './TriageResult';
+import { triageItemApi, triageEntryApi, TriageItem, TriageEntry } from '../../services/triageItemApi';
+import { FaThermometerHalf, FaHeartbeat, FaTint, FaLungs, FaExclamationTriangle } from 'react-icons/fa';
 
-interface TriageItem {
-  id: number;
-  title: string;
-  details: string;
-  isCustom: boolean;
-}
-
-import type { TriageTitleDto } from '../../services/triageTitlesApi';
 interface TriageActionsSectionProps {
-  triageTitles: TriageTitleDto[];
-  initialItems?: TriageItem[];
-  onChange?: (items: TriageItem[]) => void;
-  onSubmit?: (items: TriageItem[]) => void | Promise<void>;
-  loading?: boolean;
+  queueItemId: number;
+  patientId: number;
+  staffId: number;
   isReadonly?: boolean;
 }
 
-export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ triageTitles, initialItems = [], onChange, onSubmit, loading, isReadonly = false }) => {
-  const [items, setItems] = useState<TriageItem[]>(initialItems);
-  // Sync items state with initialItems prop
-  React.useEffect(() => {
-    setItems(initialItems);
-  }, [initialItems]);
-  const [customTitle, setCustomTitle] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+export const TriageActionsSection: React.FC<TriageActionsSectionProps> = ({ 
+  queueItemId, 
+  patientId, 
+  staffId, 
+  isReadonly = false 
+}) => {
+  const [triageItems, setTriageItems] = useState<TriageItem[]>([]);
+  const [triageEntries, setTriageEntries] = useState<TriageEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'input' | 'results'>('input');
 
-  const handleAddItem = (title: string, isCustom = false) => {
-    if (!title.trim()) return;
-    
-    // Check for duplicate titles
-    const trimmedTitle = title.trim();
-    const existingTitles = items.map(item => item.title.toLowerCase());
-    
-    if (existingTitles.includes(trimmedTitle.toLowerCase())) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Duplicate Title',
-        text: `A triage item with the title "${trimmedTitle}" already exists. Please choose a different title.`,
-        confirmButtonText: 'OK'
-      });
-      return;
+  useEffect(() => {
+    loadTriageData();
+  }, [patientId]);
+
+  const loadTriageData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Load triage items and entries in parallel
+      const [items, entries] = await Promise.all([
+        triageItemApi.getActiveTriageItems(),
+        triageEntryApi.getTriageEntriesForPatient(patientId)
+      ]);
+      
+      setTriageItems(items);
+      setTriageEntries(entries);
+    } catch (err) {
+      setError('Failed to load triage data');
+      console.error('Error loading triage data:', err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleEntryCreated = async (entries: TriageEntry[]) => {
+    // Refresh the entries list
+    await loadTriageData();
     
-    const newItem: TriageItem = {
-      id: Date.now() + Math.random(),
-      title: trimmedTitle,
-      details: '',
-      isCustom
-    };
-    const updated = [...items, newItem];
-    setItems(updated);
-    onChange?.(updated);
-    setCustomTitle('');
+    // Show success message
+    Swal.fire({
+      icon: 'success',
+      title: 'Triage Assessment Complete',
+      text: `${entries.length} triage entries have been recorded.`,
+      confirmButtonText: 'OK'
+    });
+    
+    // Switch to results tab
+    setActiveTab('results');
   };
 
-  const handleRemoveItem = (id: number) => {
-    const updated = items.filter(i => i.id !== id);
-    setItems(updated);
-    onChange?.(updated);
+  const handleError = (error: string) => {
+    setError(error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: error,
+      confirmButtonText: 'OK'
+    });
   };
 
-  const handleDetailsChange = (id: number, details: string) => {
-    const updated = items.map(i => i.id === id ? { ...i, details } : i);
-    setItems(updated);
-    onChange?.(updated);
+  const getCriticalCount = () => {
+    return triageEntries.filter(entry => entry.isCritical).length;
   };
+
+  const getWarningCount = () => {
+    return triageEntries.filter(entry => entry.isWarning).length;
+  };
+
+  const getAbnormalCount = () => {
+    return triageEntries.filter(entry => entry.isAbnormal).length;
+  };
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center p-4">
+        <Spinner animation="border" />
+      </div>
+    );
+  }
 
   return (
     <div className="mb-2">
-      <div className="fw-semibold mb-2">Triage Actions</div>
-      <Form.Group as={Row} className="mb-2 align-items-center">
-        <Col sm={6}>
-          <Form.Select 
-            onChange={e => {
-              const selectedTitle = e.target.value;
-              if (selectedTitle) {
-                handleAddItem(selectedTitle);
-                e.target.value = ""; // Reset selection
-              }
-            }} 
-            defaultValue=""
-          >
-            <option value="">Add from configured titles...</option>
-            {triageTitles
-              .filter(t => !items.some(item => item.title.toLowerCase() === t.title.toLowerCase()))
-              .map(t => (
-                <option key={t.id} value={t.title}>{t.title}</option>
-              ))}
-          </Form.Select>
-        </Col>
-        <Col sm={6}>
-          <InputGroup>
-            <Form.Control
-              type="text"
-              placeholder="Custom title..."
-              value={customTitle}
-              onChange={e => setCustomTitle(e.target.value)}
-              disabled={isReadonly}
-            />
-            <Button 
-              variant="outline-primary" 
-              onClick={() => handleAddItem(customTitle, true)} 
-              disabled={isReadonly || !customTitle.trim() || items.some(item => item.title.toLowerCase() === customTitle.trim().toLowerCase())}
-            >
-              Add Custom
-            </Button>
-          </InputGroup>
-        </Col>
-      </Form.Group>
-      {items.length === 0 && <div className="text-muted small mb-2">No triage items added yet.</div>}
-      {items.map((item, idx) => (
-        <div key={item.id} className="border rounded p-2 mb-2 bg-light">
-          <div className="d-flex justify-content-between align-items-center mb-1">
-            <span className="fw-semibold">{item.title}</span>
-            <Button size="sm" variant="outline-danger" onClick={() => handleRemoveItem(item.id)} disabled={isReadonly}>
-              Remove
-            </Button>
-          </div>
-          <RichTextEditor
-            theme="snow"
-            value={item.details}
-            onChange={val => handleDetailsChange(item.id, val)}
-            placeholder="Enter details..."
-            style={{ background: 'white' }}
-            readOnly={isReadonly}
-          />
-        </div>
-      ))}
-      <div className="d-flex justify-content-end mt-3">
+      <div className="fw-semibold mb-2">Triage Assessment</div>
+      
+      {error && (
+        <Alert variant="danger" dismissible onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Status Summary */}
+      {triageEntries.length > 0 && (
+        <Card className="mb-3">
+          <Card.Body className="p-2">
+            <Row className="text-center">
+              <Col md={3}>
+                <div className="text-danger fw-bold fs-4">{getCriticalCount()}</div>
+                <div className="small text-muted">Critical</div>
+              </Col>
+              <Col md={3}>
+                <div className="text-warning fw-bold fs-4">{getWarningCount()}</div>
+                <div className="small text-muted">Warning</div>
+              </Col>
+              <Col md={3}>
+                <div className="text-warning fw-bold fs-4">{getAbnormalCount()}</div>
+                <div className="small text-muted">Abnormal</div>
+              </Col>
+              <Col md={3}>
+                <div className="text-success fw-bold fs-4">{triageEntries.length - getCriticalCount() - getWarningCount() - getAbnormalCount()}</div>
+                <div className="small text-muted">Normal</div>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
+      )}
+
+      {/* Tab Navigation */}
+      <div className="d-flex mb-3">
         <Button
-          variant="primary"
-          onClick={async () => {
-            if (!onSubmit) return;
-            setSubmitting(true);
-            await onSubmit(items);
-            setSubmitting(false);
-          }}
-          disabled={isReadonly || submitting || loading}
+          variant={activeTab === 'input' ? 'primary' : 'outline-primary'}
+          onClick={() => setActiveTab('input')}
+          className="me-2"
         >
-          {submitting || loading ? 'Submitting...' : 'Submit'}
+          <FaThermometerHalf className="me-1" />
+          Triage Input
+        </Button>
+        <Button
+          variant={activeTab === 'results' ? 'primary' : 'outline-primary'}
+          onClick={() => setActiveTab('results')}
+          disabled={triageEntries.length === 0}
+        >
+          <FaExclamationTriangle className="me-1" />
+          Results & Notes
         </Button>
       </div>
+
+      {/* Tab Content */}
+      {activeTab === 'input' && (
+        <TriageInput
+          patientId={patientId}
+          staffId={staffId}
+          queueItemId={queueItemId}
+          onEntryCreated={handleEntryCreated}
+          onError={handleError}
+        />
+      )}
+
+      {activeTab === 'results' && triageEntries.length > 0 && (
+        <TriageResult
+          entries={triageEntries}
+          showCalculations={true}
+          showAssessment={true}
+        />
+      )}
+
+      {activeTab === 'results' && triageEntries.length === 0 && (
+        <Alert variant="info">
+          <FaThermometerHalf className="me-2" />
+          No triage entries found. Please complete the triage assessment first.
+        </Alert>
+      )}
     </div>
   );
 };

@@ -42,3 +42,4 @@ COMMENT ON COLUMN device_snapshots.data_size IS 'Size of the snapshot data in by
 COMMENT ON COLUMN device_snapshots.is_compressed IS 'Whether the snapshot data is compressed';
 COMMENT ON COLUMN device_snapshots.checksum IS 'Checksum for data integrity verification';
 COMMENT ON COLUMN device_snapshots.expires_at IS 'When the snapshot expires and can be cleaned up';
+

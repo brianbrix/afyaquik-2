@@ -1,4 +1,14 @@
 import { apiClient } from './apiClient';
+import { localDatabaseService, type LocalMedication } from './localDatabase';
+
+// PageResponse interface for pagination
+interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
 
 interface ApiEnvelope<T> { 
   status: string; 
@@ -239,11 +249,37 @@ export const inventoryApi = {
   getByMedicationId: (medicationId: number) =>
     apiClient.get<ApiEnvelope<Inventory>>(`/pharmacy/inventory/medication/${medicationId}`).then(res => res.data.data),
 
-  search: (query: string) =>
-    apiClient.get<ApiEnvelope<Inventory[]>>(`/pharmacy/inventory/search?q=${encodeURIComponent(query)}`).then(res => res.data.data),
+  search: async (query: string) => {
+    // Check if we're offline
+    if (!navigator.onLine) {
+      return await searchInventoryOffline(query);
+    }
 
-  searchPaged: (query: string, page: number, size: number) =>
-    apiClient.get<ApiEnvelope<any>>(`/pharmacy/inventory/search/page?q=${encodeURIComponent(query)}&page=${page}&size=${size}`).then(res => res.data.data),
+    try {
+      const response = await apiClient.get<ApiEnvelope<Inventory[]>>(`/pharmacy/inventory/search?q=${encodeURIComponent(query)}`);
+      return response.data.data;
+    } catch (error) {
+      // If API call fails, fall back to offline data
+      console.warn('API call failed, falling back to offline data:', error);
+      return await searchInventoryOffline(query);
+    }
+  },
+
+  searchPaged: async (query: string, page: number, size: number) => {
+    // Check if we're offline
+    if (!navigator.onLine) {
+      return await searchInventoryPagedOffline(query, page, size);
+    }
+
+    try {
+      const response = await apiClient.get<ApiEnvelope<any>>(`/pharmacy/inventory/search/page?q=${encodeURIComponent(query)}&page=${page}&size=${size}`);
+      return response.data.data;
+    } catch (error) {
+      // If API call fails, fall back to offline data
+      console.warn('API call failed, falling back to offline data:', error);
+      return await searchInventoryPagedOffline(query, page, size);
+    }
+  },
 
   create: (medicationId: number, data: InventoryRequest) =>
     apiClient.post<ApiEnvelope<Inventory>>(`/pharmacy/inventory/medication/${medicationId}`, data).then(res => res.data.data),
@@ -323,3 +359,108 @@ export const queuePrescriptionApi = {
   createForQueueItem: (queueItemId: number, data: any) =>
     apiClient.post<ApiEnvelope<Prescription>>(`/pharmacy/queue-prescriptions/queue-item/${queueItemId}/prescription`, data).then(res => res.data.data)
 };
+
+// Offline functions for inventory search
+async function searchInventoryOffline(query: string): Promise<Inventory[]> {
+  try {
+    // Initialize local database if not already done
+    await localDatabaseService.initialize();
+    
+    // Get all medications
+    const medications = await localDatabaseService.getAllMedications();
+    
+    // Search medications with query
+    const filteredMedications = medications.filter(med => 
+      med.name.toLowerCase().includes(query.toLowerCase()) ||
+      med.description?.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    // Convert LocalMedication to Inventory
+    return filteredMedications.map(med => ({
+      id: med.id,
+      medicationId: med.id,
+      medicationName: med.name,
+      medicationCode: `MED-${med.id}`, // Generate medication code
+      description: med.description || '',
+      category: '', // Not available in LocalMedication
+      currentStock: 0, // Default value for offline
+      quantityInStock: 0, // Default value for offline
+      minimumStock: 0, // Default value for offline
+      minimumStockLevel: 0, // Default value for offline
+      maximumStock: 100, // Default value for offline
+      unitPrice: 0, // Default value for offline
+      supplier: '', // Default value for offline
+      location: '', // Default value for offline
+      expiryDate: undefined, // Default value for offline
+      lastRestocked: null, // Default value for offline
+      needsReorder: false, // Default value for offline
+      lowStock: false, // Default value for offline
+      expired: false, // Default value for offline
+      expiringSoon: false, // Default value for offline
+      createdAt: med.createdAt,
+      updatedAt: med.updatedAt
+    }));
+  } catch (error) {
+    console.error('Offline inventory search failed:', error);
+    return [];
+  }
+}
+
+async function searchInventoryPagedOffline(query: string, page: number, size: number): Promise<PageResponse<Inventory>> {
+  try {
+    // Initialize local database if not already done
+    await localDatabaseService.initialize();
+    
+    // Get all medications
+    const medications = await localDatabaseService.getAllMedications();
+    
+    // Search medications with query
+    const filteredMedications = medications.filter(med => 
+      med.name.toLowerCase().includes(query.toLowerCase()) ||
+      med.description?.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    // Apply pagination manually
+    const startIndex = page * size;
+    const endIndex = startIndex + size;
+    const paginatedMedications = filteredMedications.slice(startIndex, endIndex);
+    
+    // Convert LocalMedication to Inventory
+    const inventories: Inventory[] = paginatedMedications.map(med => ({
+      id: med.id,
+      medicationId: med.id,
+      medicationName: med.name,
+      description: med.description || '',
+      category: med.category || '',
+      currentStock: 0, // Default value for offline
+      minimumStock: 0, // Default value for offline
+      maximumStock: 100, // Default value for offline
+      unitPrice: 0, // Default value for offline
+      supplier: '', // Default value for offline
+      location: '', // Default value for offline
+      expiryDate: undefined, // Default value for offline
+      lastRestocked: null, // Default value for offline
+      needsReorder: false, // Default value for offline
+      lowStock: false, // Default value for offline
+      createdAt: med.createdAt,
+      updatedAt: med.updatedAt
+    }));
+    
+    return {
+      content: inventories,
+      totalElements: filteredMedications.length,
+      totalPages: Math.ceil(filteredMedications.length / size),
+      size: size,
+      number: page
+    };
+  } catch (error) {
+    console.error('Offline inventory search failed:', error);
+    return {
+      content: [],
+      totalElements: 0,
+      totalPages: 0,
+      size: size,
+      number: page
+    };
+  }
+}

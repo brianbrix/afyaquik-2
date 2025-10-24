@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { localDatabaseService, type LocalAppointment } from './localDatabase';
 
 // Types
 export interface AppointmentDto {
@@ -103,20 +104,31 @@ export const appointmentApi = {
 
   // Get all appointments with filters (paged)
   getAllPaged: async (filters: AppointmentFilterRequest | undefined, page: number, size: number): Promise<PageResponse<AppointmentDto>> => {
-    const params = new URLSearchParams();
-    if (filters?.patientId) params.append('patientId', filters.patientId.toString());
-    if (filters?.providerId) params.append('providerId', filters.providerId.toString());
-    if (filters?.departmentId) params.append('departmentId', filters.departmentId.toString());
-    if (filters?.status) params.append('status', filters.status);
-    if (filters?.startDate) params.append('startDate', filters.startDate);
-    if (filters?.endDate) params.append('endDate', filters.endDate);
-    if (filters?.searchTerm) params.append('searchTerm', filters.searchTerm);
-    if (filters?.upcomingOnly) params.append('upcomingOnly', filters.upcomingOnly.toString());
-    if (filters?.todayOnly) params.append('todayOnly', filters.todayOnly.toString());
-    params.append('page', String(page));
-    params.append('size', String(size));
-    const response = await apiClient.get(`/appointments?${params.toString()}`);
-    return response.data?.data ?? response.data;
+    // Check if we're offline
+    if (!navigator.onLine) {
+      return await getAllAppointmentsOffline(filters, page, size);
+    }
+
+    try {
+      const params = new URLSearchParams();
+      if (filters?.patientId) params.append('patientId', filters.patientId.toString());
+      if (filters?.providerId) params.append('providerId', filters.providerId.toString());
+      if (filters?.departmentId) params.append('departmentId', filters.departmentId.toString());
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      if (filters?.searchTerm) params.append('searchTerm', filters.searchTerm);
+      if (filters?.upcomingOnly) params.append('upcomingOnly', filters.upcomingOnly.toString());
+      if (filters?.todayOnly) params.append('todayOnly', filters.todayOnly.toString());
+      params.append('page', String(page));
+      params.append('size', String(size));
+      const response = await apiClient.get(`/appointments?${params.toString()}`);
+      return response.data?.data ?? response.data;
+    } catch (error) {
+      // If API call fails, fall back to offline data
+      console.warn('API call failed, falling back to offline data:', error);
+      return await getAllAppointmentsOffline(filters, page, size);
+    }
   },
 
   // Get appointments by patient
@@ -179,6 +191,104 @@ export const appointmentApi = {
     await apiClient.delete(`/appointments/${id}`);
   }
 };
+
+// Offline function for appointments
+async function getAllAppointmentsOffline(filters: AppointmentFilterRequest | undefined, page: number, size: number): Promise<PageResponse<AppointmentDto>> {
+  try {
+    // Initialize local database if not already done
+    await localDatabaseService.initialize();
+    
+    let appointments: LocalAppointment[];
+    
+    if (filters?.searchTerm && filters.searchTerm.trim()) {
+      // Search appointments with query
+      appointments = await localDatabaseService.searchAppointments(filters.searchTerm.trim());
+    } else {
+      // Get all appointments
+      appointments = await localDatabaseService.getAllAppointments();
+    }
+    
+    // Apply filters manually
+    let filteredAppointments = appointments;
+    
+    if (filters?.patientId) {
+      filteredAppointments = filteredAppointments.filter(a => a.patientId === filters.patientId);
+    }
+    if (filters?.providerId) {
+      filteredAppointments = filteredAppointments.filter(a => a.providerId === filters.providerId);
+    }
+    if (filters?.departmentId) {
+      filteredAppointments = filteredAppointments.filter(a => a.departmentId === filters.departmentId);
+    }
+    if (filters?.status) {
+      filteredAppointments = filteredAppointments.filter(a => a.status === filters.status);
+    }
+    if (filters?.startDate) {
+      const startDate = new Date(filters.startDate);
+      filteredAppointments = filteredAppointments.filter(a => new Date(a.appointmentDate) >= startDate);
+    }
+    if (filters?.endDate) {
+      const endDate = new Date(filters.endDate);
+      filteredAppointments = filteredAppointments.filter(a => new Date(a.appointmentDate) <= endDate);
+    }
+    if (filters?.upcomingOnly) {
+      const now = new Date();
+      filteredAppointments = filteredAppointments.filter(a => new Date(a.appointmentDate) >= now);
+    }
+    if (filters?.todayOnly) {
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      filteredAppointments = filteredAppointments.filter(a => {
+        const appointmentDate = new Date(a.appointmentDate);
+        return appointmentDate >= startOfDay && appointmentDate < endOfDay;
+      });
+    }
+    
+    // Apply pagination manually
+    const startIndex = page * size;
+    const endIndex = startIndex + size;
+    const paginatedAppointments = filteredAppointments.slice(startIndex, endIndex);
+    
+    // Convert LocalAppointment to AppointmentDto
+    const appointmentDtos: AppointmentDto[] = paginatedAppointments.map(a => ({
+      id: a.id,
+      patientId: a.patientId,
+      patientName: a.patientName || '',
+      patientMrn: a.patientMrn || '',
+      providerId: a.providerId,
+      providerName: a.providerName || '',
+      departmentId: a.departmentId,
+      departmentName: a.departmentName || '',
+      appointmentDate: a.appointmentDate,
+      startTime: a.startTime,
+      endTime: a.endTime,
+      status: a.status,
+      reason: a.reason,
+      notes: a.notes,
+      createdAt: a.createdAt,
+      updatedAt: a.updatedAt
+    }));
+    
+    return {
+      content: appointmentDtos,
+      totalElements: filteredAppointments.length,
+      totalPages: Math.ceil(filteredAppointments.length / size),
+      size: size,
+      number: page
+    };
+  } catch (error) {
+    console.error('Offline appointments fetch failed:', error);
+    // Return empty result if offline operations fail
+    return {
+      content: [],
+      totalElements: 0,
+      totalPages: 0,
+      size: size,
+      number: page
+    };
+  }
+}
 
 // Utility functions
 export const appointmentUtils = {

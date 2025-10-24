@@ -92,6 +92,8 @@ export interface LocalQueueItem {
 class LocalDatabaseService {
   private db: any = null;
   private isInitialized = false;
+  private readonly CHUNK_SIZE = 1000; // Process data in chunks
+  private readonly MAX_MEMORY_ITEMS = 5000; // Max items in memory
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
@@ -102,7 +104,16 @@ class LocalDatabaseService {
         locateFile: (file: string) => `https://sql.js.org/dist/${file}`
       });
 
-      this.db = new SQL.Database();
+      // Try to load existing database from IndexedDB
+      const existingData = await this.loadFromIndexedDB();
+      if (existingData) {
+        this.db = new SQL.Database(existingData);
+        console.log('Local database loaded from IndexedDB');
+      } else {
+        this.db = new SQL.Database();
+        console.log('Local database created fresh');
+      }
+      
       this.createTables();
       this.isInitialized = true;
       console.log('Local database initialized successfully');
@@ -259,6 +270,12 @@ class LocalDatabaseService {
 
   // Patient operations
   async savePatients(patients: LocalPatient[]): Promise<void> {
+    // Process in chunks to prevent memory issues
+    if (patients.length > this.CHUNK_SIZE) {
+      await this.savePatientsInChunks(patients);
+      return;
+    }
+
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO patients (
         id, medical_record_number, first_name, last_name, middle_name,
@@ -300,6 +317,34 @@ class LocalDatabaseService {
       ]);
     }
     stmt.free();
+    
+    // Auto-save to IndexedDB
+    await this.autoSave();
+  }
+
+  /**
+   * Save patients in chunks to prevent memory issues
+   */
+  private async savePatientsInChunks(patients: LocalPatient[]): Promise<void> {
+    for (let i = 0; i < patients.length; i += this.CHUNK_SIZE) {
+      const chunk = patients.slice(i, i + this.CHUNK_SIZE);
+      await this.savePatients(chunk);
+      
+      // Force garbage collection hint for large datasets
+      if (i % (this.CHUNK_SIZE * 5) === 0) {
+        await this.forceGarbageCollection();
+      }
+    }
+  }
+
+  /**
+   * Force garbage collection hint
+   */
+  private async forceGarbageCollection(): Promise<void> {
+    // Force garbage collection by creating and releasing large objects
+    const temp = new Array(1000000).fill(0);
+    temp.length = 0;
+    await new Promise(resolve => setTimeout(resolve, 0));
   }
 
   async searchPatients(query: string): Promise<LocalPatient[]> {
@@ -350,6 +395,9 @@ class LocalDatabaseService {
       ]);
     }
     stmt.free();
+    
+    // Auto-save to IndexedDB
+    await this.autoSave();
   }
 
   async searchStaff(query: string): Promise<LocalStaff[]> {
@@ -636,6 +684,92 @@ class LocalDatabaseService {
   }
 
   /**
+   * Save database to IndexedDB for persistence
+   */
+  async saveToIndexedDB(): Promise<void> {
+    if (!this.db) return;
+
+    try {
+      const data = this.db.export();
+      const dbName = 'afyaquik-hms-local-db';
+      const storeName = 'database';
+      
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName, 1);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction([storeName], 'readwrite');
+          const store = transaction.objectStore(storeName);
+          const putRequest = store.put(data, 'main');
+          
+          putRequest.onsuccess = () => resolve();
+          putRequest.onerror = () => reject(putRequest.error);
+        };
+        
+        request.onupgradeneeded = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          if (!db.objectStoreNames.contains(storeName)) {
+            db.createObjectStore(storeName);
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Failed to save database to IndexedDB:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load database from IndexedDB
+   */
+  async loadFromIndexedDB(): Promise<Uint8Array | null> {
+    try {
+      const dbName = 'afyaquik-hms-local-db';
+      const storeName = 'database';
+      
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName, 1);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction([storeName], 'readonly');
+          const store = transaction.objectStore(storeName);
+          const getRequest = store.get('main');
+          
+          getRequest.onsuccess = () => {
+            resolve(getRequest.result || null);
+          };
+          getRequest.onerror = () => reject(getRequest.error);
+        };
+        
+        request.onupgradeneeded = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          if (!db.objectStoreNames.contains(storeName)) {
+            db.createObjectStore(storeName);
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Failed to load database from IndexedDB:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Auto-save database after operations
+   */
+  private async autoSave(): Promise<void> {
+    try {
+      await this.saveToIndexedDB();
+    } catch (error) {
+      console.warn('Auto-save failed:', error);
+    }
+  }
+
+  /**
    * Encrypt sensitive data before storing
    */
   async encryptDataForStorage(data: any, dataType: string): Promise<any> {
@@ -669,6 +803,49 @@ class LocalDatabaseService {
       console.error('Failed to decrypt data from storage:', error);
       return encryptedData; // Return encrypted data if decryption fails
     }
+  }
+
+  // Get all methods for upload functionality
+  async getAllPatients(): Promise<LocalPatient[]> {
+    const stmt = this.db.prepare('SELECT * FROM patients ORDER BY first_name, last_name');
+    const results = stmt.all();
+    stmt.free();
+    return results.map(this.mapPatientFromDb);
+  }
+
+  async getAllStaff(): Promise<LocalStaff[]> {
+    const stmt = this.db.prepare('SELECT * FROM staff ORDER BY display_name');
+    const results = stmt.all();
+    stmt.free();
+    return results.map(this.mapStaffFromDb);
+  }
+
+  async getAllDepartments(): Promise<LocalDepartment[]> {
+    const stmt = this.db.prepare('SELECT * FROM departments ORDER BY name');
+    const results = stmt.all();
+    stmt.free();
+    return results.map(this.mapDepartmentFromDb);
+  }
+
+  async getAllAppointments(): Promise<LocalAppointment[]> {
+    const stmt = this.db.prepare('SELECT * FROM appointments ORDER BY appointment_date, start_time');
+    const results = stmt.all();
+    stmt.free();
+    return results.map(this.mapAppointmentFromDb);
+  }
+
+  async getAllMedications(): Promise<LocalMedication[]> {
+    const stmt = this.db.prepare('SELECT * FROM medications ORDER BY name');
+    const results = stmt.all();
+    stmt.free();
+    return results.map(this.mapMedicationFromDb);
+  }
+
+  async getAllQueueItems(): Promise<LocalQueueItem[]> {
+    const stmt = this.db.prepare('SELECT * FROM queue_items ORDER BY created_at');
+    const results = stmt.all();
+    stmt.free();
+    return results.map(this.mapQueueItemFromDb);
   }
 }
 

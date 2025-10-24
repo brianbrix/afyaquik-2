@@ -28,6 +28,7 @@ import type {
 } from "../types/queue";
 import type { QueueItem } from "../types/queue";
 import axios from 'axios';
+import { localDatabaseService, type LocalQueueItem } from './localDatabase';
 
 // Generic API response envelope type (partial) for unwrapping
 interface ApiResponse<T> { status?: string; data?: T; errors?: any; }
@@ -48,12 +49,90 @@ export interface PageResponse<T> {
 }
 
 export async function fetchQueueByStatus(status: QueueStatus, startDate: string | undefined, endDate: string | undefined, page: number, size: number): Promise<PageResponse<QueueSummary>> {
-  const params: any = { status, page, size };
-  if (startDate) params.startDate = startDate;
-  if (endDate) params.endDate = endDate;
-  const response = await apiClient.get("/queue", { params });
-  const data = (response.data?.data ?? response.data) as PageResponse<QueueSummary>;
-  return data;
+  // Check if we're offline
+  if (!navigator.onLine) {
+    return await fetchQueueByStatusOffline(status, startDate, endDate, page, size);
+  }
+
+  try {
+    const params: any = { status, page, size };
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    const response = await apiClient.get("/queue", { params });
+    const data = (response.data?.data ?? response.data) as PageResponse<QueueSummary>;
+    return data;
+  } catch (error) {
+    // If API call fails, fall back to offline data
+    console.warn('API call failed, falling back to offline data:', error);
+    return await fetchQueueByStatusOffline(status, startDate, endDate, page, size);
+  }
+}
+
+async function fetchQueueByStatusOffline(status: QueueStatus, startDate: string | undefined, endDate: string | undefined, page: number, size: number): Promise<PageResponse<QueueSummary>> {
+  try {
+    // Initialize local database if not already done
+    await localDatabaseService.initialize();
+    
+    // Get all queue items
+    const queueItems = await localDatabaseService.getAllQueueItems();
+    
+    // Apply filters manually
+    let filteredItems = queueItems;
+    
+    if (status) {
+      filteredItems = filteredItems.filter(item => item.currentStatus === status);
+    }
+    if (startDate) {
+      const start = new Date(startDate);
+      filteredItems = filteredItems.filter(item => new Date(item.createdAt) >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      filteredItems = filteredItems.filter(item => new Date(item.createdAt) <= end);
+    }
+    
+    // Apply pagination manually
+    const startIndex = page * size;
+    const endIndex = startIndex + size;
+    const paginatedItems = filteredItems.slice(startIndex, endIndex);
+    
+    // Convert LocalQueueItem to QueueSummary
+    const queueSummaries: QueueSummary[] = paginatedItems.map(item => ({
+      id: item.id,
+      patientId: item.patientId,
+      patientName: '', // Not available in LocalQueueItem
+      patientMrn: '', // Not available in LocalQueueItem
+      ticketNumber: `T-${item.id}`, // Generate ticket number
+      visitReason: item.visitReason || '',
+      priority: item.priority,
+      status: item.currentStatus as QueueStatus,
+      departmentId: '', // Not available in LocalQueueItem
+      departmentName: '', // Not available in LocalQueueItem
+      assignedToId: item.currentAssigneeId?.toString() || '',
+      assignedToName: '', // Not available in LocalQueueItem
+      assignedToRole: '', // Not available in LocalQueueItem
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt
+    }));
+    
+    return {
+      content: queueSummaries,
+      totalElements: filteredItems.length,
+      totalPages: Math.ceil(filteredItems.length / size),
+      size: size,
+      number: page
+    };
+  } catch (error) {
+    console.error('Offline queue fetch failed:', error);
+    // Return empty result if offline operations fail
+    return {
+      content: [],
+      totalElements: 0,
+      totalPages: 0,
+      size: size,
+      number: page
+    };
+  }
 }
 
 export async function assignQueueItem(

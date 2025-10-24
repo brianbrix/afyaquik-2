@@ -90,6 +90,13 @@ public class PermissionSeeder {
                 new Permission("APPROVE_TIME_OFF", "Approve time-off requests"),
                 new Permission("APPROVE_SHIFT_SWAPS", "Approve shift swap requests"),
                 new Permission("VIEW_ANALYTICS", "View analytics"),
+                // Upload Permissions for Offline Functionality
+                new Permission("UPLOAD_PATIENTS", "Upload patient data from offline mode"),
+                new Permission("UPLOAD_APPOINTMENTS", "Upload appointment data from offline mode"),
+                new Permission("UPLOAD_QUEUE", "Upload queue data from offline mode"),
+                new Permission("UPLOAD_STAFF", "Upload staff data from offline mode"),
+                new Permission("UPLOAD_MEDICATIONS", "Upload medication data from offline mode"),
+                new Permission("UPLOAD_INVENTORY", "Upload inventory data from offline mode"),
                 new Permission("VIEW_AUDIT_LOGS", "View audit logs"),
                 new Permission("VIEW_ADMIN_SETTINGS", "View admin settings"),
                 new Permission("MANAGE_ADMIN_SETTINGS", "Manage admin settings"),

@@ -1,21 +1,22 @@
 package com.afyaquik.hms.snapshot.websocket;
 
-import com.afyaquik.hms.snapshot.service.SnapshotService;
-import com.afyaquik.hms.snapshot.service.DeviceRegistrationService;
-import com.afyaquik.hms.snapshot.dto.SnapshotResponse;
-import com.afyaquik.hms.snapshot.domain.DeviceSnapshot;
-import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import com.afyaquik.hms.snapshot.domain.DeviceSnapshot;
+import com.afyaquik.hms.snapshot.dto.SnapshotResponse;
+import com.afyaquik.hms.snapshot.service.DeviceRegistrationService;
+import com.afyaquik.hms.snapshot.service.SnapshotService;
 
 @Controller
 public class SnapshotWebSocketController {
@@ -38,10 +39,26 @@ public class SnapshotWebSocketController {
      * Handle device connection
      */
     @MessageMapping("/snapshot/connect")
-    public void handleDeviceConnection(@Payload DeviceConnectionMessage message) {
+    public void handleDeviceConnection(@Payload DeviceConnectionMessage message, 
+                                     @Header("simpSessionAttributes") Map<String, Object> sessionAttributes) {
         try {
-            String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+            String tenantId = (String) sessionAttributes.get("tenantId");
             String deviceId = message.getDeviceId();
+            
+            // Debug logging
+            log.info("WebSocket connect - Device: {}, Session attributes: {}", deviceId, sessionAttributes);
+            log.info("WebSocket connect - All session attributes:");
+            for (Map.Entry<String, Object> entry : sessionAttributes.entrySet()) {
+                log.info("  {} = {}", entry.getKey(), entry.getValue());
+            }
+            log.info("WebSocket connect - Tenant ID from session: {}", tenantId);
+            
+            // Handle null tenant ID
+            if (tenantId == null) {
+                log.error("Device {} connected but tenant ID is null. Rejecting connection.", deviceId);
+                sendErrorToDevice(deviceId, "Tenant ID is required for WebSocket connection");
+                return;
+            }
             
             log.info("Device {} connected for tenant {}", deviceId, tenantId);
             
@@ -70,10 +87,17 @@ public class SnapshotWebSocketController {
      * Handle device disconnection
      */
     @MessageMapping("/snapshot/disconnect")
-    public void handleDeviceDisconnection(@Payload DeviceConnectionMessage message) {
+    public void handleDeviceDisconnection(@Payload DeviceConnectionMessage message,
+                                        @Header("simpSessionAttributes") Map<String, Object> sessionAttributes) {
         try {
-            String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+            String tenantId = (String) sessionAttributes.get("tenantId");
             String deviceId = message.getDeviceId();
+            
+            // Handle null tenant ID
+            if (tenantId == null) {
+                log.error("Device {} disconnected but tenant ID is null. Cannot process disconnection.", deviceId);
+                return;
+            }
             
             log.info("Device {} disconnected for tenant {}", deviceId, tenantId);
             
@@ -92,10 +116,18 @@ public class SnapshotWebSocketController {
      * Handle snapshot update requests
      */
     @MessageMapping("/snapshot/update")
-    public void handleSnapshotUpdate(@Payload SnapshotUpdateMessage message) {
+    public void handleSnapshotUpdate(@Payload SnapshotUpdateMessage message,
+                                   @Header("simpSessionAttributes") Map<String, Object> sessionAttributes) {
         try {
-            String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+            String tenantId = (String) sessionAttributes.get("tenantId");
             String deviceId = message.getDeviceId();
+            
+            // Handle null tenant ID
+            if (tenantId == null) {
+                log.error("Snapshot update requested by device {} but tenant ID is null. Rejecting request.", deviceId);
+                sendErrorToDevice(deviceId, "Tenant ID is required for snapshot operations");
+                return;
+            }
             
             log.debug("Snapshot update requested by device {} for tenant {}", deviceId, tenantId);
             
@@ -145,10 +177,18 @@ public class SnapshotWebSocketController {
      * Handle conflict resolution requests
      */
     @MessageMapping("/snapshot/resolve-conflict")
-    public void handleConflictResolution(@Payload ConflictResolutionMessage message) {
+    public void handleConflictResolution(@Payload ConflictResolutionMessage message,
+                                       @Header("simpSessionAttributes") Map<String, Object> sessionAttributes) {
         try {
-            String tenantId = TenantHeaderInterceptor.getCurrentTenant();
+            String tenantId = (String) sessionAttributes.get("tenantId");
             String deviceId = message.getDeviceId();
+            
+            // Handle null tenant ID
+            if (tenantId == null) {
+                log.error("Conflict resolution requested by device {} but tenant ID is null. Rejecting request.", deviceId);
+                sendErrorToDevice(deviceId, "Tenant ID is required for conflict resolution");
+                return;
+            }
             
             log.info("Conflict resolution requested by device {} for tenant {}", deviceId, tenantId);
             
@@ -171,6 +211,11 @@ public class SnapshotWebSocketController {
      * Register device connection
      */
     private void registerDeviceConnection(String tenantId, String deviceId, String deviceName) {
+        if (tenantId == null || deviceId == null) {
+            log.error("Cannot register device connection: tenantId={}, deviceId={}", tenantId, deviceId);
+            return;
+        }
+        
         tenantConnections.computeIfAbsent(tenantId, k -> new ConcurrentHashMap<>())
                 .put(deviceId, new DeviceConnection(deviceId, deviceName, LocalDateTime.now()));
     }
@@ -179,6 +224,11 @@ public class SnapshotWebSocketController {
      * Remove device connection
      */
     private void removeDeviceConnection(String tenantId, String deviceId) {
+        if (tenantId == null || deviceId == null) {
+            log.error("Cannot remove device connection: tenantId={}, deviceId={}", tenantId, deviceId);
+            return;
+        }
+        
         Map<String, DeviceConnection> devices = tenantConnections.get(tenantId);
         if (devices != null) {
             devices.remove(deviceId);

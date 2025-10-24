@@ -102,3 +102,4 @@ const SecurityStatus: React.FC = () => {
 };
 
 export default SecurityStatus;
+

@@ -1,16 +1,17 @@
 
 package com.afyaquik.hms.patient.repository;
 
-import com.afyaquik.hms.patient.domain.Patient;
-import com.afyaquik.hms.common.repository.TenantAwareRepository;
-import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import com.afyaquik.hms.common.repository.TenantAwareRepository;
+import com.afyaquik.hms.common.web.TenantHeaderInterceptor;
+import com.afyaquik.hms.patient.domain.Patient;
 
 @Repository
 public interface PatientRepository extends TenantAwareRepository<Patient, Long>, JpaSpecificationExecutor<Patient> {
@@ -59,5 +60,5 @@ public interface PatientRepository extends TenantAwareRepository<Patient, Long>,
     
     // Analytics methods
     long countByTenantIdAndDeletedFalse(String tenantId);
-    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
+    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, java.time.Instant startDate, java.time.Instant endDate);
 }

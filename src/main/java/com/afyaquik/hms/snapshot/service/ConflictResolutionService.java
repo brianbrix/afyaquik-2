@@ -165,3 +165,4 @@ public class ConflictResolutionService {
         public long getAutoResolvedConflicts() { return autoResolvedConflicts; }
     }
 }
+

@@ -120,3 +120,4 @@ public interface DeviceSnapshotRepository extends JpaRepository<DeviceSnapshot, 
            "GROUP BY s.deviceId ORDER BY lastActivity DESC")
     List<Object[]> findDevicesByLastActivity(@Param("tenantId") String tenantId);
 }
+

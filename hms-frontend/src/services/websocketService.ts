@@ -162,13 +162,31 @@ class WebSocketService {
     const protocol = window.location.protocol;
     const host = window.location.host;
     
-    // If WS_BASE_URL is already a full URL, use it as-is
-    if (WS_BASE_URL.startsWith('http')) {
-      return `${WS_BASE_URL}/snapshot`;
+    // Get tenant ID from session storage
+    const sessionData = localStorage.getItem('afyaquik.hms.session');
+    let tenantId = 'clinic-a';
+    
+    if (sessionData) {
+      try {
+        const session = JSON.parse(sessionData);
+        tenantId = session.tenantId || 'clinic-a';
+      } catch (error) {
+        console.error('Failed to parse session data for WebSocket URL:', error);
+      }
     }
     
-    // Otherwise, construct the URL using the current page's protocol and host
-    return `${protocol}//${host}/ws/snapshot`;
+    let url;
+    // If WS_BASE_URL is already a full URL, use it as-is
+    if (WS_BASE_URL.startsWith('http')) {
+      url = `${WS_BASE_URL}/snapshot?tenantId=${encodeURIComponent(tenantId)}`;
+    } else {
+      // Otherwise, construct the URL using the current page's protocol and host
+      url = `${protocol}//${host}/ws/snapshot?tenantId=${encodeURIComponent(tenantId)}`;
+    }
+    
+    console.log('WebSocket URL constructed:', url);
+    console.log('Tenant ID from session:', tenantId);
+    return url;
   }
 
   /**

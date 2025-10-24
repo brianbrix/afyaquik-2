@@ -1,6 +1,5 @@
 package com.afyaquik.hms.auth.repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,7 +57,7 @@ public interface StaffUserRepository extends TenantAwareRepository<StaffUser, Lo
     long countForCurrentTenant();
     
     // Analytics methods
-    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, LocalDateTime startDate, LocalDateTime endDate);
+    long countByTenantIdAndCreatedAtBetweenAndDeletedFalse(String tenantId, java.time.Instant startDate, java.time.Instant endDate);
 
     
     @Query("SELECT COUNT(u) FROM StaffUser u WHERE u.enabled = true")

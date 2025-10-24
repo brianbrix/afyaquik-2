@@ -129,3 +129,4 @@ public interface RegisteredDeviceRepository extends JpaRepository<RegisteredDevi
     List<RegisteredDevice> findDevicesByDeviceInfo(@Param("tenantId") String tenantId, 
                                                    @Param("info") String deviceInfo);
 }
+

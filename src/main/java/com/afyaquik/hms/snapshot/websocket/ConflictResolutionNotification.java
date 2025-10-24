@@ -60,3 +60,4 @@ public class ConflictResolutionNotification {
         this.timestamp = timestamp;
     }
 }
+
