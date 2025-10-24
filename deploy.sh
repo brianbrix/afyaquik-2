@@ -199,7 +199,7 @@ show_status() {
     echo ""
     echo "Production Notes:"
     echo "  - JWT tokens expire in 24 hours"
-    echo "  - Database schema is validated (not updated)"
+    echo "  - Database schema is updated automatically"
     echo "  - Logs are written to /app/logs in container"
     echo "  - Customize settings via .env.production.custom"
 }
