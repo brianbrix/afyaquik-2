@@ -7,11 +7,6 @@ import { RoleSwitcher } from "../role/RoleSwitcher";
 import { useFeatureFlags } from "../../services/configApi";
 import { useAuth } from "../../hooks/useAuth";
 import { NotificationBell } from '../shared/NotificationBell';
-import { SyncStatus } from '../shared/SyncStatus';
-import { OfflineIndicator } from '../shared/OfflineIndicator';
-import { OfflineToggle } from '../shared/OfflineToggle';
-import WebSocketStatus from '../shared/WebSocketStatus';
-import SecurityStatus from '../shared/SecurityStatus';
 import { hasPermission, useResolvedPermissions } from "../../hooks/usePermissions";
 import { useIsSupervisor } from "../../hooks/useIsSupervisor";
 import { PermissionMatrix } from "../../hooks/usePermissions";
@@ -44,7 +39,6 @@ export function AppLayout() {
   if (isAdmin) {
     return (
       <div className="app-shell min-vh-100 d-flex flex-column">
-        <OfflineIndicator />
         <Navbar bg="primary" variant="dark" expand="lg" className="shadow-sm">
           <Container fluid>
             <Navbar.Brand className="fw-bold d-flex align-items-center">
@@ -55,10 +49,6 @@ export function AppLayout() {
             <Navbar.Collapse id="primary-nav" className="justify-content-end">
               <div className="d-flex align-items-center gap-2">
                 <RoleSwitcher />
-                <SyncStatus />
-                <WebSocketStatus />
-                <SecurityStatus />
-                <OfflineToggle />
                 <NotificationBell />
                 <Dropdown align="end">
                   <Dropdown.Toggle size="sm" variant="outline-light" className="d-flex align-items-center">
@@ -108,7 +98,6 @@ export function AppLayout() {
 
   return (
     <div className="app-shell min-vh-100 d-flex flex-column">
-      <OfflineIndicator />
       <Navbar bg="primary" variant="dark" expand="lg" className="shadow-sm">
         <Container fluid>
           <Navbar.Brand className="fw-bold d-flex align-items-center">
@@ -119,10 +108,6 @@ export function AppLayout() {
           <Navbar.Collapse id="primary-nav" className="justify-content-end">
             <div className="d-flex align-items-center gap-2">
               <RoleSwitcher />
-              <SyncStatus />
-              <WebSocketStatus />
-              <SecurityStatus />
-              <OfflineToggle />
               <NotificationBell />
               <Dropdown align="end">
                 <Dropdown.Toggle size="sm" variant="outline-light" className="d-flex align-items-center">

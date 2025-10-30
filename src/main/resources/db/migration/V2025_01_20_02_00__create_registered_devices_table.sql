@@ -47,3 +47,4 @@ COMMENT ON COLUMN registered_devices.max_snapshots IS 'Maximum number of snapsho
 COMMENT ON COLUMN registered_devices.snapshot_retention_days IS 'Number of days to retain snapshots';
 COMMENT ON COLUMN registered_devices.device_info IS 'JSON string with device capabilities and info';
 
+

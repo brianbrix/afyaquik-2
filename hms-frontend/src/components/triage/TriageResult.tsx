@@ -270,3 +270,4 @@ export const TriageResult: React.FC<TriageResultProps> = ({
     </div>
   );
 };
+

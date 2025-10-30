@@ -235,3 +235,4 @@ public class OfflineAuditEntryDto {
         this.metadata = metadata;
     }
 }
+

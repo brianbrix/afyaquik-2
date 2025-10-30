@@ -270,10 +270,15 @@ public class StaffSchedulingService {
 
 		StaffShift saved = shiftRepository.save(shift);
 		
-		// If this is a recurring shift that was just completed, create the next day's shift
-		if (saved.isRecurring() && request.status() == ShiftStatus.COMPLETED) {
-			createNextDayRecurringShift(tenantId, saved);
-		}
+        // If this is a recurring shift that was just completed, optionally create the next day's shift
+        if (saved.isRecurring() && request.status() == ShiftStatus.COMPLETED) {
+            boolean enabledForUser = saved.getStaffUser() != null && saved.getStaffUser().isAutoCreateNextDayShift();
+            if (enabledForUser) {
+                createNextDayRecurringShift(tenantId, saved);
+            } else {
+                log.info("Auto-create next day shift disabled for user id={} - skipping", saved.getStaffUser() != null ? saved.getStaffUser().getId() : null);
+            }
+        }
 		
 		StaffShiftDto dto = toDto(saved);
 		log.info("Shift updated tenant={} shiftId={}", tenantId, shiftId);

@@ -45,6 +45,9 @@ public class StaffUser extends BaseEntity {
     @Column(name = "is_tenant_super_admin", nullable = false)
     private boolean isTenantSuperAdmin = false;
 
+    @Column(name = "auto_create_next_day_shift", nullable = false)
+    private boolean autoCreateNextDayShift = true;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "staff_user_roles",
@@ -136,5 +139,13 @@ public class StaffUser extends BaseEntity {
 
     public void setTenantSuperAdmin(boolean isTenantSuperAdmin) {
         this.isTenantSuperAdmin = isTenantSuperAdmin;
+    }
+
+    public boolean isAutoCreateNextDayShift() {
+        return autoCreateNextDayShift;
+    }
+
+    public void setAutoCreateNextDayShift(boolean autoCreateNextDayShift) {
+        this.autoCreateNextDayShift = autoCreateNextDayShift;
     }
 }

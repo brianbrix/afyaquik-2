@@ -160,7 +160,7 @@ export const NotificationBell: React.FC = () => {
           </Badge>
         )}
       </Dropdown.Toggle>
-      <Dropdown.Menu style={{minWidth:320, maxHeight:400, overflowY:'auto'}}>
+      <Dropdown.Menu style={{minWidth:560, maxWidth:720, maxHeight:500, overflowY:'auto', whiteSpace:'normal', wordBreak:'break-word'}}>
         <Dropdown.Header className="d-flex justify-content-between align-items-center">
           <div>
             <span>Notifications</span>

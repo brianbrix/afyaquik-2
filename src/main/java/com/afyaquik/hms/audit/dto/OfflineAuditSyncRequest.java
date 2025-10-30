@@ -23,3 +23,4 @@ public class OfflineAuditSyncRequest {
         this.entries = entries;
     }
 }
+

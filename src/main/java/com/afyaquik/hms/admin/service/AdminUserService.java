@@ -125,6 +125,7 @@ public class AdminUserService {
         user.setEnabled(req.enabled());
         user.setSupervisorId(req.supervisorId());
         user.setSupervisorDisplayName(req.supervisorDisplayName());
+        user.setAutoCreateNextDayShift(req.autoCreateNextDayShift());
         UserDto dto = mapper.toDto(userRepository.save(user));
         log.info("User updated tenant={} id={}", tenantId, id);
         return dto;

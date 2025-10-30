@@ -88,3 +88,4 @@ public class TriageAssessment extends BaseEntity {
     @Column(name = "detected_medical_conditions", columnDefinition = "TEXT")
     private String detectedMedicalConditions;
 }
+

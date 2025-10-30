@@ -153,12 +153,14 @@ export const UserDirectory: React.FC = () => {
 
     const prev = users;
     const optimistic = users?.map(x => x.id === u.id ? { ...x, enabled: !x.enabled } : x) || [];
-    // optimistic update
+    // optimistic update (local state + query cache)
+    setUsers(optimistic);
     qc.setQueryData(['admin','users'], optimistic);
     updateUser.mutate(
       { id: u.id, displayName: u.displayName, email: u.email, enabled: !u.enabled },
       {
         onError: () => {
+            setUsers(prev);
             qc.setQueryData(['admin','users'], prev);
         },
         onSettled: () => {
@@ -215,6 +217,7 @@ export const UserDirectory: React.FC = () => {
               <th>Roles</th>
               <th>Supervisor</th>
               <th>Status</th>
+              <th>Auto Next-Day Shift</th>
               <th>Profile</th>
               <th style={{width:200}}>Actions</th>
             </tr>
@@ -238,6 +241,29 @@ export const UserDirectory: React.FC = () => {
                 </td>
                 <td>
                   <StatusToggle enabled={u.enabled} onChange={() => toggleEnabled(u)} disabled={updateUser.isPending} />
+                </td>
+                <td>
+                  <StatusToggle 
+                    enabled={u.autoCreateNextDayShift ?? true}
+                    onChange={() => {
+                      const prev = users;
+                      const optimistic = users?.map(x => x.id === u.id ? { ...x, autoCreateNextDayShift: !(u.autoCreateNextDayShift ?? true) } : x) || [];
+                      // optimistic update (local state + query cache)
+                      setUsers(optimistic);
+                      qc.setQueryData(['admin','users'], optimistic);
+                      updateUser.mutate(
+                        { id: u.id, displayName: u.displayName, email: u.email, enabled: u.enabled, supervisorId: u.supervisorId, supervisorDisplayName: u.supervisorDisplayName, autoCreateNextDayShift: !(u.autoCreateNextDayShift ?? true) },
+                        {
+                          onError: () => {
+                            setUsers(prev);
+                            qc.setQueryData(['admin','users'], prev);
+                          },
+                          onSettled: () => qc.invalidateQueries({ queryKey: ['admin','users'] })
+                        }
+                      );
+                    }} 
+                    disabled={updateUser.isPending} 
+                  />
                 </td>
                 <td>
                   {profileStatus[u.username] === undefined ? (

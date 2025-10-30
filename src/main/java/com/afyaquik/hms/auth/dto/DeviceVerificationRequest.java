@@ -83,3 +83,4 @@ public class DeviceVerificationRequest {
         this.timestamp = timestamp;
     }
 }
+

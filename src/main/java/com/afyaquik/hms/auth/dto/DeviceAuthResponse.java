@@ -112,3 +112,4 @@ public class DeviceAuthResponse {
         this.verificationMethod = verificationMethod;
     }
 }
+

@@ -39,6 +39,8 @@ app:
       secret: ${JWT_SECRET:change-this-secret-key-change-this-secret-key}
       access-token-ttl-seconds: ${JWT_ACCESS_TTL:86400}
       refresh-token-ttl-seconds: ${JWT_REFRESH_TTL:604800}
+  offline:
+    enabled: false
 
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}

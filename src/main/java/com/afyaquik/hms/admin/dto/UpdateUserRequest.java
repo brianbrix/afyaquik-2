@@ -9,5 +9,6 @@ public record UpdateUserRequest(
         @Email @Size(max = 128) String email,
         boolean enabled,
         Long supervisorId,
-        String supervisorDisplayName
+        String supervisorDisplayName,
+        boolean autoCreateNextDayShift
 ) {}

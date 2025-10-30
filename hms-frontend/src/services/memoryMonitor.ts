@@ -321,3 +321,4 @@ class MemoryMonitor {
 
 // Export singleton instance
 export const memoryMonitor = new MemoryMonitor();
+

@@ -18,3 +18,4 @@ public class TriageAssessmentRequest {
     private LocalDateTime triageTimestamp;
     private Long queueItemId;
 }
+

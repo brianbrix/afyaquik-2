@@ -238,23 +238,7 @@ export function QueueBoardPage() {
   const [statusOptions, setStatusOptions] = useState<QueueStatus[]>([]);
   // Helper function to safely check permissions with loading state
   const canManage = (permission: string) => {
-    // If we're loading permissions, don't allow actions
-    if (permissionsLoading) return false;
-    
-    // If we have cached permissions (even if there was an error), use them
-    if (Object.keys(permissions).length > 0) {
-      return hasPermission(permissions, permission);
-    }
-    
-    // If we're offline and have no cached permissions, be more permissive
-    if (!navigator.onLine) {
-      console.log('Offline mode - no cached permissions, allowing action:', permission);
-      return true; // Allow actions when offline and no cached permissions
-    }
-    
-    // If online and no permissions loaded, don't allow
-    if (permissionsError) return false;
-    
+    if (permissionsLoading || permissionsError) return false;
     return hasPermission(permissions, permission);
   };
 
@@ -618,22 +602,13 @@ function TriageTitlesLoader({ children }: { children: (titles: TriageTitleDto[])
             <Alert variant="danger">Unable to load queue items. Please try again.</Alert>
           )}
 
-          {permissionsError && navigator.onLine && Object.keys(permissions).length === 0 && (
+          {permissionsError && Object.keys(permissions).length === 0 && (
             <Alert variant="warning" dismissible onClose={() => refetchPermissions()}>
               <div className="d-flex justify-content-between align-items-center">
                 <span>Failed to load permissions. Some actions may not be available.</span>
                 <Button variant="outline-warning" size="sm" onClick={() => refetchPermissions()}>
                   Retry
                 </Button>
-              </div>
-            </Alert>
-          )}
-          
-          {!navigator.onLine && Object.keys(permissions).length === 0 && (
-            <Alert variant="info" dismissible>
-              <div className="d-flex justify-content-between align-items-center">
-                <span>Working offline. Using cached permissions or default access.</span>
-                <small className="text-muted">Connect to internet to refresh permissions</small>
               </div>
             </Alert>
           )}

@@ -15,6 +15,7 @@ export interface AdminUser {
   supervisorId?: number;
   supervisorDisplayName?: string;
   isTenantSuperAdmin?: boolean;
+  autoCreateNextDayShift?: boolean;
 }
 
 interface ApiEnvelope<T> { status: string; data: T; errors?: any; meta?: any; }
@@ -67,6 +68,7 @@ export async function updateUser(id: number, payload: {
   enabled: boolean;
   supervisorId?: number | null;
   supervisorDisplayName?: string | null;
+  autoCreateNextDayShift?: boolean;
 }): Promise<AdminUser> {
   const res = await apiClient.put<ApiEnvelope<AdminUser>>(`/admin/users/${id}` , payload);
   return res.data.data;
@@ -155,12 +157,14 @@ export function useUpdateUser() {
       enabled: boolean;
       supervisorId?: number | null;
       supervisorDisplayName?: string | null;
+      autoCreateNextDayShift?: boolean;
     }) => updateUser(vars.id, { 
       displayName: vars.displayName, 
       email: vars.email, 
       enabled: vars.enabled,
       supervisorId: vars.supervisorId,
-      supervisorDisplayName: vars.supervisorDisplayName
+      supervisorDisplayName: vars.supervisorDisplayName,
+      autoCreateNextDayShift: vars.autoCreateNextDayShift
     }), 
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin','users'] }) 
   });

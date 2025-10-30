@@ -108,3 +108,4 @@ public class DeviceAuthRequest {
         this.ipAddress = ipAddress;
     }
 }
+
