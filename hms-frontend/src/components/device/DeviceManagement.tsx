@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import { Card, Table, Button, Alert, Badge, Modal, Form, Row, Col } from 'react-bootstrap';
 import { deviceAuthService, DeviceCredentials } from '../../services/deviceAuthService';
 
@@ -94,23 +95,30 @@ export const DeviceManagement: React.FC = () => {
   };
 
   const handleDeactivateDevice = async (deviceId: string) => {
-    if (window.confirm('Are you sure you want to deactivate this device?')) {
-      try {
-        setLoading(true);
-        const success = await deviceAuthService.deactivateDevice();
-        
-        if (success) {
-          loadDevices();
-          setError(null);
-        } else {
-          setError('Failed to deactivate device');
-        }
-      } catch (error) {
-        setError('Device deactivation failed');
-        console.error('Device deactivation failed:', error);
-      } finally {
-        setLoading(false);
+    const result = await Swal.fire({
+      title: 'Deactivate Device?',
+      text: 'Are you sure you want to deactivate this device?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, deactivate',
+      cancelButtonText: 'Cancel'
+    });
+    if (!result.isConfirmed) return;
+    try {
+      setLoading(true);
+      const success = await deviceAuthService.deactivateDevice();
+      
+      if (success) {
+        loadDevices();
+        setError(null);
+      } else {
+        setError('Failed to deactivate device');
       }
+    } catch (error) {
+      setError('Device deactivation failed');
+      console.error('Device deactivation failed:', error);
+    } finally {
+      setLoading(false);
     }
   };
 

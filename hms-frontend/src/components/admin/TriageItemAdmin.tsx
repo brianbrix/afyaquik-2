@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import { 
   Button, 
   Card, 
@@ -213,14 +214,21 @@ export const TriageItemAdmin: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this triage item?')) {
-      try {
-        await triageItemApi.deleteTriageItem(id);
-        await loadTriageItems();
-      } catch (err) {
-        setError('Failed to delete triage item');
-        console.error('Error deleting triage item:', err);
-      }
+    const result = await Swal.fire({
+      title: 'Delete Triage Item?',
+      text: 'Are you sure you want to delete this triage item?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel'
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await triageItemApi.deleteTriageItem(id);
+      await loadTriageItems();
+    } catch (err) {
+      setError('Failed to delete triage item');
+      console.error('Error deleting triage item:', err);
     }
   };
 
@@ -270,10 +278,17 @@ export const TriageItemAdmin: React.FC = () => {
     }
   };
 
-  const handleRemoveCategory = (category: string) => {
-    if (window.confirm(`Are you sure you want to remove the category "${category}"?`)) {
-      setCategories(categories.filter(c => c !== category));
-    }
+  const handleRemoveCategory = async (category: string) => {
+    const result = await Swal.fire({
+      title: 'Delete Category?',
+      text: `Are you sure you want to remove the category "${category}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel'
+    });
+    if (!result.isConfirmed) return;
+    setCategories(categories.filter(c => c !== category));
   };
 
   // Extract variables from formula (e.g., ${weight_kg}, ${height_meters})

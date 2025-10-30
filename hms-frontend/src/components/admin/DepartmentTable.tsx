@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Swal from 'sweetalert2';
 import { useAdminDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from '../../services/adminApi';
 import { DepartmentTag } from './DepartmentTag';
 import { EditDepartmentModal } from './EditDepartmentModal';
@@ -22,8 +23,18 @@ export const DepartmentTable: React.FC = () => {
   };
 
   const onDelete = (d: any) => {
-    if (!window.confirm(`Delete department ${d.departmentId}?`)) return;
-    deleteDepartment.mutate(d.id);
+    Swal.fire({
+      title: 'Delete Department?',
+      text: `Delete department ${d.departmentId}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel'
+    }).then(result => {
+      if (result.isConfirmed) {
+        deleteDepartment.mutate(d.id);
+      }
+    });
   };
 
   return (

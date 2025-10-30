@@ -7,6 +7,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { DashboardPage } from "../../modules/dashboard";
 import { QueueBoardPage } from "../../modules/queue";
 import { PatientsPage } from "../../modules/patients";
+import AdminPatientsPage from "../../modules/admin/pages/AdminPatientsPage";
 import { SchedulingCalendarPage } from "../../modules/scheduling/pages/SchedulingCalendarPage";
 import { ReportsPage } from "../../modules/reports";
 import { ProtectedLayout } from "./ProtectedLayout";
@@ -91,6 +92,7 @@ export function AppRoutes() {
           <Route path="consultation-titles" element={<ConsultationTitlesAdminPage />} />
           <Route path="queue-status-role-matrix" element={<QueueStatusRoleMatrixAdminPage />} />
           <Route path="diagnostics" element={<DiagnosticsAdminPage />} />
+          <Route path="patients" element={<AdminPatientsPage />} />
           <Route path="payment-methods" element={<PaymentMethodsAdminPage />} />
           <Route path="billing-items" element={<BillingItemsAdminPage />} />
           <Route path="billing-item-categories" element={<BillingItemCategoriesAdminPage />} />

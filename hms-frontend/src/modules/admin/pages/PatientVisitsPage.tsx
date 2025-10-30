@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Card, Table, Button, Row, Col, Form, Alert, Spinner, Badge, InputGroup } from 'react-bootstrap';
+import { Card, Table, Button, Row, Col, Form, Alert, Spinner, Badge, InputGroup, Modal } from 'react-bootstrap';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../../components/shared/PageHeader';
 import { ReactPaginateComponent } from '../../../components/shared/ReactPaginate';
@@ -30,17 +30,35 @@ export function PatientVisitsPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [selectedVisit, setSelectedVisit] = useState<PatientVisit | null>(null);
+  const [showVisitModal, setShowVisitModal] = useState(false);
 
   // Fetch patients
   const { data: patients = [], isLoading: patientsLoading } = useQuery({
     queryKey: ['patients'],
-    queryFn: () => searchPatients('')
+    queryFn: () => searchPatients('').then(pr => (pr && Array.isArray((pr as any).content)) ? (pr as any).content : [])
   });
 
-  // Fetch queue items
+  // Fetch queue items with server-side filters (status and optional date range)
   const { data: queueItems = [], isLoading: queueLoading } = useQuery({
-    queryKey: ['queue-items'],
-    queryFn: () => apiClient.get('/queue/items').then(res => res.data.data || [])
+    queryKey: ['queue-items', selectedStatus || 'PENDING_CHECKIN', useDateRange ? startDate : '', useDateRange ? endDate : ''],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      params.status = (selectedStatus || 'PENDING_CHECKIN').trim();
+      if (useDateRange && startDate && endDate) {
+        params.startDate = startDate; // YYYY-MM-DD
+        params.endDate = endDate;     // YYYY-MM-DD
+      }
+      return apiClient
+        .get('/queue/items', { params })
+        .then(res => {
+          const data = res?.data?.data;
+          if (!data) return [] as any[];
+          if (Array.isArray(data)) return data;
+          if (Array.isArray(data.content)) return data.content;
+          return [] as any[];
+        });
+    }
   });
 
   // Combine patient and queue data to create visits
@@ -48,8 +66,8 @@ export function PatientVisitsPage() {
     const visitsList: PatientVisit[] = [];
     
     // Create visits from queue items
-    (queueItems as any[]).forEach((queueItem: any) => {
-      const patient = (patients as any[]).find((p: any) => p.id === queueItem.patientId);
+    (Array.isArray(queueItems) ? (queueItems as any[]) : []).forEach((queueItem: any) => {
+      const patient = (Array.isArray(patients) ? (patients as any[]) : []).find((p: any) => p.id === queueItem.patientId);
       if (patient) {
         visitsList.push({
           id: queueItem.id,
@@ -75,10 +93,12 @@ export function PatientVisitsPage() {
   const filteredVisits = useMemo(() => {
     let filtered = visits;
 
-    // Apply date range filter
+    // Apply date range filter (client-side safety in case backend filtering is bypassed)
     if (useDateRange && startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
+      // Normalize end to end-of-day for inclusive comparison
+      end.setHours(23, 59, 59, 999);
       filtered = filtered.filter(visit => {
         const visitDate = new Date(visit.visitDate);
         return visitDate >= start && visitDate <= end;
@@ -294,12 +314,7 @@ export function PatientVisitsPage() {
                           <Button
                             variant="outline-primary"
                             size="sm"
-                            onClick={() => {
-                              // Navigate to patient details or queue item
-                              if (visit.queueId) {
-                                window.open(`/queue/${visit.queueId}`, '_blank');
-                              }
-                            }}
+                            onClick={() => { setSelectedVisit(visit); setShowVisitModal(true); }}
                           >
                             <i className="bi bi-eye me-1"></i>
                             View
@@ -332,6 +347,51 @@ export function PatientVisitsPage() {
           )}
         </Card.Body>
       </Card>
+
+      {/* Visit Details Modal */}
+      <Modal show={showVisitModal} onHide={() => setShowVisitModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Visit Details</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedVisit ? (
+            <div className="d-flex flex-column gap-2">
+              <div>
+                <strong>Patient:</strong> {selectedVisit.patientName}
+                <div className="text-muted small">{selectedVisit.patientNumber}</div>
+              </div>
+              <div>
+                <strong>Date:</strong> {new Date(selectedVisit.visitDate).toLocaleString()}
+              </div>
+              <div>
+                <strong>Type:</strong> {selectedVisit.visitType}
+              </div>
+              <div>
+                <strong>Status:</strong> <Badge bg={getStatusBadge(selectedVisit.status)}>{selectedVisit.status.replace('_',' ')}</Badge>
+              </div>
+              <div>
+                <strong>Department:</strong> {selectedVisit.department}
+              </div>
+              <div>
+                <strong>Doctor:</strong> {selectedVisit.doctor}
+              </div>
+              {selectedVisit.queueId && (
+                <div>
+                  <strong>Queue ID:</strong> <code>{selectedVisit.queueId}</code>
+                </div>
+              )}
+              <div className="text-muted small mt-2">
+                Created: {new Date(selectedVisit.createdAt).toLocaleString()}
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted">No visit selected</div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowVisitModal(false)}>Close</Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

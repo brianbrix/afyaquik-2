@@ -176,6 +176,10 @@ export const AdminLayout: React.FC = () => {
                 <i className="bi bi-people me-2"></i>
                 Patient Visits
               </NavLink>
+              <NavLink to="patients" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
+                <i className="bi bi-people me-2"></i>
+                Patients
+              </NavLink>
               <NavLink to="audit-logs" className={({isActive}) => `nav-link rounded ${isActive?'active bg-primary text-white':''}`}>
                 <i className="bi bi-journal-text me-2"></i>
                 Audit Logs

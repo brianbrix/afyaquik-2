@@ -63,7 +63,7 @@ public class QueueController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @GetMapping("/{queueItemId}")
+    @GetMapping("/{queueItemId:\\d+}")
     @Auditable(action = "VIEW_QUEUE_ITEM", entityType = "Queue", entityIdField = "queueItemId", auditGet = true, description = "View queue item details")
     public ApiResponse<QueueItemResponse> getQueueItem(
             @PathVariable Long queueItemId) {
@@ -91,9 +91,11 @@ public class QueueController {
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         String username = auth != null ? auth.getName() : null;
         boolean isReception = false;
+        boolean isAdmin = false;
         boolean canViewAllClosedQueueItems = false;
         if (auth != null && auth.getAuthorities() != null) {
             isReception = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_RECEPTION") || a.getAuthority().equals("RECEPTION") || a.getAuthority().equals("ROLE_RECEPTIONIST") || a.getAuthority().equals("RECEPTIONIST"));
+            isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN"));
             canViewAllClosedQueueItems = customPermissionEvaluator.hasPermission(auth, null, "VIEW_ALL_CLOSED_QUEUE_ITEMS");
         }
         
@@ -119,6 +121,10 @@ public class QueueController {
         
         // Use date filtering if dates are provided
         if (startInstant != null && endInstant != null) {
+            // Admins see everything for the selected status and date range
+            if (isAdmin) {
+                return ApiResponse.success(queueService.listByStatusAndDate(tenantId, queueStatus, startInstant, endInstant, pageable));
+            }
             if (canViewAllClosedQueueItems && queueStatus == QueueStatus.CLOSED) {
                 return ApiResponse.success(queueService.listByStatusAndDate(tenantId, QueueStatus.CLOSED, startInstant, endInstant, pageable));
             } else {
@@ -130,6 +136,10 @@ public class QueueController {
         }
         } else {
             // Use original methods without date filtering
+            // Admins see everything for the selected status
+            if (isAdmin) {
+                return ApiResponse.success(queueService.listByStatus(tenantId, queueStatus, pageable));
+            }
             if (canViewAllClosedQueueItems && queueStatus == QueueStatus.CLOSED) {
                 return ApiResponse.success(queueService.listByStatus(tenantId, QueueStatus.CLOSED, pageable));
             } else {
@@ -140,6 +150,17 @@ public class QueueController {
             }
             }
         }
+    }
+
+    // Explicit collection alias to avoid colliding with the /{id} mapping
+    @GetMapping("/items")
+    @Auditable(action = "LIST_QUEUE_ITEMS", entityType = "Queue", auditGet = true, description = "List queue items by status")
+    public ApiResponse<Page<QueueSummary>> listAlias(
+            @RequestParam(defaultValue = "PENDING_CHECKIN") String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            Pageable pageable) {
+        return list(status, startDate, endDate, pageable);
     }
 
     @PostMapping

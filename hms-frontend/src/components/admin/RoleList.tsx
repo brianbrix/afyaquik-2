@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Swal from 'sweetalert2';
 import { useAdminRoles, useCreateRole, useUpdateRole, useDeleteRole } from '../../services/adminApi';
 import { DynamicFormSample } from './DynamicFormSample';
 import { EditRoleModal } from './EditRoleModal';
@@ -28,8 +29,18 @@ export const RoleList: React.FC = () => {
   };
 
   const onDelete = (r: any) => {
-    if (!window.confirm(`Delete role ${r.roleKey}?`)) return;
-    deleteRole.mutate(r.id);
+    Swal.fire({
+      title: 'Delete Role?',
+      text: `Delete role ${r.roleKey}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel'
+    }).then(result => {
+      if (result.isConfirmed) {
+        deleteRole.mutate(r.id);
+      }
+    });
   };
 
   return (
@@ -55,7 +66,7 @@ export const RoleList: React.FC = () => {
                 <td>{r.displayName}</td>
                 <td className="d-flex gap-2">
                   <button className="btn btn-outline-secondary btn-sm" onClick={()=>setEditing(r)}>Edit</button>
-                  <button className="btn btn-outline-danger btn-sm" onClick={()=>onDelete(r)} disabled={deleteRole.isPending}>Del</button>
+                  <button className="btn btn-outline-danger btn-sm" onClick={()=>onDelete(r)} disabled={deleteRole.isPending || r.roleKey === 'ADMIN'}>Del</button>
                 </td>
               </tr>
             ))}

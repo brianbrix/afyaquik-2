@@ -193,8 +193,18 @@ export const UserDirectory: React.FC = () => {
       return;
     }
 
-    if (!window.confirm(`Delete user ${u.username}? This can be undone only by backend restore.`)) return;
-    deleteUser.mutate(u.id);
+    Swal.fire({
+      title: 'Delete User?',
+      text: `Delete user ${u.username}? This can be undone only by backend restore.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel'
+    }).then(result => {
+      if (result.isConfirmed) {
+        deleteUser.mutate(u.id);
+      }
+    });
   };
 
   return (
